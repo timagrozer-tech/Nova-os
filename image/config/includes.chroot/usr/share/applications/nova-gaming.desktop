@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=NOVA Gaming
+Comment=Gamepad, Steam Big Picture and gaming assistant
+Exec=/usr/local/bin/nova-gaming
+Icon=nova
+Categories=Settings;Utility;
+Terminal=false

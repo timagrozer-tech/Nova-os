@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=NOVA Hardware Check
+Name[ru]=NOVA — проверка ноутбука перед установкой
+Comment=Read-only hardware report and manual checklist before Calamares
+Exec=nova-preflight
+Icon=preferences-system
+Terminal=false
+Categories=System;Settings;

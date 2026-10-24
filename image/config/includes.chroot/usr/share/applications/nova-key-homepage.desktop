@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Браузер (multimedia key)
+Name[ru]=Браузер (мультимедийная клавиша)
+Exec=nova-key homepage
+Icon=input-keyboard
+NoDisplay=true
+Terminal=false
+X-KDE-Shortcuts=Home Page

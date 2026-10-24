@@ -1,0 +1,150 @@
+#!/usr/bin/env python3
+"""Windows-like keyboard shortcuts and media keys for KDE Plasma 6 — pure logic.
+
+Shortcuts live in kglobalshortcutsrc. System defaults are shipped in
+/etc/xdg/kglobalshortcutsrc (generated from this table); `nova-hotkeys`
+applies the same table for an existing user with kwriteconfig6 and can
+return KDE defaults. Conflicting KDE defaults are released explicitly
+(e.g. Meta+Up is "tile to top" in KDE but "maximise" in Windows).
+"""
+from __future__ import annotations
+
+import re
+
+# (component, action id, NOVA keys, KDE default keys, friendly name, description)
+# Empty NOVA keys = release the key for a Windows-style action.
+COMPONENT_SHORTCUTS = (
+    ('kwin', 'Window Maximize', ('Meta+Up', 'Meta+PgUp'), ('Meta+PgUp',), 'Maximize Window', 'Win+↑ — развернуть окно'),
+    ('kwin', 'Window Minimize', ('Meta+Down', 'Meta+PgDown'), ('Meta+PgDown',), 'Minimize Window', 'Win+↓ — свернуть окно'),
+    ('kwin', 'Window Quick Tile Top', (), ('Meta+Up',), 'Quick Tile Window to the Top', ''),
+    ('kwin', 'Window Quick Tile Bottom', (), ('Meta+Down',), 'Quick Tile Window to the Bottom', ''),
+    ('kwin', 'Overview', ('Meta+Tab', 'Meta+W'), ('Meta+W',), 'Toggle Overview', 'Win+Tab — представление задач'),
+    ('plasmashell', 'next activity', (), ('Meta+Tab',), 'Walk through activities', ''),
+    ('plasmashell', 'previous activity', (), ('Meta+Shift+Tab',), 'Walk through activities (Reverse)', ''),
+    ('KDE Keyboard Layout Switcher', 'Switch to Next Keyboard Layout', ('Meta+Space', 'Meta+Alt+K'), ('Meta+Alt+K',),
+     'Switch to Next Keyboard Layout', 'Win+Пробел — сменить раскладку'),
+    ('org.kde.spectacle.desktop', 'RectangularRegionScreenShot', ('Meta+Shift+S', 'Meta+Shift+Print'),
+     ('Meta+Shift+Print',), 'Capture Rectangular Region', 'Win+Shift+S — снимок области экрана'),
+)
+
+# Application launch shortcuts ([services][<desktop file>] _launch=...)
+SERVICE_SHORTCUTS = (
+    ('nova-task-manager.desktop', ('Ctrl+Shift+Esc',), 'Ctrl+Shift+Esc — диспетчер задач'),
+    ('nova-control.desktop', ('Meta+I',), 'Win+I — параметры (NOVA Control)'),
+    ('org.kde.krunner.desktop', ('Alt+Space', 'Alt+F2', 'Search', 'Meta+R', 'Meta+S'), 'Win+R / Win+S — выполнить и поиск'),
+    ('nova-game-bar.desktop', ('Meta+G',), 'Win+G — игровая панель NOVA'),
+    ('org.kde.kinfocenter.desktop', ('Meta+Pause',), 'Win+Pause — сведения о системе'),
+    ('nova-display.desktop', ('Meta+Shift+P',), 'Win+Shift+P — параметры дисплеев NOVA'),
+)
+
+# Multimedia / launch keys (Qt key names) handled through tiny launchers.
+MEDIA_LAUNCHERS = (
+    ('nova-key-calculator.desktop', 'Calculator', 'Калькулятор', 'kcalc', 'Клавиша «Калькулятор»'),
+    ('nova-key-explorer.desktop', 'Explorer', 'Проводник', 'dolphin', 'Клавиша «Мой компьютер/Проводник»'),
+    ('nova-key-homepage.desktop', 'Home Page', 'Браузер', 'nova-open-browser', 'Клавиша «Домашняя страница»'),
+    ('nova-key-mail.desktop', 'Launch Mail', 'Почта', 'nova-open-mail', 'Клавиша «Почта»'),
+    ('nova-key-tools.desktop', 'Tools', 'Параметры', 'nova-control', 'Клавиша «Инструменты/Настройки»'),
+)
+
+# Built into KDE Plasma 6 already (documented in the cheat sheet, not changed).
+BUILTIN = (
+    ('Win', 'меню приложений'), ('Win+E', 'файлы (Dolphin)'), ('Win+D', 'показать рабочий стол'),
+    ('Win+L', 'заблокировать'), ('Win+V', 'журнал буфера обмена'), ('Win+.', 'эмодзи'),
+    ('Win+P', 'режим проекции на второй экран'), ('Win+← / Win+→', 'прикрепить окно к половине экрана'),
+    ('Win+Shift+← / →', 'перенести окно на другой монитор'), ('Win+Ctrl+← / →', 'переключить рабочий стол'),
+    ('Win+T', 'макеты расположения окон (как Snap Layouts)'), ('Alt+Tab', 'переключение окон'),
+    ('Alt+F4', 'закрыть окно'), ('Print', 'снимок экрана'), ('Win+Print', 'снимок окна'),
+    ('Ctrl+Alt+T', 'терминал'), ('Ctrl+Alt+Del', 'выход из системы'),
+)
+
+MEDIA_BUILTIN = (
+    ('Громкость + / −', 'шаг 2 % как в Windows, экранный индикатор'), ('Без звука', 'выключить звук'),
+    ('Микрофон', 'выключить микрофон'), ('Воспроизведение / пауза, следующий, предыдущий', 'любой плеер и браузер (MPRIS)'),
+    ('Яркость + / −', 'встроенный экран; внешний — в NOVA Display (DDC/CI)'), ('Режим полёта', 'Wi-Fi и Bluetooth'),
+    ('Подсветка клавиатуры', 'если ноутбук поддерживает'),
+)
+
+KEY = re.compile(r'^[A-Za-z0-9+ ().]{1,40}$')
+
+
+def _keys(keys) -> str:
+    for k in keys:
+        if not KEY.match(k):
+            raise ValueError(f'bad key: {k!r}')
+    return '\t'.join(keys) if keys else 'none'
+
+
+def component_value(keys, default, friendly) -> str:
+    return f'{_keys(keys)},{_keys(default)},{friendly}'
+
+
+def system_file() -> str:
+    """Content of /etc/xdg/kglobalshortcutsrc (defaults for new users)."""
+    groups: dict[str, list[str]] = {}
+    for comp, action, keys, default, friendly, _desc in COMPONENT_SHORTCUTS:
+        groups.setdefault(comp, []).append(f'{action}={component_value(keys, default, friendly)}')
+    out = ['# NOVA OS: Windows-like shortcuts (generated by tools/gen-plasma-theme.py).',
+           '# Users can change everything in System Settings → Shortcuts; `nova-hotkeys reset-kde` restores KDE.', '']
+    for comp, lines in groups.items():
+        out += [f'[{comp}]', *lines, '']
+    for desktop, keys, _desc in SERVICE_SHORTCUTS:
+        out += [f'[services][{desktop}]', f'_launch={_keys(keys)}', '']
+    for desktop, key, *_rest in MEDIA_LAUNCHERS:
+        out += [f'[services][{desktop}]', f'_launch={_keys((key,))}', '']
+    return '\n'.join(out)
+
+
+def apply_commands() -> list[list[str]]:
+    cmds = []
+    for comp, action, keys, default, friendly, _d in COMPONENT_SHORTCUTS:
+        cmds.append(['kwriteconfig6', '--file', 'kglobalshortcutsrc', '--group', comp, '--key', action,
+                     component_value(keys, default, friendly)])
+    for desktop, keys, _d in SERVICE_SHORTCUTS:
+        cmds.append(['kwriteconfig6', '--file', 'kglobalshortcutsrc', '--group', 'services', '--group', desktop,
+                     '--key', '_launch', _keys(keys)])
+    for desktop, key, *_r in MEDIA_LAUNCHERS:
+        cmds.append(['kwriteconfig6', '--file', 'kglobalshortcutsrc', '--group', 'services', '--group', desktop,
+                     '--key', '_launch', _keys((key,))])
+    return cmds
+
+
+def reset_commands() -> list[list[str]]:
+    """Back to KDE defaults for everything NOVA changed."""
+    cmds = []
+    for comp, action, _nova, default, friendly, _d in COMPONENT_SHORTCUTS:  # noqa: B007
+        cmds.append(['kwriteconfig6', '--file', 'kglobalshortcutsrc', '--group', comp, '--key', action,
+                     component_value(default, default, friendly)])
+    for desktop, *_r in SERVICE_SHORTCUTS + tuple((d, None, None) for d, *_x in MEDIA_LAUNCHERS):
+        keys = ('Alt+Space', 'Alt+F2', 'Search') if desktop == 'org.kde.krunner.desktop' else ()
+        cmds.append(['kwriteconfig6', '--file', 'kglobalshortcutsrc', '--group', 'services', '--group', desktop,
+                     '--key', '_launch', _keys(keys)])
+    return cmds
+
+
+def volume_step_command(step: int) -> list[str]:
+    if step not in (1, 2, 3, 5, 10):
+        raise ValueError('шаг громкости: 1, 2, 3, 5 или 10 %')
+    return ['kwriteconfig6', '--file', 'plasmaparc', '--group', 'General', '--key', 'VolumeStep', str(step)]
+
+
+def cheat_sheet() -> list[tuple[str, str, str]]:
+    """(group, keys, meaning) rows for the UI."""
+    rows = [('Как в Windows (NOVA)', d.split(' — ')[0], d.split(' — ')[1])
+            for *_x, d in COMPONENT_SHORTCUTS if d]
+    rows += [('Как в Windows (NOVA)', d.split(' — ')[0], d.split(' — ')[1]) for _x, _k, d in SERVICE_SHORTCUTS]
+    rows += [('Уже есть в KDE Plasma', k, v) for k, v in BUILTIN]
+    rows += [('Мультимедийные клавиши', k, v) for k, v in MEDIA_BUILTIN]
+    rows += [('Мультимедийные клавиши', title, f'открывает: {label}') for _d, _k, label, _e, title in MEDIA_LAUNCHERS]
+    return rows
+
+
+def describe_key(key_text: str) -> str:
+    """Meaning of a key combination as reported by the key tester."""
+    norm = key_text.replace('Meta', 'Win')
+    for _g, keys, meaning in cheat_sheet():
+        if norm and norm in [k.strip() for k in keys.replace('/', ',').split(',')]:
+            return meaning
+    for _d, key, label, *_r in MEDIA_LAUNCHERS:
+        if key_text == key:
+            return f'открывает: {label}'
+    return ''

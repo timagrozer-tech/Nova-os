@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=NOVA Uninstaller
+Comment=Удаление программ с предварительной проверкой
+Exec=/usr/local/bin/nova-uninstaller
+Icon=nova
+Terminal=false
+Categories=System;Utility;
+StartupNotify=true

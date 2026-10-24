@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=NOVA Hotkeys
+Name[ru]=NOVA — горячие клавиши
+Comment=Windows-like shortcuts, multimedia keys, key tester
+Comment[ru]=Сочетания как в Windows, мультимедийные клавиши, проверка клавиш
+Exec=nova-hotkeys
+Icon=preferences-desktop-keyboard
+Terminal=false
+Categories=Settings;
+Keywords=shortcut;hotkey;media keys;keyboard;горячие клавиши;сочетания;мультимедиа;клавиатура;

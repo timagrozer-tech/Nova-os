@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=NOVA Task Manager
+Comment=Диспетчер задач и состояние ресурсов
+Exec=/usr/local/bin/nova-task-manager
+Icon=nova
+Terminal=false
+Categories=System;Utility;
+StartupNotify=true
+X-KDE-Shortcuts=Ctrl+Shift+Esc

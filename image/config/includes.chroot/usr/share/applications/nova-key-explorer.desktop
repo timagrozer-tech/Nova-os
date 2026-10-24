@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Проводник (multimedia key)
+Name[ru]=Проводник (мультимедийная клавиша)
+Exec=nova-key explorer
+Icon=input-keyboard
+NoDisplay=true
+Terminal=false
+X-KDE-Shortcuts=Explorer

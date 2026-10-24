@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# Privileged, narrowly-scoped Android setup. Refuses altering an existing Android environment.
+set -Eeuo pipefail
+if (( EUID != 0 )); then echo 'Root permissions required.' >&2; exit 1; fi
+if [[ "${1:-}" != install && "${1:-}" != init-vanilla && "${1:-}" != init-gapps && "${1:-}" != start-container ]]; then
+  echo 'Allowed: install | init-vanilla | init-gapps | start-container' >&2; exit 2
+fi
+. /etc/os-release
+if [[ "${ID:-}" != debian || "${VERSION_CODENAME:-}" != trixie ]]; then
+  echo 'This wizard supports Debian 13 trixie only. Other systems must follow official Waydroid docs.' >&2
+  exit 3
+fi
+case "$1" in
+  install)
+    # Existing system repository keyring verifies Debian packages; without remote shell script execution.
+    if [[ ! -f /etc/apt/sources.list.d/nova-trixie-backports.sources ]]; then
+      cat > /etc/apt/sources.list.d/nova-trixie-backports.sources <<'EOF'
+Types: deb
+URIs: http://deb.debian.org/debian
+Suites: trixie-backports
+Components: main contrib non-free non-free-firmware
+Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+EOF
+    fi
+    apt-get update
+    apt-get install -y -t trixie-backports waydroid
+    ;;
+  init-vanilla|init-gapps)
+    command -v waydroid >/dev/null 2>&1 || { echo 'Install Waydroid first.' >&2; exit 4; }
+    # Avoid accidental Android user-data loss: no -f and refuse pre-existing images/configuration.
+    if [[ -e /var/lib/waydroid/waydroid.cfg || -e /var/lib/waydroid/images/system.img || -e /var/lib/waydroid/images/vendor.img ]]; then
+      echo 'Android already initialized. Refusing to replace it; back up data and use upstream manual procedure.' >&2
+      exit 5
+    fi
+    if [[ "$1" == init-gapps ]]; then
+      waydroid init -s GAPPS
+    else
+      waydroid init -s VANILLA
+    fi
+    ;;
+  start-container)
+    command -v waydroid >/dev/null 2>&1 || { echo 'Install Waydroid first.' >&2; exit 4; }
+    systemctl start waydroid-container.service
+    ;;
+esac

@@ -1,0 +1,392 @@
+#!/usr/bin/env python3
+"""NOVA Display — monitors like in Windows: resolution, refresh rate (Hz),
+scale, rotation, VRR, main monitor, second monitor, Win+P projection,
+named profiles and external-monitor brightness (DDC/CI).
+
+  nova-display                      window
+  nova-display list                 connected monitors
+  nova-display hz NAME 144          set refresh rate (keeps resolution)
+  nova-display max-hz [NAME]        highest refresh rate at current resolution
+  nova-display project pc|duplicate|extend|second [--side right|left|above|below]
+  nova-display profile save|load NAME / profiles
+  nova-display battery-hz on|off    60 Гц на батарее, максимум от сети (встроенный экран)
+All changes go through kscreen-doctor (KDE Plasma), user level, no root.
+"""
+import argparse
+import shutil
+import subprocess
+import sys
+
+import nova_display_core as core
+
+TIMEOUT_REVERT = 15
+
+
+def kscreen_json() -> list[dict]:
+    if not shutil.which('kscreen-doctor'):
+        raise SystemExit('kscreen-doctor не найден (пакет libkscreen-bin, нужна сессия KDE Plasma).')
+    p = subprocess.run(['kscreen-doctor', '-j'], capture_output=True, text=True, timeout=20, check=False)
+    outputs = core.parse_outputs(p.stdout)
+    if not outputs:
+        raise SystemExit('Мониторы не найдены: ' + (p.stderr.strip() or 'пустой ответ kscreen-doctor'))
+    return outputs
+
+
+def apply(args: list[str], dry=False) -> int:
+    if not args:
+        return 0
+    if dry:
+        print('DRY-RUN: kscreen-doctor', ' '.join(args))
+        return 0
+    return subprocess.run(['kscreen-doctor', *args], check=False).returncode
+
+
+def watch_power(dry=False) -> int:
+    """Follow UPower OnBattery and adjust the built-in screen's refresh rate."""
+    try:
+        import dbus
+        import dbus.mainloop.glib
+        from gi.repository import GLib
+    except ImportError as exc:
+        print(f'nova-display: {exc}', file=sys.stderr)
+        return 2
+    dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+    try:
+        bus = dbus.SystemBus()
+        props = dbus.Interface(bus.get_object('org.freedesktop.UPower', '/org/freedesktop/UPower'),
+                               dbus.PROPERTIES_IFACE)
+        on_battery = bool(props.Get('org.freedesktop.UPower', 'OnBattery'))
+    except dbus.DBusException as exc:
+        print(f'nova-display: UPower недоступен ({exc.get_dbus_name()})', file=sys.stderr)
+        return 0
+
+    def adjust(state):
+        try:
+            apply(core.power_hz_args(kscreen_json(), state), dry)
+        except SystemExit:
+            pass
+    adjust(on_battery)
+
+    def changed(interface, changed_props, _invalidated):
+        if interface == 'org.freedesktop.UPower' and 'OnBattery' in changed_props:
+            adjust(bool(changed_props['OnBattery']))
+    bus.add_signal_receiver(changed, signal_name='PropertiesChanged', dbus_interface=dbus.PROPERTIES_IFACE,
+                            path='/org/freedesktop/UPower', bus_name='org.freedesktop.UPower')
+    GLib.MainLoop().run()
+    return 0
+
+
+def cli(argv):
+    ap = argparse.ArgumentParser(prog='nova-display')
+    ap.add_argument('--dry-run', action='store_true')
+    sub = ap.add_subparsers(dest='cmd', required=True)
+    sub.add_parser('list')
+    p = sub.add_parser('hz'); p.add_argument('name'); p.add_argument('rate', type=float)
+    p = sub.add_parser('max-hz'); p.add_argument('name', nargs='?')
+    p = sub.add_parser('project'); p.add_argument('mode', choices=core.PROJECT)
+    p.add_argument('--side', choices=core.PLACEMENTS, default='right')
+    p = sub.add_parser('profile'); p.add_argument('action', choices=('save', 'load')); p.add_argument('name')
+    sub.add_parser('profiles')
+    p = sub.add_parser('battery-hz', help='снижать частоту встроенного экрана на батарее')
+    p.add_argument('state', choices=('on', 'off'))
+    sub.add_parser('watch-power')
+    a = ap.parse_args(argv)
+    try:
+        if a.cmd == 'battery-hz':
+            from pathlib import Path
+            entry = Path.home() / '.config/autostart/nova-battery-hz.desktop'
+            if a.state == 'on':
+                entry.parent.mkdir(parents=True, exist_ok=True)
+                entry.write_text(core.autostart_entry(), encoding='utf-8')
+                print('Включено: на батарее встроенный экран переходит на ~60 Гц, от сети — максимум. '
+                      'Начнёт работать после повторного входа (или запустите: nova-display watch-power &).')
+            else:
+                entry.unlink(missing_ok=True)
+                print('Выключено.')
+            return 0
+        if a.cmd == 'watch-power':
+            return watch_power(a.dry_run)
+        if a.cmd == 'profiles':
+            print('\n'.join(core.list_profiles()) or 'Профилей нет')
+            return 0
+        outputs = kscreen_json()
+        if a.cmd == 'list':
+            for o in outputs:
+                print(core.describe(o))
+                w, h = o['width'], o['height']
+                print('   частоты:', ', '.join(core.hz_label(r) for r in core.refresh_rates(o, w, h)))
+            return 0
+        if a.cmd in ('hz', 'max-hz'):
+            targets = [o for o in outputs if a.name in (None, o['name'])] if a.cmd == 'max-hz' else \
+                [o for o in outputs if o['name'] == a.name]
+            if not targets:
+                raise ValueError('Нет такого монитора; список: nova-display list')
+            args = []
+            for o in targets:
+                rate = max(core.refresh_rates(o, o['width'], o['height']) or [o['refresh']]) if a.cmd == 'max-hz' else a.rate
+                mode = core.find_mode(o, o['width'], o['height'], rate)
+                if mode:
+                    args += core.mode_args(o['name'], mode['id'])
+                    print(f"{o['name']}: {o['width']}×{o['height']} @ {core.hz_label(mode['refresh'])}")
+            return apply(args, a.dry_run)
+        if a.cmd == 'project':
+            return apply(core.project_args(outputs, a.mode, a.side), a.dry_run)
+        if a.cmd == 'profile':
+            if a.action == 'save':
+                print('Сохранено:', core.save_profile(a.name, outputs))
+                return 0
+            return apply(core.load_profile_args(a.name, outputs), a.dry_run)
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
+        return 2
+    return 0
+
+
+def gui():
+    import nova_ui as ui
+    from PyQt6.QtCore import QTimer
+    from PyQt6.QtWidgets import (QApplication, QCheckBox, QComboBox, QFormLayout, QHBoxLayout, QInputDialog,
+                                 QMainWindow, QMessageBox, QSlider, QTextEdit, QVBoxLayout, QWidget)
+    from PyQt6.QtCore import Qt
+
+    class Display(QMainWindow):
+        def __init__(self):
+            super().__init__()
+            ui.setup_window(self, 'NOVA — дисплеи', size=(1080, 760), app_id='nova-display')
+            root = QWidget()
+            self.outer = QVBoxLayout(root)
+            self.outer.setContentsMargins(20, 16, 20, 12)
+            self.outer.addWidget(ui.header('Дисплеи',
+                'Разрешение, частота обновления, масштаб и второй монитор. После применения есть 15 секунд, '
+                'чтобы подтвердить изменения — иначе всё вернётся само, как в Windows.'))
+            self.page, self.lay = ui.scroll_page()
+            self.outer.addWidget(self.page, 1)
+            self.setCentralWidget(root)
+            self.controls = {}
+            self.outputs = []
+            self.build()
+
+        def log(self, text):
+            self.state.append(text)
+
+        def cli_text(self, args):
+            p = subprocess.run([sys.executable, __file__, *args], capture_output=True, text=True, timeout=20, check=False)
+            return (p.stdout + p.stderr).strip()
+
+        def build(self):
+            try:
+                self.outputs = kscreen_json()
+            except SystemExit as exc:
+                frame, box = ui.card('Мониторы недоступны', str(exc))
+                ui.add_to_page(self.lay, frame)
+                self.outputs = []
+            grid = ui.responsive_grid(min_column=360, maximum=2)
+            ui.add_to_page(self.lay, grid)
+            for o in self.outputs:
+                grid.add(self.output_card(o))
+            if len(self.outputs) >= 2:
+                frame, box = ui.card('Несколько мониторов (как Win+P)',
+                                     'Режим проекции для двух экранов. В Plasma также работает сочетание Meta+P.')
+                row = QHBoxLayout()
+                self.side = QComboBox()
+                for key, label in core.PLACEMENTS.items():
+                    self.side.addItem(f'Второй монитор {label}', key)
+                box.addWidget(self.side)
+                for key, label in core.PROJECT.items():
+                    row.addWidget(ui.make_button(label, lambda _c=False, k=key: self.project(k)))
+                box.addLayout(row)
+                grid.add(frame)
+            frame, box = ui.card('Профили мониторов', 'Сохраните расстановку «Дом», «Работа», «Проектор» и включайте одним нажатием.')
+            self.profiles = QComboBox()
+            self.profiles.addItems(core.list_profiles())
+            box.addWidget(self.profiles)
+            row = QHBoxLayout()
+            row.addWidget(ui.make_button('Сохранить текущую', self.save_profile))
+            row.addWidget(ui.make_button('Применить профиль', self.load_profile))
+            box.addLayout(row)
+            grid.add(frame)
+            frame, box = ui.card('Яркость внешнего монитора', 'Через DDC/CI (ddcutil). Монитор должен поддерживать DDC/CI '
+                                 '(включается в меню самого монитора).')
+            self.ddc_display = QComboBox()
+            for i in range(1, 5):
+                self.ddc_display.addItem(f'Внешний монитор {i}', i)
+            box.addWidget(self.ddc_display)
+            self.ddc = QSlider(Qt.Orientation.Horizontal)
+            self.ddc.setRange(0, 100)
+            self.ddc.setValue(70)
+            self.ddc.setAccessibleName('Яркость внешнего монитора')
+            self.ddc.sliderReleased.connect(self.set_ddc)
+            box.addWidget(self.ddc)
+            grid.add(frame)
+            frame, box = ui.card('Экономия батареи', 'Как динамическая частота в Windows: на батарее встроенный экран '
+                                 'работает на ~60 Гц, от сети — на максимальной частоте. Внешние мониторы не меняются.')
+            row = QHBoxLayout()
+            row.addWidget(ui.make_button('Включить', lambda: self.log(self.cli_text(['battery-hz', 'on']))))
+            row.addWidget(ui.make_button('Выключить', lambda: self.log(self.cli_text(['battery-hz', 'off']))))
+            box.addLayout(row)
+            grid.add(frame)
+            frame, box = ui.card('Дополнительно', 'Ночной свет, цветовой профиль, HDR и точное расположение мышью.')
+            row = QHBoxLayout()
+            for title, module in (('Экран KDE (перетаскивание мониторов)', 'kcm_kscreen'), ('Ночной свет', 'kcm_nightlight')):
+                row.addWidget(ui.make_button(title, lambda _c=False, m=module: subprocess.Popen(
+                    ['kcmshell6', m] if shutil.which('kcmshell6') else ['systemsettings'], start_new_session=True)))
+            box.addLayout(row)
+            grid.add(frame)
+            frame, box = ui.card('Журнал', '')
+            self.state = QTextEdit()
+            self.state.setReadOnly(True)
+            self.state.setMinimumHeight(80)
+            box.addWidget(self.state)
+            ui.add_to_page(self.lay, frame)
+            for o in self.outputs:
+                self.log(core.describe(o))
+
+        def output_card(self, o):
+            title = ('Встроенный экран ' if o['builtin'] else 'Монитор ') + o['name']
+            frame, box = ui.card(title, core.describe(o))
+            form = QFormLayout()
+            res = QComboBox()
+            for w, h in core.resolutions(o):
+                res.addItem(f'{w} × {h}' + (' (рекомендуется)' if (w, h) == core.resolutions(o)[0] else ''), (w, h))
+            res.setCurrentIndex(max(0, res.findData((o['width'], o['height']))))
+            hz = QComboBox()
+            scale = QComboBox()
+            for s in sorted(set(core.SCALES) | {o['scale']}):
+                scale.addItem(f'{round(s * 100)} %', s)
+            scale.setCurrentIndex(max(0, scale.findData(o['scale'])))
+            rot = QComboBox()
+            for key, label in core.ROTATIONS.items():
+                rot.addItem(label, key)
+            rot.setCurrentIndex(max(0, rot.findData(o['rotation'])))
+            vrr = QComboBox()
+            for key, label in core.VRR.items():
+                vrr.addItem(label, key)
+            vrr.setCurrentIndex(max(0, vrr.findData(o['vrr'])))
+            enabled = QCheckBox('Использовать этот монитор')
+            enabled.setChecked(o['enabled'])
+            primary = QCheckBox('Основной монитор (панель и новые окна)')
+            primary.setChecked(o['priority'] == 1)
+
+            def fill_hz():
+                w, h = res.currentData()
+                hz.clear()
+                rates = core.refresh_rates(o, w, h)
+                for r in rates:
+                    hz.addItem(core.hz_label(r) + (' (максимум)' if r == rates[0] else ''), r)
+                idx = hz.findData(o['refresh']) if (w, h) == (o['width'], o['height']) else 0
+                hz.setCurrentIndex(max(0, idx))
+            res.currentIndexChanged.connect(lambda _i: fill_hz())
+            fill_hz()
+            form.addRow('Разрешение', res)
+            form.addRow('Частота обновления', hz)
+            form.addRow('Масштаб', scale)
+            form.addRow('Ориентация', rot)
+            form.addRow('Адаптивная частота (VRR)', vrr)
+            box.addLayout(form)
+            box.addWidget(enabled)
+            box.addWidget(primary)
+            box.addWidget(ui.make_button('Применить', lambda: self.apply_output(o['name']), 'primary'))
+            self.controls[o['name']] = dict(res=res, hz=hz, scale=scale, rot=rot, vrr=vrr, enabled=enabled, primary=primary)
+            return frame
+
+        def apply_output(self, name):
+            o = next(x for x in self.outputs if x['name'] == name)
+            c = self.controls[name]
+            w, h = c['res'].currentData()
+            mode = core.find_mode(o, w, h, c['hz'].currentData())
+            if not c['enabled'].isChecked() and sum(1 for x in self.outputs if x['enabled']) <= 1:
+                ui.error(self, 'NOVA', 'Нельзя выключить единственный работающий монитор.')
+                return
+            args = core.output_args(name, enabled=c['enabled'].isChecked(), mode_id=mode['id'] if mode else None,
+                                    scale=c['scale'].currentData(), rotation=c['rot'].currentData(),
+                                    priority=1 if c['primary'].isChecked() else None, vrr=c['vrr'].currentData())
+            self.apply_with_revert(args)
+
+        def project(self, mode):
+            try:
+                args = core.project_args(self.outputs, mode, self.side.currentData())
+            except ValueError as exc:
+                ui.error(self, 'NOVA', str(exc))
+                return
+            self.apply_with_revert(args)
+
+        def apply_with_revert(self, args):
+            revert = core.snapshot_args(self.outputs)
+            code = apply(args)
+            self.log(('Применено: ' if code == 0 else f'Ошибка {code}: ') + ' '.join(args))
+            if code != 0:
+                return
+            box = QMessageBox(self)
+            box.setWindowTitle('Сохранить параметры экрана?')
+            box.setIcon(QMessageBox.Icon.Question)
+            keep = box.addButton('Сохранить', QMessageBox.ButtonRole.AcceptRole)
+            back = box.addButton('Вернуть', QMessageBox.ButtonRole.RejectRole)
+            box.setDefaultButton(back)
+            remaining = [TIMEOUT_REVERT]
+
+            def tick():
+                remaining[0] -= 1
+                box.setText(f'Изображение в порядке? Без подтверждения прежние параметры вернутся через {remaining[0]} с.')
+                if remaining[0] <= 0:
+                    box.done(0)
+            tick_timer = QTimer(box)
+            tick_timer.timeout.connect(tick)
+            remaining[0] += 1
+            tick()
+            tick_timer.start(1000)
+            box.exec()
+            tick_timer.stop()
+            if box.clickedButton() is not keep:
+                apply(revert)
+                self.log('Параметры возвращены.')
+            self.reload()
+
+        def reload(self):
+            try:
+                self.outputs = kscreen_json()
+            except SystemExit:
+                return
+            for o in self.outputs:
+                self.log(core.describe(o))
+
+        def save_profile(self):
+            name, ok = QInputDialog.getText(self, 'Профиль мониторов', 'Название (например «Дом»):')
+            if ok and name.strip():
+                try:
+                    core.save_profile(name.strip(), self.outputs)
+                except ValueError as exc:
+                    ui.error(self, 'NOVA', str(exc))
+                    return
+                self.profiles.clear()
+                self.profiles.addItems(core.list_profiles())
+                self.log(f'Профиль «{name.strip()}» сохранён.')
+
+        def load_profile(self):
+            name = self.profiles.currentText()
+            if not name:
+                return
+            try:
+                args = core.load_profile_args(name, self.outputs)
+            except ValueError as exc:
+                ui.error(self, 'NOVA', str(exc))
+                return
+            self.apply_with_revert(args)
+
+        def set_ddc(self):
+            if not shutil.which('ddcutil'):
+                ui.error(self, 'NOVA', 'ddcutil не установлен.')
+                return
+            argv = core.ddc_set_args(self.ddc_display.currentData(), self.ddc.value())
+            p = subprocess.run(argv, capture_output=True, text=True, timeout=20, check=False)
+            self.log(f'Яркость {self.ddc.value()} %: ' + ('готово' if p.returncode == 0 else
+                     'монитор не ответил (включите DDC/CI в меню монитора)'))
+
+    app = QApplication(sys.argv)
+    app.setApplicationName('NOVA Display')
+    w = Display()
+    w.show()
+    return app.exec()
+
+
+if __name__ == '__main__':
+    raise SystemExit(cli(sys.argv[1:]) if len(sys.argv) > 1 else gui())

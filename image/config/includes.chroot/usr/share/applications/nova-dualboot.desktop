@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=NOVA Dual Boot
+Name[ru]=NOVA — установить рядом с Windows
+Comment=Read-only dual boot advisor and safe-install checklist
+Exec=nova-dualboot
+Icon=drive-harddisk
+Terminal=false
+Categories=System;Settings;

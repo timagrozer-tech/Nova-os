@@ -1,0 +1,128 @@
+#!/usr/bin/env python3
+"""NOVA Uninstaller — deliberate package removals, never guesses user data paths."""
+import re
+import subprocess
+import sys
+from nova_theme import load_nova_stylesheet
+import nova_ui as ui
+from PyQt6.QtCore import QProcess, Qt
+from PyQt6.QtWidgets import (QApplication, QComboBox, QHBoxLayout, QLabel, QLineEdit,
+                             QListWidget, QMainWindow, QMessageBox, QPushButton,
+                             QTextEdit, QVBoxLayout, QWidget)
+
+def run(argv, timeout=15):
+    try:
+        p = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
+        return p.returncode, p.stdout, p.stderr
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return 127, '', str(e)
+
+class Uninstaller(QMainWindow):
+    def __init__(self):
+        super().__init__(); self.setWindowTitle('NOVA Uninstaller'); ui.setup_window(self, size=(850, 710), app_id='nova-uninstaller')
+        self.entries = []; self.running = None
+        w = QWidget(); lay = QVBoxLayout(w)
+        lay.addWidget(QLabel('NOVA UNINSTALLER  |  Контроль удаления программ'))
+        desc = QLabel('Только выбранная программа. Просмотр изменений перед удалением. Системные компоненты и чужие данные защищены.')
+        desc.setWordWrap(True); lay.addWidget(desc)
+        top = QHBoxLayout(); lay.addLayout(top)
+        self.kind = QComboBox(); self.kind.addItems(['Пакеты Debian (APT)', 'Flatpak'])
+        self.kind.currentIndexChanged.connect(self.reload); top.addWidget(self.kind)
+        self.search = QLineEdit(); self.search.setPlaceholderText('Поиск установленной программы…')
+        self.search.textChanged.connect(self.filter); top.addWidget(self.search, 1)
+        self.items = QListWidget(); lay.addWidget(self.items, 2)
+        btns = QHBoxLayout(); lay.addLayout(btns)
+        for caption, action in [('Обновить список', self.reload), ('Предпросмотр удаления', self.preview),
+                                ('Удалить выбранное…', self.remove)]:
+            b = QPushButton(caption); b.clicked.connect(action); btns.addWidget(b)
+        self.log = QTextEdit(); self.log.setReadOnly(True); lay.addWidget(self.log, 1)
+        self.setCentralWidget(w)
+        self.setStyleSheet(load_nova_stylesheet())
+        self.reload()
+
+    def reload(self):
+        self.entries = []
+        if self.kind.currentIndex() == 0:
+            code, output, err = run(['dpkg-query', '-W', '-f=${db:Status-Abbrev}\t${binary:Package}\t${Version}\n'])
+            if code == 0:
+                for row in output.splitlines():
+                    data = row.split('\t', 2)
+                    if len(data) == 3 and data[0].startswith('ii'):
+                        self.entries.append((data[1], f'{data[1]}  —  {data[2]}', 'apt'))
+            else: self.log.setPlainText(err)
+        else:
+            code, output, err = run(['flatpak', 'list', '--app', '--columns=application,name,installation'])
+            if code == 0:
+                for row in output.splitlines():
+                    cols = row.split('\t')
+                    if len(cols) >= 3 and cols[0]:
+                        installation = cols[2].strip()
+                        self.entries.append((cols[0], f'{cols[1]}  —  {cols[0]}  [{installation}]', installation))
+            else: self.log.setPlainText(err)
+        self.filter()
+        self.log.append(f'Найдено записей: {len(self.entries)}. Поиск не затрагивает файлы.')
+
+    def filter(self):
+        q = self.search.text().casefold()
+        self.items.clear()
+        for key, desc, method in self.entries:
+            if q in desc.casefold(): self.items.addItem(desc)
+
+    def selected(self):
+        row = self.items.currentItem()
+        if row:
+            for entry in self.entries:
+                if entry[1] == row.text(): return entry
+        QMessageBox.warning(self, 'NOVA', 'Выберите программу из списка.')
+        return None
+
+    def simulation(self, entry):
+        key, desc, method = entry
+        if method == 'apt':
+            code, out, err = run(['apt-get', '-s', 'purge', '--', key])
+            return code, out + err
+        return 0, ('Flatpak: будет удалено приложение ' + key + ' (установка: ' + method + ').\n'
+                   'С параметром --delete-data также будут удалены данные приложения из Flatpak.\n'
+                   'Сторонние документы и иные каталоги не удаляются автоматически.')
+
+    def preview(self):
+        entry = self.selected()
+        if entry:
+            code, info = self.simulation(entry)
+            self.log.setPlainText('ПРЕДПРОСМОТР\n' + info + f'\nКод: {code}')
+
+    def remove(self):
+        entry = self.selected()
+        if not entry: return
+        if self.running is not None and self.running.state() != QProcess.ProcessState.NotRunning: return
+        key, desc, method = entry
+        code, description = self.simulation(entry)
+        if code:
+            self.log.setPlainText(description); return
+        if method == 'apt':
+            to_remove = [r for r in description.splitlines() if r.startswith(('Remv ', 'Purg '))]
+            if len(to_remove) != 1 or key.split(':')[0] not in to_remove[0]:
+                self.log.setPlainText('ОТКАЗ: предварительный расчёт затрагивает дополнительные пакеты.\n' + description); return
+            argv = ['pkexec', '/usr/local/lib/nova/nova-admin', 'remove-apt', key]
+        elif method in ('user', 'system'):
+            argv = (['flatpak', 'uninstall', '--user', '--noninteractive', '--delete-data', key]
+                    if method == 'user' else
+                    ['pkexec', '/usr/local/lib/nova/nova-admin', 'remove-flatpak-system', key])
+        else:
+            self.log.setPlainText('Неизвестный тип установки Flatpak: ' + method); return
+        message = f'Будет удалена программа:\n{desc}\n\nПредварительный расчёт:\n{description[:4000]}\n\nПродолжить?'
+        if QMessageBox.question(self, 'Подтвердить удаление', message,
+                  QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                  QMessageBox.StandardButton.No) != QMessageBox.StandardButton.Yes: return
+        self.running = QProcess(self)
+        self.running.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+        self.running.readyReadStandardOutput.connect(lambda: self.log.insertPlainText(bytes(self.running.readAllStandardOutput()).decode('utf-8', 'replace')))
+        self.running.finished.connect(lambda code, status: (self.log.append(f'\nКод завершения: {code}'), self.reload()))
+        self.running.errorOccurred.connect(lambda err: self.log.append(f'Ошибка выполнения: {err}'))
+        self.log.setPlainText('Выполнение с подтверждением прав доступа...\n')
+        self.running.start(argv[0], argv[1:])
+
+def main():
+    app = QApplication(sys.argv); win = Uninstaller(); win.show(); return app.exec()
+
+if __name__ == '__main__': raise SystemExit(main())

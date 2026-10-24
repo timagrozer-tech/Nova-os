@@ -1,0 +1,266 @@
+#!/usr/bin/env python3
+"""NOVA Android Hub v0.3. Real Waydroid operations; no simulated app/status results.
+The user deliberately chooses initial Android image; no bundled Google components.
+"""
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+from PyQt6.QtCore import QProcess, Qt, QUrl
+from PyQt6.QtGui import QDesktopServices
+from PyQt6.QtWidgets import (QApplication, QFileDialog, QFrame, QHBoxLayout,
+                             QLabel, QLineEdit, QListWidget, QMainWindow,
+                             QMessageBox, QPushButton, QStackedWidget,
+                             QTextEdit, QVBoxLayout, QWidget)
+from nova_theme import load_nova_stylesheet
+import nova_ui as ui
+
+ADMIN = '/usr/local/lib/nova/nova-android-admin'
+
+
+def run_quick(args, timeout=5):
+    try:
+        p = subprocess.run(args, capture_output=True, text=True, timeout=timeout)
+        return p.returncode, (p.stdout + '\n' + p.stderr).strip()
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return 127, str(e)
+
+
+class AndroidHub(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle('NOVA Android Hub · 0.4')
+        ui.setup_window(self, size=(1080, 700), app_id='nova-android-hub')
+        self.worker = None
+        self.session = None
+        root = QWidget()
+        overall = QVBoxLayout(root)
+        overall.setContentsMargins(22, 20, 22, 20)
+        name = QLabel('NOVA  /  ANDROID HUB')
+        name.setObjectName('brand')
+        overall.addWidget(name)
+        subtitle = QLabel('Android-приложения рядом с Linux — без ручной настройки сложных команд')
+        subtitle.setObjectName('description')
+        overall.addWidget(subtitle)
+        row = QHBoxLayout()
+        overall.addLayout(row, 1)
+        self.nav = QListWidget()
+        self.nav.setFixedWidth(245)
+        self.nav.addItems(['Обзор', 'Мои Android-приложения', 'Установка Android', 'Google и Gmail', 'Диагностика'])
+        row.addWidget(self.nav)
+        self.stack = QStackedWidget()
+        row.addWidget(self.stack, 1)
+        for builder in (self.overview, self.apps, self.setup, self.google, self.diagnostics):
+            self.stack.addWidget(builder())
+        self.nav.currentRowChanged.connect(self.stack.setCurrentIndex)
+        self.nav.setCurrentRow(0)
+        overall.addWidget(QLabel('Waydroid зависит от Wayland, GPU, binder и архитектуры APK. Не все приложения, игры и Google-сервисы совместимы.'))
+        self.setCentralWidget(root)
+        self.setStyleSheet(load_nova_stylesheet())
+        self.update_status()
+
+    def page(self, headline, description):
+        w = QWidget()
+        lay = QVBoxLayout(w)
+        lay.setContentsMargins(14, 3, 8, 3)
+        lay.setSpacing(13)
+        title = QLabel(headline)
+        title.setObjectName('heading')
+        lay.addWidget(title)
+        sub = QLabel(description)
+        sub.setObjectName('description')
+        sub.setWordWrap(True)
+        lay.addWidget(sub)
+        return w, lay
+
+    def card(self, parent, title):
+        frame = QFrame()
+        frame.setObjectName('card')
+        layout = QVBoxLayout(frame)
+        layout.setContentsMargins(16, 14, 16, 16)
+        head = QLabel(title)
+        head.setObjectName('heading')
+        layout.addWidget(head)
+        parent.addWidget(frame)
+        return layout
+
+    def button(self, layout, text, callback):
+        btn = QPushButton(text)
+        btn.clicked.connect(callback)
+        layout.addWidget(btn)
+        return btn
+
+    def overview(self):
+        w, lay = self.page('Android в NOVA OS', 'Сначала проверьте готовность системы, затем выберите Android-образ. Установка не выполняется автоматически.')
+        box = self.card(lay, 'Состояние системы')
+        self.status = QTextEdit()
+        self.status.setReadOnly(True)
+        self.status.setMaximumHeight(180)
+        box.addWidget(self.status)
+        self.button(box, 'Обновить проверку', self.update_status)
+        box = self.card(lay, 'Быстрые действия')
+        self.button(box, 'Открыть Android', self.open_android)
+        self.button(box, 'Установить APK…', self.install_apk)
+        self.button(box, 'Перейти к первоначальной настройке', lambda: self.nav.setCurrentRow(2))
+        lay.addStretch(1)
+        return w
+
+    def apps(self):
+        w, lay = self.page('Android-приложения', 'Список получен непосредственно из Waydroid; образцовые значки не означают установленный софт.')
+        toolbar = QHBoxLayout()
+        lay.addLayout(toolbar)
+        self.button(toolbar, 'Обновить список', self.list_apps)
+        self.button(toolbar, 'Установить APK…', self.install_apk)
+        self.button(toolbar, 'Открыть Android', self.open_android)
+        self.installed = QTextEdit()
+        self.installed.setReadOnly(True)
+        self.installed.setPlaceholderText('Запустите Waydroid, затем обновите список…')
+        lay.addWidget(self.installed, 1)
+        return w
+
+    def setup(self):
+        w, lay = self.page('Установка Android', 'Мастер использует официальный пакет Debian 13 Backports. Android-образ скачивается по вашему согласию.')
+        box = self.card(lay, 'Шаг 1 · Проверка и установка Waydroid')
+        self.button(box, 'Установить пакет Waydroid (интернет, права администратора)',
+                    lambda: self.privileged('install', 'Добавить официальный Debian Backports и установить Waydroid?'))
+        box = self.card(lay, 'Шаг 2 · Выберите Android-образ только один раз')
+        hint = QLabel('VANILLA — без Google. GAPPS — образ с Google-компонентами, может потребовать сертификации.\n'
+                      'Если контейнер уже инициализирован, мастер откажется заменять существующую установку.')
+        hint.setWordWrap(True)
+        box.addWidget(hint)
+        self.button(box, 'Создать обычную Android-среду (VANILLA)',
+                    lambda: self.privileged('init-vanilla', 'Скачать и установить обычный Android-образ без Google?'))
+        self.button(box, 'Создать Android с GAPPS (необязательно)',
+                    lambda: self.privileged('init-gapps', 'Скачать Android-образ с GAPPS? Google Play может потребовать ручной сертификации.'))
+        box = self.card(lay, 'Шаг 3 · Запуск контейнера')
+        self.button(box, 'Запустить системный контейнер',
+                    lambda: self.privileged('start-container', 'Запустить Waydroid-контейнер с правами администратора?'))
+        self.button(box, 'Открыть Android', self.open_android)
+        self.log = QTextEdit()
+        self.log.setReadOnly(True)
+        self.log.setMaximumHeight(170)
+        lay.addWidget(self.log)
+        return w
+
+    def google(self):
+        w, lay = self.page('Google и Gmail', 'NOVA не сохраняет пароли Google. Веб-Gmail не требует Android-контейнера.')
+        box = self.card(lay, 'Google-сервисы')
+        self.button(box, 'Открыть Gmail в браузере', lambda: self.website('https://mail.google.com/'))
+        self.button(box, 'Открыть Google Диск', lambda: self.website('https://drive.google.com/'))
+        self.button(box, 'Открыть Google Календарь', lambda: self.website('https://calendar.google.com/'))
+        box = self.card(lay, 'Google Play в Android')
+        description = QLabel('GAPPS доступен только при первичной инициализации через мастер; Play Store не гарантирует работу всех приложений. '
+                             'Google Play Protect может сообщить, что устройство не сертифицировано.')
+        description.setWordWrap(True)
+        box.addWidget(description)
+        self.button(box, 'Официальные инструкции Waydroid по сертификации',
+                    lambda: self.website('https://docs.waydro.id/faq/google-play-certification'))
+        lay.addStretch(1)
+        return w
+
+    def diagnostics(self):
+        w, lay = self.page('Диагностика Android', 'Результаты показаны локально. Логи могут содержать личные данные; ничего не отправляется автоматически.')
+        box = self.card(lay, 'Проверка окружения')
+        self.details = QTextEdit()
+        self.details.setReadOnly(True)
+        box.addWidget(self.details)
+        self.button(box, 'Собрать информацию', self.update_diagnostics)
+        self.button(box, 'Страница документации Waydroid', lambda: self.website('https://docs.waydro.id/'))
+        return w
+
+    def website(self, url):
+        QDesktopServices.openUrl(QUrl(url))
+
+    def update_status(self):
+        wayland = os.environ.get('XDG_SESSION_TYPE', 'не определён')
+        has_wd = bool(shutil.which('waydroid'))
+        cfg = Path('/var/lib/waydroid/waydroid.cfg').exists()
+        version = run_quick(['waydroid', '--version'])[1] if has_wd else 'не установлен'
+        state = run_quick(['waydroid', 'status'])[1] if has_wd else 'установите пакет'
+        self.status.setPlainText(f'Сеанс: {wayland} (нужен wayland)\nWaydroid: {version}\n'
+                                 f'Конфигурация Android: {"есть" if cfg else "не создана"}\nСостояние: {state}')
+
+    def update_diagnostics(self):
+        lines = [('Сессия', os.environ.get('XDG_SESSION_TYPE','?')),
+                 ('Ядро', run_quick(['uname','-r'])[1]),
+                 ('Waydroid', run_quick(['waydroid','status'])[1] if shutil.which('waydroid') else 'не установлен'),
+                 ('binder', 'доступен' if Path('/dev/binderfs').is_dir() or Path('/dev/binder').exists() else 'не найден'),
+                 ('Видеокарты', '\n'.join(x for x in run_quick(['lspci'])[1].splitlines() if 'VGA' in x or '3D controller' in x))]
+        self.details.setPlainText('\n\n'.join(f'{key}: {val}' for key,val in lines))
+
+    def run_process(self, cmd, destination):
+        if self.worker is not None and self.worker.state() != QProcess.ProcessState.NotRunning:
+            QMessageBox.information(self, 'NOVA Android', 'Дождитесь окончания текущей операции или закройте её.')
+            return
+        destination.setPlainText('Запущено: ' + ' '.join(cmd[:3]) + '\n')
+        self.worker = QProcess(self)
+        self.worker.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+        self.worker.readyReadStandardOutput.connect(
+            lambda: destination.insertPlainText(bytes(self.worker.readAllStandardOutput()).decode('utf-8','replace')))
+        self.worker.finished.connect(lambda code, status: (destination.append(f'\nКод завершения: {code}'), self.update_status()))
+        self.worker.errorOccurred.connect(lambda e: destination.append(f'Ошибка процесса: {e}'))
+        self.worker.start(cmd[0], cmd[1:])
+
+    def privileged(self, action, question):
+        if not Path(ADMIN).exists():
+            QMessageBox.warning(self, 'NOVA', 'Системный установщик NOVA недоступен.')
+            return
+        answer = QMessageBox.question(self,'Подтверждение',question,
+                 QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.No,
+                 QMessageBox.StandardButton.No)
+        if answer == QMessageBox.StandardButton.Yes:
+            self.run_process(['pkexec', ADMIN, action], self.log)
+
+    def list_apps(self):
+        if not shutil.which('waydroid'):
+            self.installed.setPlainText('Сначала установите Waydroid в разделе «Установка Android».')
+            return
+        self.run_process(['waydroid', 'app', 'list'], self.installed)
+
+    def install_apk(self):
+        if not shutil.which('waydroid'):
+            QMessageBox.warning(self, 'NOVA Android', 'Waydroid не установлен.')
+            return
+        filename, _ = QFileDialog.getOpenFileName(self, 'Выберите APK', str(Path.home()), 'Android APK (*.apk)')
+        if not filename:
+            return
+        if Path(filename).suffix.casefold() != '.apk':
+            QMessageBox.warning(self, 'NOVA Android', 'Нужен APK-файл.')
+            return
+        if QMessageBox.question(self,'Разрешить установку APK?',
+            'Приложение из неизвестного источника может быть небезопасным. Устанавливайте только доверенные APK.\n\n' + Path(filename).name,
+            QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No) == QMessageBox.StandardButton.Yes:
+            self.nav.setCurrentRow(1)
+            self.run_process(['waydroid', 'app', 'install', filename], self.installed)
+
+    def open_android(self):
+        if os.environ.get('XDG_SESSION_TYPE','').lower() != 'wayland':
+            QMessageBox.warning(self,'NOVA Android','Требуется сеанс Plasma (Wayland). Переключите сеанс на экране входа.')
+            return
+        if not shutil.which('waydroid'):
+            QMessageBox.warning(self,'NOVA Android','Waydroid не установлен. Откройте раздел «Установка Android».')
+            return
+        if self.session is None or self.session.poll() is not None:
+            try:
+                self.session = subprocess.Popen(['waydroid', 'session', 'start'],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+            except OSError as e:
+                QMessageBox.warning(self,'NOVA Android',str(e)); return
+        try:
+            subprocess.Popen(['waydroid','show-full-ui'], start_new_session=True)
+        except OSError as e:
+            QMessageBox.warning(self,'NOVA Android',str(e))
+
+
+def main():
+    app = QApplication(sys.argv)
+    app.setApplicationName('NOVA Android Hub')
+    win = AndroidHub()
+    win.show()
+    return app.exec()
+
+
+if __name__ == '__main__':
+    sys.exit(main())

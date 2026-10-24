@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# "Mail" multimedia key: a desktop mail client if installed, otherwise webmail
+# (address in ~/.config/nova/webmail, Gmail by default) in the browser.
+set -u
+for client in thunderbird kmail evolution geary; do
+  if command -v "$client" >/dev/null; then exec "$client"; fi
+done
+url='https://mail.google.com/'
+cfg="${XDG_CONFIG_HOME:-$HOME/.config}/nova/webmail"
+if [[ -r "$cfg" ]]; then
+  candidate="$(head -n 1 "$cfg")"
+  [[ "$candidate" =~ ^https://[^[:space:]]+$ ]] && url="$candidate"
+fi
+exec xdg-open "$url"

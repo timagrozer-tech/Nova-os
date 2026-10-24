@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=NOVA Control
+Name[ru]=NOVA Control — центр управления
+Comment=Device, performance, privacy and Windows compatibility tools
+Comment[ru]=Оборудование, производительность, безопасность и Windows-программы
+Exec=nova-control
+Icon=preferences-system
+Terminal=false
+Categories=System;Settings;
+X-KDE-Shortcuts=Meta+I

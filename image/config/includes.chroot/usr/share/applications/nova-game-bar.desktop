@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=NOVA Game Bar
+Name[ru]=NOVA Game Bar — игровая панель
+Comment=Performance, sound, screenshots and game tools (Win+G)
+Comment[ru]=Производительность, звук, снимки и игровые инструменты (Win+G)
+Exec=nova-game-bar
+Icon=applications-games
+Terminal=false
+Categories=Game;Utility;
+X-KDE-Shortcuts=Meta+G

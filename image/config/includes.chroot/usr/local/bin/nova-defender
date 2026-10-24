@@ -1,0 +1,91 @@
+#!/usr/bin/env python3
+"""NOVA Defender v0.2 — status dashboard, optional on-demand antivirus scans.
+Not a replacement for Windows Defender, nor a guarantee of malware protection.
+"""
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+from nova_theme import load_nova_stylesheet
+import nova_ui as ui
+from PyQt6.QtCore import QProcess
+from PyQt6.QtWidgets import (QApplication, QFileDialog, QHBoxLayout, QLabel,
+                             QMainWindow, QMessageBox, QPushButton, QTextEdit,
+                             QVBoxLayout, QWidget)
+
+def run(args, timeout=9):
+    try:
+        p = subprocess.run(args, text=True, capture_output=True, timeout=timeout)
+        return (p.stdout + '\n' + p.stderr).strip() or f'Код: {p.returncode}'
+    except (OSError, subprocess.TimeoutExpired) as error:
+        return f'Нет данных: {error}'
+
+class Defender(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle('NOVA Defender — центр защиты')
+        ui.setup_window(self, size=(840, 660), app_id='nova-defender')
+        w = QWidget(); layout = QVBoxLayout(w)
+        layout.addWidget(QLabel('NOVA DEFENDER  |  Состояние безопасности'))
+        caption = QLabel('AppArmor + UFW + ClamAV. Проверка по требованию; полноценной EDR/защиты в реальном времени нет.')
+        caption.setWordWrap(True); layout.addWidget(caption)
+        self.status = QTextEdit(); self.status.setReadOnly(True); layout.addWidget(self.status, 1)
+        controls = QHBoxLayout(); layout.addLayout(controls)
+        self.button(controls, 'Обновить статус', self.refresh)
+        self.button(controls, 'Сканировать папку…', self.scan)
+        self.button(controls, 'Остановить', self.stop)
+        self.button(controls, 'Обновления сигнатур', self.signatures)
+        self.output = QTextEdit(); self.output.setReadOnly(True); layout.addWidget(self.output, 2)
+        self.proc = None
+        self.setCentralWidget(w)
+        self.setStyleSheet(load_nova_stylesheet())
+        self.refresh()
+
+    def button(self, layout, label, callback):
+        b = QPushButton(label); b.clicked.connect(callback); layout.addWidget(b)
+
+    def refresh(self):
+        parts = [
+            'APPARMOR\n' + run(['aa-status', '--enabled']) if shutil.which('aa-status') else 'AppArmor: утилита недоступна',
+            '\nСЕТЕВОЙ ЭКРАН UFW (состояние службы)\n' + run(['systemctl', 'is-active', 'ufw']) + '\n' + run(['systemctl','is-enabled','ufw']),
+            '\nАНТИВИРУС CLAMAV\n' + run(['clamscan', '--version']),
+            '\nСЕРВИС ОБНОВЛЕНИЯ СИГНАТУР\n' + run(['systemctl', 'is-active', 'clamav-freshclam']),
+            '\nОБНОВЛЕНИЯ ОС\n' + run(['systemctl', 'is-active', 'apt-daily.timer'])
+        ]
+        self.status.setPlainText('\n'.join(parts))
+
+    def start(self, command):
+        if self.proc is not None and self.proc.state() != QProcess.ProcessState.NotRunning:
+            QMessageBox.information(self, 'NOVA Defender', 'Сначала остановите текущую задачу.')
+            return
+        self.proc = QProcess(self)
+        self.proc.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+        self.output.setPlainText('$ ' + ' '.join(command[:2]) + '\n')
+        self.proc.readyReadStandardOutput.connect(self.read_data)
+        self.proc.finished.connect(lambda code, status: self.output.append(f'\nЗавершено. Код {code}. Код 1 у ClamAV означает обнаружение подозрительного файла.'))
+        self.proc.errorOccurred.connect(lambda err: self.output.append(f'Ошибка запуска: {err}'))
+        self.proc.start(command[0], command[1:])
+
+    def read_data(self):
+        if self.proc:
+            self.output.insertPlainText(bytes(self.proc.readAllStandardOutput()).decode('utf-8', 'replace'))
+
+    def scan(self):
+        folder = QFileDialog.getExistingDirectory(self, 'Выберите папку для сканирования', str(Path.home()))
+        if folder:
+            self.start(['clamscan', '--recursive', '--infected', '--no-summary', '--', folder])
+
+    def stop(self):
+        if self.proc and self.proc.state() != QProcess.ProcessState.NotRunning:
+            self.proc.terminate()
+            self.output.append('Сканирование остановлено по запросу.')
+
+    def signatures(self):
+        QMessageBox.information(self, 'База ClamAV', 'Сигнатуры обновляет штатный сервис clamav-freshclam при наличии интернета. Его состояние показано выше.')
+
+def main():
+    app = QApplication(sys.argv)
+    window = Defender(); window.show(); return app.exec()
+
+if __name__ == '__main__':
+    raise SystemExit(main())

@@ -1,0 +1,295 @@
+#!/usr/bin/env python3
+"""nova-selftest — read-only health check of a running NOVA OS (Live USB or installed).
+
+  nova-selftest                 human-readable report
+  nova-selftest --json          machine-readable report (used by CI in QEMU)
+  nova-selftest --ui-smoke DIR  render every NOVA window offscreen on the screen matrix
+  nova-selftest --session-exec CMD ARGS...   run CMD inside the active Plasma session
+                                (as its user; used by CI to call kscreen-doctor/wpctl)
+
+Never changes system settings, never needs network, never writes outside
+the directory given to --ui-smoke. Works as a normal user; as root (QEMU guest
+agent) it inspects the logged-in Plasma user's session.
+"""
+import argparse
+import json
+import os
+import platform
+import pwd
+import shutil
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+import nova_selftest_core as core
+from nova_ui import nova_version
+
+BIN = Path(__file__).resolve().parent
+
+
+def run(argv, timeout=10, env=None):
+    if not shutil.which(argv[0]):
+        return 127, f'{argv[0]}: не установлен'
+    try:
+        p = subprocess.run(argv, capture_output=True, text=True, encoding='utf-8', errors='replace',
+                           timeout=timeout, env=env, stdin=subprocess.DEVNULL, check=False)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return 124, str(exc)
+    return p.returncode, (p.stdout + ('\n' + p.stderr if p.stderr.strip() else '')).strip()
+
+
+def read(path, default=''):
+    try:
+        return Path(path).read_text(encoding='utf-8', errors='replace')
+    except OSError:
+        return default
+
+
+def plasma_session():
+    """Find a running plasmashell: returns dict(pid, uid, user, env) or None."""
+    for proc in Path('/proc').iterdir():
+        if not proc.name.isdigit():
+            continue
+        if read(proc / 'comm').strip() != 'plasmashell':
+            continue
+        try:
+            uid = proc.stat().st_uid
+        except OSError:
+            continue
+        try:
+            raw = (proc / 'environ').read_bytes()
+        except OSError:  # another user's process and we are not root
+            raw = b''
+        env = {}
+        for item in raw.split(b'\0'):
+            if b'=' in item:
+                k, v = item.split(b'=', 1)
+                env[k.decode(errors='replace')] = v.decode(errors='replace')
+        try:
+            user = pwd.getpwuid(uid).pw_name
+        except KeyError:
+            user = str(uid)
+        return {'pid': int(proc.name), 'uid': uid, 'user': user, 'env': env}
+    return None
+
+
+SESSION_KEYS = ('WAYLAND_DISPLAY', 'DISPLAY', 'XDG_RUNTIME_DIR', 'DBUS_SESSION_BUS_ADDRESS',
+                'XDG_SESSION_TYPE', 'XDG_CURRENT_DESKTOP', 'XAUTHORITY', 'HOME', 'LANG')
+
+
+def session_argv(session, argv):
+    """argv that runs `argv` inside the Plasma user's session environment."""
+    env_pairs = [f'{k}={session["env"][k]}' for k in SESSION_KEYS if k in session['env']]
+    if os.geteuid() == 0 and session['uid'] != 0:
+        return ['runuser', '-u', session['user'], '--', 'env', *env_pairs, *argv]
+    return ['env', *env_pairs, *argv]
+
+
+def session_run(session, argv, timeout=15):
+    if not session:
+        return 1, 'нет активного сеанса Plasma'
+    if not shutil.which(argv[0]):
+        return 127, f'{argv[0]}: не установлен'
+    return run(session_argv(session, argv), timeout=timeout)
+
+
+def gather():
+    checks = []
+    cmdline = read('/proc/cmdline')
+    flags = core.cmdline_flags(cmdline)
+    checks.append(core.check('boot', 'Режим загрузки', core.INFO,
+        ('Live USB/ISO' if flags['live'] else 'установленная система') +
+        (', UEFI' if Path('/sys/firmware/efi').is_dir() else ', BIOS/Legacy') +
+        (', nomodeset (безопасная графика)' if flags['nomodeset'] else '')))
+    code, out = run(['mokutil', '--sb-state'])
+    checks.append(core.check('secureboot', 'Secure Boot', core.INFO, out.splitlines()[0] if out else 'нет данных'))
+    version = nova_version()
+    checks.append(core.check('release', 'Версия NOVA OS', core.PASS if version != 'dev' else core.WARN,
+                             f'NOVA OS {version}' if version != 'dev' else '/etc/nova-release не найден'))
+
+    session = plasma_session()
+    if session:
+        stype = session['env'].get('XDG_SESSION_TYPE', '?')
+        checks.append(core.check('plasma', 'Сеанс KDE Plasma', core.PASS if stype == 'wayland' else core.WARN,
+            f"plasmashell PID {session['pid']}, пользователь {session['user']}, сеанс {stype}"
+            + ('' if stype == 'wayland' else ' (ожидался Wayland; X11 — запасной режим)')))
+    else:
+        checks.append(core.check('plasma', 'Сеанс KDE Plasma', core.FAIL, 'plasmashell не запущен'))
+    code, out = run(['systemctl', 'is-active', 'sddm'])
+    checks.append(core.check('sddm', 'Экран входа SDDM', core.PASS if out.strip() == 'active' else core.WARN, out or 'нет данных'))
+
+    # Screens
+    if session:
+        code, out = session_run(session, ['kscreen-doctor', '-j'])
+        outputs = core.parse_kscreen_json(out) if code == 0 else []
+        enabled = [o for o in outputs if o['enabled'] and o['connected']]
+        if enabled:
+            detail = '; '.join(f"{o['name']}: {o['width']}×{o['height']} @{o['refresh']} Гц — "
+                               f"{core.classify_resolution(o['width'], o['height'], o['scale'])}" for o in enabled)
+            checks.append(core.check('screens', 'Экраны и масштаб', core.PASS, detail, outputs=outputs))
+        else:
+            checks.append(core.check('screens', 'Экраны и масштаб', core.WARN, 'kscreen-doctor не вернул активных экранов: ' + out[:200]))
+
+    # GPU
+    code, out = run(['lspci', '-nnk'])
+    checks.append(core.gpu_assessment(core.parse_lspci_gpus(out), Path('/proc/driver/nvidia').exists()))
+
+    # Network
+    code, out = run(['nmcli', '-t', '-f', 'STATE,CONNECTIVITY', 'general'])
+    state = out.strip()
+    checks.append(core.check('network', 'Сеть (NetworkManager)',
+        core.PASS if state.startswith('connected') else core.WARN, state or 'NetworkManager не отвечает'))
+    code, out = run(['nmcli', '-t', '-f', 'TYPE,STATE', 'device'])
+    wifi = [line for line in out.splitlines() if line.startswith('wifi:')]
+    checks.append(core.check('wifi', 'Wi-Fi адаптер', core.INFO if wifi else core.INFO,
+        ('найден: ' + ', '.join(w.split(':', 1)[1] for w in wifi)) if wifi else 'не найден (в VM это нормально)'))
+
+    # Audio
+    if session:
+        code, out = session_run(session, ['wpctl', 'status'])
+        sinks = core.parse_wpctl_sinks(out) if code == 0 else []
+        checks.append(core.check('audio', 'Звук (PipeWire)', core.PASS if sinks else core.WARN,
+            ('выходы: ' + ', '.join(sinks)) if sinks else 'нет звуковых выходов (проверьте прошивку SOF/драйвер)'))
+
+    # Input, power, bluetooth
+    inputs = core.parse_input_devices(read('/proc/bus/input/devices'))
+    checks.append(core.check('input', 'Устройства ввода', core.INFO,
+        f"тачпад: {'да' if inputs['touchpad'] else 'нет'}, сенсорный экран: {'да' if inputs['touchscreen'] else 'нет'}, "
+        f"клавиатура: {'да' if inputs['keyboard'] else 'нет'}"))
+    code, out = run(['upower', '-e'])
+    battery = any('battery' in line for line in out.splitlines())
+    code2, profile = run(['powerprofilesctl', 'get'])
+    checks.append(core.check('power', 'Питание', core.INFO,
+        f"батарея: {'есть' if battery else 'нет'}, профиль: {profile.strip() if code2 == 0 else 'нет данных'}"))
+    code, out = run(['rfkill', 'list', 'bluetooth'])
+    checks.append(core.check('bluetooth', 'Bluetooth', core.INFO, 'адаптер найден' if 'Bluetooth' in out else 'адаптер не найден'))
+
+    # Memory
+    mem_kb = 0
+    for line in read('/proc/meminfo').splitlines():
+        if line.startswith('MemTotal:'):
+            mem_kb = int(line.split()[1])
+    gb = mem_kb / 1024 / 1024
+    checks.append(core.check('memory', 'Оперативная память', core.PASS if gb >= 3.6 else core.WARN,
+        f'{gb:.1f} ГБ' + ('' if gb >= 3.6 else ' — для Plasma и Live-сессии рекомендуется от 4 ГБ')))
+
+    # Security
+    ufw_conf = read('/etc/ufw/ufw.conf')
+    code, out = run(['systemctl', 'is-active', 'ufw'])
+    ufw_on = 'ENABLED=yes' in ufw_conf and out.strip() == 'active'
+    checks.append(core.check('firewall', 'Сетевой экран UFW', core.PASS if ufw_on else core.WARN,
+        'включён (входящие запрещены)' if ufw_on else f'служба: {out.strip() or "?"}; ufw.conf ENABLED=yes: {"да" if "ENABLED=yes" in ufw_conf else "нет"}'))
+    aa = read('/sys/module/apparmor/parameters/enabled').strip()
+    checks.append(core.check('apparmor', 'AppArmor', core.PASS if aa == 'Y' else core.WARN, 'включён' if aa == 'Y' else 'выключен или недоступен'))
+
+    # Installer
+    if flags['live']:
+        cal = shutil.which('calamares') is not None
+        pool = any(Path('/run/live/medium/dists/trixie/main/binary-amd64').glob('Packages*'))
+        status = core.PASS if cal and pool else (core.WARN if cal else core.FAIL)
+        checks.append(core.check('installer', 'Установщик Calamares', status,
+            ('Calamares найден' if cal else 'Calamares не найден') +
+            ('; GRUB для офлайн-установки на носителе' if pool else '; офлайн-пакетов GRUB нет — установке понадобится интернет')))
+
+    # NOVA apps
+    missing, broken = [], []
+    for name in core.UI_APPS + ('nova-layout', 'nova-selftest', 'nova-key'):
+        path = BIN / name
+        if not path.is_file():
+            missing.append(name)
+            continue
+        try:
+            text = path.read_text(encoding='utf-8')
+            if text.startswith('#!/usr/bin/env python3'):
+                compile(text, str(path), 'exec')
+        except (SyntaxError, UnicodeError):
+            broken.append(name)
+    checks.append(core.check('nova-apps', 'Приложения NOVA', core.FAIL if (missing or broken) else core.PASS,
+        f'{len(core.UI_APPS) + 2} проверено' + (f'; нет: {", ".join(missing)}' if missing else '') +
+        (f'; ошибки: {", ".join(broken)}' if broken else '')))
+
+    # Firmware load errors (kernel log; may need adm group or root)
+    code, out = run(['journalctl', '-k', '-b', '--no-pager', '-q'], timeout=15)
+    if code == 0:
+        fw = core.parse_firmware_errors(out)
+        checks.append(core.check('firmware', 'Прошивки устройств', core.WARN if fw else core.PASS,
+            ('не загружены: ' + ', '.join(fw)) if fw else 'ошибок загрузки прошивок не найдено'))
+    return {'version': version, 'host': platform.node(), 'kernel': platform.release(),
+            'time': time.strftime('%Y-%m-%dT%H:%M:%S%z'), 'checks': checks,
+            'summary': core.summarize(checks)}
+
+
+def ui_smoke(target: Path, apps=None, matrix=None, timeout=60, themes=('light',)):
+    target.mkdir(parents=True, exist_ok=True)
+    results = []
+    for entry in matrix or core.UI_MATRIX:
+        for theme in themes:
+            out_dir = target / f"{entry['id']}-{theme}"
+            out_dir.mkdir(parents=True, exist_ok=True)
+            for app in apps or core.UI_APPS:
+                path = BIN / app
+                if not path.is_file():
+                    results.append(core.check(f'ui:{app}', app, core.FAIL, 'нет файла'))
+                    continue
+                env = dict(os.environ)
+                env.update({'QT_QPA_PLATFORM': 'offscreen', 'NOVA_UI_SMOKE': str(out_dir),
+                            'NOVA_SCREEN_OVERRIDE': '%dx%d' % entry['available'],
+                            'QT_SCALE_FACTOR': str(entry['scale']), 'NOVA_THEME': theme,
+                            'NOVA_REDUCED_MOTION': '1', 'PYTHONDONTWRITEBYTECODE': '1'})
+                log = out_dir / f'{app}.log'
+                try:
+                    with log.open('w', encoding='utf-8') as fh:
+                        subprocess.run([sys.executable, str(path)], env=env, stdout=fh, stderr=subprocess.STDOUT,
+                                       stdin=subprocess.DEVNULL, timeout=timeout, check=False)
+                except subprocess.TimeoutExpired:
+                    pass
+                metrics_path = out_dir / f'{app}.json'
+                metrics = None
+                if metrics_path.is_file():
+                    try:
+                        metrics = json.loads(metrics_path.read_text(encoding='utf-8'))
+                    except ValueError:
+                        metrics = None
+                results.append(core.ui_result(metrics, (out_dir / f'{app}.png').is_file(),
+                                              f"{entry['id']}-{theme}", app))
+    report = {'version': nova_version(), 'host': platform.node(), 'checks': results,
+              'summary': core.summarize(results)}
+    (target / 'ui-report.json').write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding='utf-8')
+    return report
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(prog='nova-selftest', description='Самопроверка NOVA OS (только чтение)')
+    parser.add_argument('--json', action='store_true')
+    parser.add_argument('--output', help='сохранить отчёт в файл (не перезаписывает существующий)')
+    parser.add_argument('--ui-smoke', metavar='DIR')
+    parser.add_argument('--apps', help='список приложений через запятую для --ui-smoke')
+    parser.add_argument('--themes', default='light', help='light,dark для --ui-smoke')
+    parser.add_argument('--session-exec', nargs=argparse.REMAINDER)
+    args = parser.parse_args(argv)
+
+    if args.session_exec:
+        session = plasma_session()
+        if not session:
+            print('Нет активного сеанса Plasma', file=sys.stderr)
+            return 3
+        return subprocess.run(session_argv(session, args.session_exec), check=False).returncode
+
+    if args.ui_smoke:
+        apps = [a for a in (args.apps or '').split(',') if a] or None
+        themes = tuple(t for t in args.themes.split(',') if t in ('light', 'dark')) or ('light',)
+        report = ui_smoke(Path(args.ui_smoke), apps=apps, themes=themes)
+    else:
+        report = gather()
+    text = json.dumps(report, ensure_ascii=False, indent=1) if args.json else core.render_text(report)
+    if args.output:
+        out = Path(args.output)
+        with out.open('x', encoding='utf-8') as fh:
+            fh.write(text + '\n')
+    print(text)
+    return 1 if report['summary']['fail'] else 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

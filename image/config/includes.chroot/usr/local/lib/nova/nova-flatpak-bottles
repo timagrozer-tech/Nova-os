@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Runs as current desktop user. Never call piped remote shell scripts.
+set -Eeuo pipefail
+command -v flatpak >/dev/null
+flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+flatpak install --user --assumeyes flathub com.usebottles.bottles
+printf 'Bottles installed. Find it in the applications menu.\n'

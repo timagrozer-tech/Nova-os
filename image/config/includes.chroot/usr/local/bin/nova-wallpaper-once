@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+[[ "${XDG_CURRENT_DESKTOP:-}" == *KDE* ]] || exit 0
+command -v plasma-apply-wallpaperimage >/dev/null || exit 0
+state="${XDG_STATE_HOME:-$HOME/.local/state}/nova"
+[[ -e "$state/wallpaper-initialized" ]] && exit 0
+wall='/usr/share/wallpapers/NOVA/contents/images/1920x1080.png'
+[[ -r "$wall" ]] || exit 0
+# Do not overwrite a wallpaper on later sessions.
+if plasma-apply-wallpaperimage "$wall"; then
+  mkdir -p "$state"
+  touch "$state/wallpaper-initialized"
+fi

@@ -1,0 +1,9 @@
+# NOVA OS 0.12: ISO pool (NOT installed in the live system), UEFI target.
+# `bootloader-config` runs `apt-get install grub-efi-amd64` when the installer
+# was booted in UEFI mode; signed shim/GRUB keep Secure Boot working.
+grub-efi-amd64
+grub-efi-amd64-bin
+grub-efi-amd64-signed
+shim-signed
+efibootmgr
+mokutil

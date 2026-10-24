@@ -1,0 +1,419 @@
+#!/usr/bin/env python3
+"""NOVA Driver Center 0.10 · GPU Safety, controlled APT and recovery journals."""
+from __future__ import annotations
+
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QUrl
+from PyQt6.QtGui import QDesktopServices
+from PyQt6.QtWidgets import (QApplication, QFileDialog, QGroupBox, QHBoxLayout,
+    QLabel, QMainWindow, QMessageBox, QPushButton, QTabWidget, QTextEdit,
+    QVBoxLayout, QWidget, QListWidget, QListWidgetItem, QComboBox)
+
+from nova_theme import load_nova_stylesheet
+import nova_ui as ui
+from nova_drivers_core import collect, export_report, format_report
+from nova_gpu_safety import scan as scan_gpu, format_gpu_report
+from nova_driver_catalog import (SAFE_PACKAGES, OFFICIAL_VENDOR_URLS,
+    infer_from_devices, vendor_pages, inspect_package, validate_selection)
+
+ADMIN = '/usr/local/lib/nova/nova-driver-admin'
+
+
+class AuditThread(QThread):
+    ready = pyqtSignal(object)
+    failed = pyqtSignal(str)
+
+    def run(self):
+        try:
+            self.ready.emit(collect())
+        except Exception as exc:
+            self.failed.emit('Диагностика не удалась: ' + type(exc).__name__)
+
+
+class GPUThread(QThread):
+    ready = pyqtSignal(str)
+    def run(self):
+        try:
+            self.ready.emit(format_gpu_report(scan_gpu()))
+        except (OSError, ValueError) as error:
+            self.ready.emit('Диагностика NVIDIA неполна: ' + type(error).__name__)
+
+
+class PackageThread(QThread):
+    ready = pyqtSignal(object)
+
+    def __init__(self, packages, parent=None):
+        super().__init__(parent)
+        self.packages = packages
+
+    def run(self):
+        self.ready.emit({name: inspect_package(name) for name in self.packages})
+
+
+class TaskThread(QThread):
+    done = pyqtSignal(bool, str)
+
+    def __init__(self, argv, cwd=None, parent=None):
+        super().__init__(parent)
+        self.argv = argv
+        self.cwd = cwd
+
+    def run(self):
+        try:
+            proc = subprocess.run(self.argv, cwd=self.cwd, stdin=subprocess.DEVNULL,
+                                  stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                  text=True, encoding='utf-8', errors='replace',
+                                  timeout=900, check=False)
+            message = proc.stdout[-5000:]
+            self.done.emit(proc.returncode == 0, message or ('Готово' if proc.returncode == 0 else 'Операция отменена или завершилась с ошибкой'))
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            self.done.emit(False, type(exc).__name__)
+
+
+class DriverCenter(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle('NOVA Driver Center · Official Sources')
+        ui.setup_window(self, size=(1080, 800), app_id='nova-driver-center')
+        self.report = None
+        self.scan_worker = None
+        self.package_worker = None
+        self.task_worker = None
+        self.firmware_worker = None
+        self.gpu_worker = None
+        self.history_worker = None
+        self.policy = {}
+        self.proposed = []
+        main = QWidget()
+        layout = QVBoxLayout(main)
+        layout.setContentsMargins(24, 18, 24, 18)
+        title = QLabel('NOVA  /  DRIVER CENTER')
+        title.setObjectName('brand')
+        layout.addWidget(title)
+        info = QLabel('Проверка оборудования → подбор пакетов → скачивание из официальных подписанных репозиториев Debian → установка только по подтверждению. NVIDIA проверяется отдельно.')
+        info.setWordWrap(True)
+        layout.addWidget(info)
+        self.status = QLabel('Проверяю устройства…')
+        layout.addWidget(self.status)
+
+        self.tabs = QTabWidget()
+        layout.addWidget(self.tabs, 1)
+        self.hardware = QTextEdit(); self.hardware.setReadOnly(True)
+        self.tabs.addTab(self.hardware, 'Оборудование')
+        self.recommendations = QTextEdit(); self.recommendations.setReadOnly(True)
+        self.tabs.addTab(self.recommendations, 'Рекомендации')
+
+        gpu_tab = QWidget()
+        gpu_layout = QVBoxLayout(gpu_tab)
+        gpu_intro = QLabel('Проверка NVIDIA / AMD / Intel и Secure Boot. В целях безопасности установка NVIDIA не производится автоматически.')
+        gpu_intro.setWordWrap(True)
+        gpu_layout.addWidget(gpu_intro)
+        self.gpu_output = QTextEdit(); self.gpu_output.setReadOnly(True)
+        gpu_layout.addWidget(self.gpu_output, 1)
+        gpu_button = QPushButton('Повторить проверку GPU и Secure Boot')
+        gpu_button.clicked.connect(self.start_gpu_scan)
+        gpu_layout.addWidget(gpu_button)
+        self.tabs.addTab(gpu_tab, 'Безопасность GPU')
+
+        package_tab = QWidget()
+        package_layout = QVBoxLayout(package_tab)
+        self.pkg_title = QLabel('Подбор пакетов по PCI-оборудованию. Не все устройства требуют отдельной прошивки.')
+        self.pkg_title.setWordWrap(True)
+        package_layout.addWidget(self.pkg_title)
+        self.packages = QListWidget()
+        package_layout.addWidget(self.packages, 1)
+        actions = QHBoxLayout()
+        package_layout.addLayout(actions)
+        self.update_btn = QPushButton('Обновить каталог Debian')
+        self.update_btn.clicked.connect(self.refresh_packages)
+        actions.addWidget(self.update_btn)
+        self.download_btn = QPushButton('Скачать выбранные .deb')
+        self.download_btn.clicked.connect(self.download_selected)
+        actions.addWidget(self.download_btn)
+        self.install_btn = QPushButton('Автоустановка выбранных')
+        self.install_btn.clicked.connect(self.install_selected)
+        actions.addWidget(self.install_btn)
+        self.pkg_output = QTextEdit()
+        self.pkg_output.setReadOnly(True)
+        self.pkg_output.setMaximumHeight(145)
+        package_layout.addWidget(self.pkg_output)
+        self.tabs.addTab(package_tab, 'Скачать и установить')
+
+        vendor_tab = QWidget()
+        vendor_layout = QVBoxLayout(vendor_tab)
+        vendor_text = QLabel('Официальные сайты производителей. Скачанные оттуда .run, .exe и сторонние .deb НЕ устанавливаются автоматически. Для NVIDIA сначала требуется проверка ядра, Secure Boot и версии драйвера.')
+        vendor_text.setWordWrap(True)
+        vendor_layout.addWidget(vendor_text)
+        vendor_row = QHBoxLayout()
+        vendor_layout.addLayout(vendor_row)
+        self.vendor_select = QComboBox()
+        vendor_row.addWidget(self.vendor_select, 1)
+        self.vendor_button = QPushButton('Открыть официальный сайт')
+        self.vendor_button.clicked.connect(self.open_vendor)
+        vendor_row.addWidget(self.vendor_button)
+        self.firmware_button = QPushButton('Проверить прошивки через fwupd')
+        self.firmware_button.clicked.connect(self.check_firmware)
+        vendor_layout.addWidget(self.firmware_button)
+        self.vendor_output = QTextEdit(); self.vendor_output.setReadOnly(True)
+        vendor_layout.addWidget(self.vendor_output, 1)
+        self.tabs.addTab(vendor_tab, 'Сайты и прошивки')
+
+        manual = QTextEdit(); manual.setReadOnly(True)
+        manual.setPlainText(
+            'ПЕРЕД УСТАНОВКОЙ\n\n'
+            '□ Подключите зарядку и обеспечьте интернет\n'
+            '□ Сделайте резервную копию важных данных\n'
+            '□ Проверьте текущий драйвер, ядро Linux и Secure Boot\n'
+            '□ Для NVIDIA используйте подходящий драйвер с поддержкой вашего ядра\n'
+            '□ При проблемах Wi-Fi воспользуйтесь Ethernet/USB-модемом\n'
+            '□ Установка пакетов не выполняется в Live USB\n'
+            '□ После установки проверьте Wi-Fi, звук, экран, сон и Bluetooth\n\n'
+            'Доступность пакета не гарантирует совместимость с конкретной моделью ноутбука.\n'
+            'Обновления BIOS не запускаются автоматически через эту панель.')
+        self.tabs.addTab(manual, 'Чек-лист')
+
+        history_tab = QWidget()
+        history_layout = QVBoxLayout(history_tab)
+        history_info = QLabel('Перед каждой установкой NOVA сохраняет root-доступный журнал APT и список пакетов. Это НЕ полноценный снимок файловой системы и НЕ автоматический откат.')
+        history_info.setWordWrap(True)
+        history_layout.addWidget(history_info)
+        self.history_output = QTextEdit(); self.history_output.setReadOnly(True)
+        self.history_output.setPlainText('Журнал доступен после первого изменения. Нужны права администратора для просмотра.')
+        history_layout.addWidget(self.history_output, 1)
+        hist_row = QHBoxLayout()
+        history_layout.addLayout(hist_row)
+        history_button = QPushButton('История установок')
+        history_button.clicked.connect(self.show_history)
+        hist_row.addWidget(history_button)
+        snap_button = QPushButton('Открыть Timeshift')
+        snap_button.clicked.connect(lambda: self.launch('timeshift-gtk'))
+        hist_row.addWidget(snap_button)
+        self.tabs.addTab(history_tab, 'Восстановление')
+
+        bottom = QHBoxLayout()
+        layout.addLayout(bottom)
+        self.scan_btn = QPushButton('Проверить устройства')
+        self.scan_btn.clicked.connect(self.start_audit)
+        bottom.addWidget(self.scan_btn)
+        self.save_btn = QPushButton('Сохранить отчёт')
+        self.save_btn.setEnabled(False)
+        self.save_btn.clicked.connect(self.save_report)
+        bottom.addWidget(self.save_btn)
+        self.more_button(bottom, 'NOVA Health', 'nova-health')
+        self.more_button(bottom, 'Центр обновлений', 'nova-update-center')
+        footer = QLabel('Драйверы: только доверенные пакеты APT; обновление BIOS/UEFI вручную. Изменения требуют согласия и прав администратора.')
+        footer.setWordWrap(True)
+        layout.addWidget(footer)
+        self.setCentralWidget(main)
+        self.setStyleSheet(load_nova_stylesheet())
+        self.start_audit()
+        self.start_gpu_scan()
+
+    def start_gpu_scan(self):
+        if self.gpu_worker and self.gpu_worker.isRunning():
+            return
+        self.gpu_output.setPlainText('Проверка ядра, GPU, Secure Boot и DKMS…')
+        self.gpu_worker = GPUThread(self)
+        self.gpu_worker.ready.connect(self.gpu_output.setPlainText)
+        self.gpu_worker.start()
+
+    def show_history(self):
+        if self.history_worker and self.history_worker.isRunning():
+            return
+        self.history_output.setPlainText('Чтение root-журнала…')
+        self.history_worker = TaskThread(['pkexec', ADMIN, 'history'], parent=self)
+        self.history_worker.done.connect(lambda ok, msg: self.history_output.setPlainText(
+            msg if ok and msg.strip() else ('История пуста.' if ok else 'Нет доступа или операция отменена.')))
+        self.history_worker.start()
+
+    def more_button(self, row, label, program):
+        button = QPushButton(label)
+        button.clicked.connect(lambda: self.launch(program))
+        row.addWidget(button)
+
+    def launch(self, program):
+        if not shutil.which(program):
+            QMessageBox.warning(self, 'NOVA', f'Приложение {program} отсутствует')
+            return
+        try:
+            subprocess.Popen([program], start_new_session=True)
+        except OSError:
+            QMessageBox.warning(self, 'NOVA', 'Не удалось запустить приложение')
+
+    def start_audit(self):
+        if self.scan_worker and self.scan_worker.isRunning():
+            return
+        self.scan_btn.setEnabled(False)
+        self.status.setText('Читаю данные об оборудовании…')
+        self.scan_worker = AuditThread(self)
+        self.scan_worker.ready.connect(self.show_results)
+        self.scan_worker.failed.connect(lambda msg: self.status.setText(msg))
+        self.scan_worker.finished.connect(lambda: self.scan_btn.setEnabled(True))
+        self.scan_worker.start()
+
+    def show_results(self, report):
+        self.report = report
+        self.hardware.setPlainText(format_report({**report, 'recommendations': []}))
+        self.recommendations.setPlainText('\n\n'.join(f'{i}. {line}' for i, line in enumerate(report['recommendations'], 1)))
+        self.status.setText(f"Проверка завершена · PCI-устройств: {len(report['devices'])}")
+        self.save_btn.setEnabled(True)
+        self.proposed = infer_from_devices(report['devices'])
+        pages = vendor_pages(report['devices'])
+        self.vendor_select.clear()
+        for vendor, url in pages.items():
+            self.vendor_select.addItem(vendor, userData=url)
+        self.show_packages()
+        self.tabs.setCurrentIndex(3)
+        self.start_policy_scan()
+
+    def show_packages(self):
+        self.packages.clear()
+        for entry in self.proposed:
+            pkg = entry['package']
+            item = QListWidgetItem(f'{SAFE_PACKAGES[pkg]} · {pkg}\n{entry["reason"]}')
+            item.setData(Qt.ItemDataRole.UserRole, pkg)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(Qt.CheckState.Unchecked)
+            self.packages.addItem(item)
+        if not self.proposed:
+            self.pkg_title.setText('Не удалось подобрать безопасные пакеты. Это не означает отсутствие драйверов. Проверьте оборудование и сайты производителей.')
+        else:
+            self.pkg_title.setText('Отметьте нужные пакеты. NOVA проверит версию и источник каждого пакета перед скачиванием.')
+        self.update_action_buttons()
+
+    def start_policy_scan(self):
+        packages = [e['package'] for e in self.proposed]
+        if not packages:
+            return
+        self.package_worker = PackageThread(packages, self)
+        self.package_worker.ready.connect(self.policy_ready)
+        self.package_worker.start()
+
+    def policy_ready(self, results):
+        self.policy = results
+        for index in range(self.packages.count()):
+            item = self.packages.item(index)
+            result = results.get(item.data(Qt.ItemDataRole.UserRole), {})
+            label = item.text().split('\n')[0]
+            if result.get('verified'):
+                item.setText(f'{label}\nИсточник: Debian, версия {result["candidate"]} · проверен')
+            else:
+                item.setText(f'{label}\nНе подтверждён: {result.get("error", "нет кандидата")}')
+        self.update_action_buttons()
+        self.pkg_output.setPlainText('Кандидаты проверены. Пакеты с неподтверждённым источником нельзя скачать или установить автоматически.')
+
+    def selected(self):
+        packages = []
+        for i in range(self.packages.count()):
+            item = self.packages.item(i)
+            if item.checkState() == Qt.CheckState.Checked:
+                packages.append(item.data(Qt.ItemDataRole.UserRole))
+        return validate_selection(packages)
+
+    def update_action_buttons(self):
+        busy = self.task_worker is not None and self.task_worker.isRunning()
+        self.download_btn.setEnabled(not busy and bool(self.proposed))
+        self.install_btn.setEnabled(not busy and bool(self.proposed))
+        self.update_btn.setEnabled(not busy)
+
+    def checked_verified(self):
+        try:
+            names = self.selected()
+        except ValueError as error:
+            QMessageBox.warning(self, 'NOVA Driver Center', str(error))
+            return None
+        unverified = [name for name in names if not self.policy.get(name, {}).get('verified')]
+        if unverified:
+            QMessageBox.warning(self, 'NOVA Driver Center', 'Не подтверждён официальный источник: ' + ', '.join(unverified))
+            return None
+        return names
+
+    def run_task(self, argv, action, cwd=None):
+        if self.task_worker and self.task_worker.isRunning():
+            return
+        self.pkg_output.setPlainText('Выполняется: ' + action)
+        self.task_worker = TaskThread(argv, cwd, self)
+        self.task_worker.done.connect(lambda ok, message: self.task_finished(ok, message))
+        self.task_worker.finished.connect(self.update_action_buttons)
+        self.task_worker.start()
+        self.update_action_buttons()
+
+    def task_finished(self, ok, message):
+        self.pkg_output.setPlainText(('Успешно' if ok else 'Операция не выполнена') + '\n' + message)
+        self.status.setText('Готово' if ok else 'Ошибка или отмена действия')
+        if ok and self.report:
+            self.start_policy_scan()
+
+    def refresh_packages(self):
+        if QMessageBox.question(self, 'Обновить каталог?', 'NOVA выполнит apt-get update для настроенных репозиториев. Продолжить?') != QMessageBox.StandardButton.Yes:
+            return
+        self.run_task(['pkexec', ADMIN, 'refresh'], 'обновление индекса APT')
+
+    def download_selected(self):
+        names = self.checked_verified()
+        if not names:
+            return
+        folder = Path.home() / 'Downloads' / 'NOVA-Drivers'
+        try:
+            folder.mkdir(mode=0o700, parents=True, exist_ok=True)
+        except OSError:
+            QMessageBox.warning(self, 'NOVA', 'Не удалось создать папку для загрузок')
+            return
+        if QMessageBox.question(self, 'Скачать подписанные пакеты?',
+            'Источники Debian подтверждены для:\n' + '\n'.join(names) + '\n\nПакеты будут скачаны в ' + str(folder)) != QMessageBox.StandardButton.Yes:
+            return
+        self.run_task(['apt-get', 'download', '--', *names], 'скачивание .deb в NOVA-Drivers', cwd=str(folder))
+
+    def install_selected(self):
+        names = self.checked_verified()
+        if not names:
+            return
+        if QMessageBox.question(self, 'Подтвердить автоустановку',
+            'Установить следующие пакеты через подписанные источники APT?\n\n' + '\n'.join(names) +
+            '\n\nПотребуются права администратора. Возможна перезагрузка. Системные пакеты нельзя удалять в процессе.') != QMessageBox.StandardButton.Yes:
+            return
+        self.run_task(['pkexec', ADMIN, 'install', *names], 'установка официальных пакетов')
+
+    def open_vendor(self):
+        url = self.vendor_select.currentData()
+        if url in OFFICIAL_VENDOR_URLS.values():
+            QDesktopServices.openUrl(QUrl(url))
+
+    def check_firmware(self):
+        if not shutil.which('fwupdmgr'):
+            self.vendor_output.setPlainText('fwupd не обнаружен')
+            return
+        # Read-only query. Flashing is deliberately not automated.
+        self.vendor_output.setPlainText('Запрос доступных прошивок…')
+        if self.firmware_worker and self.firmware_worker.isRunning():
+            return
+        self.firmware_worker = TaskThread(['fwupdmgr', 'get-updates'], parent=self)
+        self.firmware_worker.done.connect(lambda ok, message: self.vendor_output.setPlainText(message))
+        self.firmware_worker.start()
+
+    def save_report(self):
+        if self.report is None:
+            return
+        file_name, _ = QFileDialog.getSaveFileName(self, 'Сохранить отчёт', str(Path.home() / 'NOVA-Drivers-Report.json'), 'JSON (*.json)')
+        if file_name:
+            try:
+                path = export_report(self.report, file_name)
+                self.status.setText('Отчёт сохранён: ' + path.name)
+            except (OSError, ValueError) as error:
+                QMessageBox.warning(self, 'NOVA', str(error))
+
+
+def main():
+    app = QApplication(sys.argv)
+    app.setApplicationName('NOVA Driver Center')
+    window = DriverCenter()
+    window.show()
+    return app.exec()
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

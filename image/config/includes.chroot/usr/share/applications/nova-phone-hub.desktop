@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=NOVA Phone Hub
+Comment=Android phone via USB Wi-Fi and KDE Connect
+Exec=/usr/local/bin/nova-phone-hub
+Icon=nova
+Categories=Settings;Utility;
+Terminal=false

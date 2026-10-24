@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+"""NOVA Health — diagnostics with no implicit network traffic or privileged writes."""
+import sys
+from pathlib import Path
+from PyQt6.QtWidgets import (QApplication,QMainWindow,QWidget,QVBoxLayout,QHBoxLayout,
+    QLabel,QTextEdit,QPushButton,QFileDialog,QMessageBox,QCheckBox)
+from nova_health_core import gather,render_report
+from nova_theme import load_nova_stylesheet
+import nova_ui as ui
+
+class Health(QMainWindow):
+    def __init__(self):
+        super().__init__();self.setWindowTitle('NOVA Health — проверка ноутбука')
+        ui.setup_window(self, size=(920, 660), app_id='nova-health')
+        w=QWidget();v=QVBoxLayout(w);v.setContentsMargins(24,20,24,20)
+        t=QLabel('NOVA  /  HEALTH');t.setObjectName('brand');v.addWidget(t)
+        message=QLabel('Проверка подключённых компонентов без изменений системы. Драйвер может быть обнаружен, но не работать — тестируйте оборудование лично.')
+        message.setWordWrap(True);v.addWidget(message)
+        self.report=QTextEdit();self.report.setReadOnly(True);v.addWidget(self.report,1)
+        self.redact=QCheckBox('Скрывать домашнюю папку, IP-адреса и MAC-адреса в отчёте');self.redact.setChecked(True)
+        v.addWidget(self.redact)
+        row=QHBoxLayout();v.addLayout(row)
+        b=QPushButton('Проверить снова');b.clicked.connect(self.refresh);row.addWidget(b)
+        b=QPushButton('Экспорт отчёта…');b.clicked.connect(self.export);row.addWidget(b)
+        b=QPushButton('Диагностика перед установкой');b.clicked.connect(self.preflight);row.addWidget(b)
+        self.setCentralWidget(w);self.setStyleSheet(load_nova_stylesheet())
+        self.results=[];self.refresh()
+    def refresh(self):
+        self.results=gather()
+        self.report.setPlainText(render_report(self.results,private=self.redact.isChecked()))
+    def export(self):
+        file,_=QFileDialog.getSaveFileName(self,'Сохранить отчёт',str(Path.home()/'nova-health-report.txt'),'Текстовые файлы (*.txt)')
+        if not file:return
+        path=Path(file)
+        if path.exists():
+            QMessageBox.warning(self,'Безопасность','Файл уже существует. Выберите новое имя, чтобы не перезаписывать данные.');return
+        try:
+            with path.open('x',encoding='utf-8') as fp:
+                fp.write(render_report(self.results,private=self.redact.isChecked()))
+        except OSError as exc:QMessageBox.warning(self,'Ошибка',str(exc));return
+        QMessageBox.information(self,'NOVA','Сохранено локально. Даже после скрытия данных проверьте отчёт перед отправкой.')
+    def preflight(self):
+        import subprocess
+        try: subprocess.Popen(['nova-preflight'],start_new_session=True)
+        except OSError as exc: QMessageBox.warning(self,'NOVA',str(exc))
+
+def main():
+    app=QApplication(sys.argv);w=Health();w.show();return app.exec()
+if __name__=='__main__':raise SystemExit(main())

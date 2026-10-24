@@ -1,0 +1,85 @@
+#!/usr/bin/env python3
+"""NOVA Welcome: transparent opt-in launcher, not a silent installer."""
+import argparse
+import shutil
+import subprocess
+import sys
+from PyQt6.QtWidgets import (QApplication,QMainWindow,QWidget,QVBoxLayout,QHBoxLayout,
+    QLabel,QPushButton,QMessageBox)
+from nova_first_run_core import is_complete,mark_complete
+from nova_health_core import has_live_boot
+from nova_theme import load_nova_stylesheet
+import nova_ui as ui
+
+PAGES = (
+    ('Добро пожаловать в NOVA OS',
+     'Настройка без телеметрии, облачного аккаунта или принудительной установки приложений.',
+     [('NOVA Control — все настройки','nova-control')]),
+    ('Проверка оборудования',
+     'Убедитесь, что работают сеть, звук, дисплей, Bluetooth и видеокарта. Автоматическая диагностика не заменяет реальную проверку.',
+     [('Проверить компоненты','nova-driver-center'),('Проверка перед установкой','nova-preflight')]),
+    ('Внешний вид',
+     'Светлая или тёмная тема NOVA Air и режим рабочего стола: Windows-like (панель снизу по центру), '
+     'Dock-like (верхняя строка и док) или Hybrid. Прежняя раскладка сохраняется, вернуть KDE по умолчанию можно в любой момент.',
+     [('Персонализация NOVA','nova-personalize'),
+      ('Светлая тема',('nova-layout','theme','light')),('Тёмная тема',('nova-layout','theme','dark')),
+      ('Режим Windows-like',('nova-layout','apply','windows')),('Режим Dock-like',('nova-layout','apply','dock')),
+      ('Режим Hybrid',('nova-layout','apply','hybrid'))]),
+    ('Экран и клавиатура',
+     'Частота обновления (Гц) и второй монитор, горячие клавиши как в Windows (Win+↑, Win+Tab, Win+Shift+S, '
+     'Ctrl+Shift+Esc) и мультимедийные клавиши с шагом громкости 2 %.',
+     [('Дисплеи и частота','nova-display'),('Максимальная частота экрана',('nova-display','max-hz')),
+      ('Горячие клавиши','nova-hotkeys'),('Сочетания как в Windows',('nova-hotkeys','apply'))]),
+    ('Приложения и перенос данных',
+     'Windows-программы запускаются через совместимость, без гарантий для каждого приложения. Мастер импорта НЕ удаляет данные Windows.',
+     [('Windows-программы','nova-open-windows'),('Импорт из Windows','nova-migration')]),
+    ('Игры и телефон',
+     'Steam и Android-совместимость подключаются добровольно. Установка компонентов может потребовать Интернет.',
+     [('Игровой режим','nova-gaming'),('Дублирование Android','nova-phone-hub'),('Android-приложения','nova-android-hub')]),
+    ('Звуки, защита, восстановление',
+     'Выберите свои звуки зарядки, проверьте брандмауэр и создавайте резервные копии до опасных изменений.',
+     [('Звуки NOVA','nova-sound-studio'),('NOVA Defender','nova-defender')]),
+)
+
+class Welcome(QMainWindow):
+    def __init__(self):
+        super().__init__();self.setWindowTitle('NOVA OS — первый запуск')
+        ui.setup_window(self, size=(850, 560), app_id='nova-first-run');self.index=0
+        root=QWidget();v=QVBoxLayout(root);v.setContentsMargins(30,25,30,25)
+        self.title=QLabel();self.title.setObjectName('brand');v.addWidget(self.title)
+        self.progress=QLabel();v.addWidget(self.progress)
+        self.description=QLabel();self.description.setWordWrap(True);v.addWidget(self.description)
+        self.actions=QVBoxLayout();v.addLayout(self.actions);v.addStretch()
+        row=QHBoxLayout();v.addLayout(row)
+        self.back=QPushButton('Назад');self.back.clicked.connect(self.go_back);row.addWidget(self.back)
+        self.next=QPushButton('Дальше');self.next.clicked.connect(self.go_next);row.addWidget(self.next)
+        self.setCentralWidget(root);self.setStyleSheet(load_nova_stylesheet());self.draw()
+    def draw(self):
+        while self.actions.count():
+            item=self.actions.takeAt(0)
+            if item.widget():item.widget().deleteLater()
+        title,desc,buttons=PAGES[self.index]
+        self.title.setText(title);self.description.setText(desc)
+        self.progress.setText(f'Шаг {self.index+1} из {len(PAGES)} · действия необязательны')
+        for text,program in buttons:
+            b=QPushButton(text);b.clicked.connect(lambda _,p=program:self.open(p));self.actions.addWidget(b)
+        self.back.setEnabled(self.index>0)
+        self.next.setText('Готово' if self.index==len(PAGES)-1 else 'Дальше')
+    def open(self,program):
+        argv=list(program) if isinstance(program,(tuple,list)) else [program]
+        if not shutil.which(argv[0]):
+            QMessageBox.warning(self,'NOVA',f'Компонент недоступен: {argv[0]}');return
+        try:subprocess.Popen(argv,start_new_session=True)
+        except OSError as exc:QMessageBox.warning(self,'NOVA',str(exc))
+    def go_back(self):self.index-=1;self.draw()
+    def go_next(self):
+        if self.index<len(PAGES)-1:self.index+=1;self.draw();return
+        try:mark_complete()
+        except OSError as exc:QMessageBox.warning(self,'NOVA',str(exc));return
+        self.close()
+
+def main():
+    parser=argparse.ArgumentParser();parser.add_argument('--auto',action='store_true');args=parser.parse_args()
+    if args.auto and (has_live_boot() or is_complete()):return 0
+    app=QApplication(sys.argv);w=Welcome();w.show();return app.exec()
+if __name__=='__main__':raise SystemExit(main())

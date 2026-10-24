@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Auditable privileged actions. All input validated; no arbitrary paths or shell execution.
+set -Eeuo pipefail
+if (( EUID != 0 )); then echo 'Нужны права администратора.' >&2; exit 1; fi
+if (( $# < 1 || $# > 2 )); then echo 'nova-admin ACTION [NAME]' >&2; exit 2; fi
+case "$1" in
+  firewall-on)
+    [[ $# == 1 ]] || exit 2
+    ufw default deny incoming && ufw default allow outgoing && ufw --force enable
+    ufw status verbose ;;
+  firewall-off)
+    [[ $# == 1 ]] || exit 2
+    ufw --force disable && ufw status verbose ;;
+  firewall-status)
+    [[ $# == 1 ]] || exit 2
+    ufw status verbose ;;
+  clean-cache)
+    [[ $# == 1 ]] || exit 2
+    apt-get clean
+    echo 'Кэш APT очищен. Пользовательские файлы не затронуты.' ;;
+  remove-apt)
+    [[ $# == 2 ]] || exit 2
+    pkg="$2"
+    [[ "$pkg" =~ ^[a-z0-9][a-z0-9+.-]*(:[a-z0-9]+)?$ ]] || { echo 'Недопустимое имя пакета.' >&2; exit 2; }
+    case "$pkg" in
+      systemd*|linux-image*|linux-base*|apt|dpkg|sudo|polkit*|network-manager*|plasma-*|kwin*|sddm*|calamares*|libc6*|libgcc*|python3*|nova-*)
+        echo 'Этот системный компонент защищён от удаления через NOVA Uninstaller.' >&2; exit 2 ;;
+    esac
+    dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -qx 'install ok installed' || {
+      echo 'Пакет не установлен.' >&2; exit 2; }
+    simulation="$(LC_ALL=C apt-get -s purge -- "$pkg")"
+    printf '%s\n' "$simulation"
+    # Block if dependency resolution would remove any other package.
+    removals="$(printf '%s\n' "$simulation" | grep -E '^(Remv|Purg) ' | wc -l)"
+    [[ "$removals" -eq 1 ]] || { echo 'Отмена: операция затрагивает дополнительные пакеты.' >&2; exit 3; }
+    DEBIAN_FRONTEND=noninteractive apt-get -y purge -- "$pkg" ;;
+  remove-flatpak-system)
+    [[ $# == 2 ]] || exit 2
+    app="$2"
+    [[ "$app" =~ ^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)+$ ]] || { echo 'Некорректный идентификатор Flatpak.' >&2; exit 2; }
+    flatpak uninstall --system --noninteractive --delete-data "$app" ;;
+  *) echo 'Неизвестное или запрещённое административное действие.' >&2; exit 2 ;;
+esac

@@ -1,0 +1,8 @@
+# NOVA OS: English + Russian, Alt+Shift switches layout
+[Layout]
+LayoutList=us,ru
+Options=grp:alt_shift_toggle
+ResetOldOptions=true
+Use=true
+DisplayNames=,
+VariantList=,

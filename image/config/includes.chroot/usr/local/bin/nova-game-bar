@@ -1,0 +1,187 @@
+#!/usr/bin/env python3
+"""NOVA Game Bar (Win+G) — a small always-on-top panel for games and streaming.
+
+Live CPU / RAM / temperature / battery, power profile, volume and microphone,
+screenshot and screen recording (Spectacle), GameMode/MangoHud status and
+Steam Big Picture. Only user-level commands (wpctl, powerprofilesctl,
+spectacle); nothing is overclocked and no protection is disabled.
+"""
+import shutil
+import subprocess
+import sys
+
+import nova_ui as ui
+from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtGui import QKeySequence, QShortcut
+from PyQt6.QtWidgets import (QApplication, QGridLayout, QHBoxLayout, QLabel, QMainWindow, QSlider,
+                             QVBoxLayout, QWidget)
+
+try:
+    import psutil
+except ImportError:  # psutil is in the image; keep the bar usable without it
+    psutil = None
+
+
+def run(argv, timeout=6):
+    if not shutil.which(argv[0]):
+        return 127, ''
+    try:
+        p = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, check=False)
+        return p.returncode, (p.stdout + p.stderr).strip()
+    except (OSError, subprocess.TimeoutExpired):
+        return 124, ''
+
+
+def spawn(argv):
+    if shutil.which(argv[0]):
+        subprocess.Popen(argv, start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return True
+    return False
+
+
+def cpu_temperature():
+    if psutil is None or not hasattr(psutil, 'sensors_temperatures'):
+        return None
+    try:
+        temps = psutil.sensors_temperatures()
+    except (OSError, AttributeError):
+        return None
+    for key in ('k10temp', 'coretemp', 'zenpower', 'cpu_thermal', 'acpitz'):
+        for entry in temps.get(key, []):
+            if entry.current:
+                return entry.current
+    return None
+
+
+def volume_percent():
+    code, out = run(['wpctl', 'get-volume', '@DEFAULT_AUDIO_SINK@'])
+    try:
+        return round(float(out.split()[1]) * 100) if code == 0 else None
+    except (IndexError, ValueError):
+        return None
+
+
+class GameBar(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        ui.setup_window(self, 'NOVA Game Bar', size=(560, 470), minimum=(360, 380), app_id='nova-game-bar')
+        self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, True)
+        root = QWidget()
+        v = QVBoxLayout(root)
+        v.setContentsMargins(16, 12, 16, 12)
+        v.addWidget(ui.header('Game Bar', 'Win+G — открыть/закрыть · Esc — скрыть'))
+
+        frame, box = ui.card('Производительность', '')
+        grid = QGridLayout()
+        self.values = {}
+        for i, (key, title) in enumerate((('cpu', 'Процессор'), ('ram', 'Память'), ('temp', 'Температура CPU'),
+                                          ('bat', 'Батарея'))):
+            label = QLabel(title)
+            label.setObjectName('description')
+            value = QLabel('—')
+            value.setObjectName('heading')
+            grid.addWidget(label, (i // 2) * 2, i % 2)
+            grid.addWidget(value, (i // 2) * 2 + 1, i % 2)
+            self.values[key] = value
+        box.addLayout(grid)
+        row = QHBoxLayout()
+        for caption, profile in (('Тихо', 'power-saver'), ('Баланс', 'balanced'), ('Максимум', 'performance')):
+            row.addWidget(ui.make_button(caption, lambda _c=False, p=profile: self.profile(p), 'nav'))
+        box.addLayout(row)
+        self.profile_label = QLabel('')
+        self.profile_label.setObjectName('description')
+        box.addWidget(self.profile_label)
+        v.addWidget(frame)
+
+        frame, box = ui.card('Звук', '')
+        row = QHBoxLayout()
+        self.volume = QSlider(Qt.Orientation.Horizontal)
+        self.volume.setRange(0, 100)
+        self.volume.setAccessibleName('Громкость')
+        vol = volume_percent()
+        self.volume.setValue(vol if vol is not None else 50)
+        self.volume.sliderReleased.connect(self.set_volume)
+        row.addWidget(QLabel('Громкость'))
+        row.addWidget(self.volume, 1)
+        row.addWidget(ui.make_button('Микрофон вкл/выкл', lambda: self.toggle_mic()))
+        box.addLayout(row)
+        v.addWidget(frame)
+
+        frame, box = ui.card('Захват и игры', '')
+        row = QHBoxLayout()
+        row.addWidget(ui.make_button('Снимок области', lambda: spawn(['spectacle', '--region'])))
+        row.addWidget(ui.make_button('Запись экрана', lambda: spawn(['spectacle', '--launchonly'])))
+        row.addWidget(ui.make_button('Steam Big Picture', lambda: spawn(['steam', '-bigpicture'])
+                                     or self.note('Steam не установлен: NOVA Gaming → установка.')))
+        box.addLayout(row)
+        self.status = QLabel('')
+        self.status.setObjectName('description')
+        self.status.setWordWrap(True)
+        box.addWidget(self.status)
+        v.addWidget(frame)
+        self.setCentralWidget(root)
+
+        QShortcut(QKeySequence('Escape'), self, activated=self.close)
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.refresh)
+        self.timer.start(1500)
+        if psutil is not None:
+            psutil.cpu_percent(interval=None)
+        self.refresh()
+        self.game_status()
+
+    def note(self, text):
+        self.status.setText(text)
+
+    def refresh(self):
+        if psutil is not None:
+            self.values['cpu'].setText(f'{psutil.cpu_percent(interval=None):.0f} %')
+            mem = psutil.virtual_memory()
+            self.values['ram'].setText(f'{mem.used / 1024 ** 3:.1f} / {mem.total / 1024 ** 3:.1f} ГБ')
+            try:
+                bat = psutil.sensors_battery()
+            except (OSError, AttributeError):
+                bat = None
+            self.values['bat'].setText('нет' if bat is None else
+                                       f"{bat.percent:.0f} %{' ⚡' if bat.power_plugged else ''}")
+        temp = cpu_temperature()
+        self.values['temp'].setText('—' if temp is None else f'{temp:.0f} °C')
+        code, out = run(['powerprofilesctl', 'get'])
+        self.profile_label.setText('Профиль питания: ' + (out if code == 0 else 'недоступен'))
+
+    def profile(self, name):
+        if name == 'performance' and not ui.confirm(self, 'Максимальная производительность',
+                                                    'Ноутбук будет сильнее греться и быстрее разряжаться. Включить?'):
+            return
+        code, out = run(['powerprofilesctl', 'set', name])
+        self.note('Профиль изменён.' if code == 0 else f'Профиль не поддерживается: {out[:120]}')
+        self.refresh()
+
+    def set_volume(self):
+        code, _ = run(['wpctl', 'set-volume', '@DEFAULT_AUDIO_SINK@', f'{self.volume.value()}%'])
+        if code != 0:
+            self.note('Не удалось изменить громкость (PipeWire недоступен).')
+
+    def toggle_mic(self):
+        code, _ = run(['wpctl', 'set-mute', '@DEFAULT_AUDIO_SOURCE@', 'toggle'])
+        self.note('Микрофон переключён.' if code == 0 else 'Микрофон не найден.')
+
+    def game_status(self):
+        parts = []
+        code, out = run(['gamemoded', '-s'])
+        parts.append('GameMode: ' + ('активен' if 'is active' in out else 'ожидает игру' if code == 0 else 'не найден'))
+        parts.append('MangoHud: ' + ('установлен — запуск игры: mangohud %command%, Shift+F12 скрывает оверлей'
+                                     if shutil.which('mangohud') else 'не найден'))
+        self.note(' · '.join(parts))
+
+
+def main():
+    app = QApplication(sys.argv)
+    app.setApplicationName('NOVA Game Bar')
+    w = GameBar()
+    w.show()
+    return app.exec()
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

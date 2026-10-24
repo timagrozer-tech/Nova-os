@@ -1,0 +1,229 @@
+#!/usr/bin/env python3
+"""NOVA Migration: user-chosen read-only Windows profile to new local Linux folder."""
+import subprocess
+import sys
+import threading
+from pathlib import Path
+
+from PyQt6.QtCore import QThread, QObject, pyqtSignal
+from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
+    QHBoxLayout, QLabel, QPushButton, QFileDialog, QTextEdit, QCheckBox,
+    QMessageBox, QFrame, QScrollArea)
+from nova_migrate_core import CATEGORIES, DEFAULT_SELECTION, migrate, plausible_windows_profile
+from nova_theme import load_nova_stylesheet
+import nova_ui as ui
+
+
+class CopyWorker(QObject):
+    progress = pyqtSignal(str)
+    finished = pyqtSignal(object)
+    failed = pyqtSignal(str)
+
+    def __init__(self, profile, choices, destination, extra):
+        super().__init__()
+        self.profile, self.choices, self.destination, self.extra = profile, choices, destination, extra
+        self.stop_event = threading.Event()
+
+    def run(self):
+        try:
+            result = migrate(self.profile, self.choices, self.destination, self.extra,
+                             progress=self.progress.emit, cancelled=self.stop_event.is_set)
+            self.finished.emit(result)
+        except Exception as exc:
+            self.failed.emit(f'{type(exc).__name__}: {exc}')
+
+
+class MigrationWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle('NOVA Migration · перенос данных из Windows')
+        ui.setup_window(self, size=(1040, 790), app_id='nova-migration')
+        self.profile = None
+        self.extra = None
+        self.thread = None
+        self.worker = None
+        root = QWidget()
+        layout = QVBoxLayout(root)
+        layout.setContentsMargins(22, 18, 22, 18)
+        title = QLabel('NOVA  /  MIGRATION')
+        title.setObjectName('brand')
+        layout.addWidget(title)
+        desc = QLabel('Переносите только то, что выбрали. Данные Windows не изменяются и не удаляются. '
+                      'Мастер не использует права администратора.')
+        desc.setWordWrap(True)
+        layout.addWidget(desc)
+        row = QHBoxLayout()
+        layout.addLayout(row, 1)
+        left = QFrame()
+        left.setObjectName('card')
+        l = QVBoxLayout(left)
+        l.addWidget(QLabel('1. Профиль пользователя Windows'))
+        info = QLabel('В Dolphin откройте раздел Windows и выберите папку Users / имя_пользователя. '
+                      'Если диск зашифрован BitLocker, сначала разблокируйте его штатными средствами.')
+        info.setWordWrap(True)
+        l.addWidget(info)
+        self.source_label = QLabel('Источник не выбран')
+        self.source_label.setWordWrap(True)
+        l.addWidget(self.source_label)
+        b = QPushButton('Выбрать папку пользователя Windows…')
+        b.clicked.connect(self.choose_profile)
+        l.addWidget(b)
+        b = QPushButton('Открыть файловый менеджер')
+        b.clicked.connect(lambda: subprocess.Popen(['dolphin']))
+        l.addWidget(b)
+        l.addWidget(QLabel('2. Что перенести'))
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        cs = QWidget()
+        cl = QVBoxLayout(cs)
+        self.checks = {}
+        for key, (label, _) in CATEGORIES.items():
+            item = QCheckBox(label)
+            item.setChecked(key in DEFAULT_SELECTION)
+            self.checks[key] = item
+            cl.addWidget(item)
+        for key, label in (
+            ('bookmarks','Закладки Chrome, Edge и Firefox → HTML'),
+            ('programs','Список Windows-программ → CSV для переустановки'),
+            ('extra','Отдельная дополнительная папка (на выбор)')):
+            item = QCheckBox(label)
+            item.setChecked(key in ('bookmarks','programs'))
+            self.checks[key] = item
+            cl.addWidget(item)
+        cl.addStretch()
+        scroll.setWidget(cs)
+        l.addWidget(scroll, 1)
+        b = QPushButton('Указать дополнительную папку…')
+        b.clicked.connect(self.choose_extra)
+        l.addWidget(b)
+        self.extra_label = QLabel('Дополнительная папка не выбрана')
+        self.extra_label.setWordWrap(True)
+        l.addWidget(self.extra_label)
+        row.addWidget(left, 1)
+        right = QFrame()
+        right.setObjectName('card')
+        r = QVBoxLayout(right)
+        r.addWidget(QLabel('3. Проверка и импорт'))
+        target = Path.home() / 'NOVA-Импорт'
+        self.target = target
+        d = QLabel(f'Место сохранения: {target}\n'
+                   'Каждый импорт создаёт отдельную папку с отчётом. '
+                   'Существующие файлы NOVA не перезаписываются.')
+        d.setWordWrap(True)
+        r.addWidget(d)
+        warning = QLabel('Не переносим: установленные приложения как готовые Linux-программы, '
+                         'зашифрованные пароли, cookies, лицензионные ключи или содержимое облака, '
+                         'которое не скачано на диск.')
+        warning.setWordWrap(True)
+        r.addWidget(warning)
+        self.log = QTextEdit()
+        self.log.setReadOnly(True)
+        self.log.setPlainText('1. Выберите профиль Windows.\n2. Отметьте нужные категории.\n3. Нажмите «Начать копирование».')
+        r.addWidget(self.log, 1)
+        self.start_button = QPushButton('Начать копирование в NOVA OS')
+        self.start_button.clicked.connect(self.start_migration)
+        r.addWidget(self.start_button)
+        self.cancel_button = QPushButton('Остановить после текущего файла')
+        self.cancel_button.clicked.connect(self.cancel)
+        self.cancel_button.setEnabled(False)
+        r.addWidget(self.cancel_button)
+        b = QPushButton('Открыть папку NOVA-Импорт')
+        b.clicked.connect(self.open_target)
+        r.addWidget(b)
+        row.addWidget(right, 1)
+        footer = QLabel('Операции только чтения источника. Перед удалением Windows проверьте файлы и резервную копию.')
+        footer.setWordWrap(True)
+        layout.addWidget(footer)
+        self.setCentralWidget(root)
+        self.setStyleSheet(load_nova_stylesheet())
+
+    def choose_profile(self):
+        path = QFileDialog.getExistingDirectory(self, 'Откройте диск Windows / Users / имя_пользователя', '/media')
+        if not path: return
+        selected = Path(path)
+        if not plausible_windows_profile(selected):
+            QMessageBox.warning(self, 'NOVA', 'Не похожа на папку профиля Windows. Выберите Users / имя_пользователя.')
+            return
+        self.profile = selected
+        self.source_label.setText(str(selected))
+        self.log.append('Профиль выбран. Исходные файлы будут только читаться.')
+
+    def choose_extra(self):
+        path = QFileDialog.getExistingDirectory(self, 'Дополнительная папка с файлами', '/media')
+        if path:
+            self.extra = Path(path)
+            self.extra_label.setText(path)
+            self.checks['extra'].setChecked(True)
+
+    def start_migration(self):
+        if 'boot=live' in Path('/proc/cmdline').read_text(errors='replace'):
+            QMessageBox.warning(self, 'NOVA', 'Сначала установите NOVA OS на SSD. Перенос в Live-сеансе пропадёт при перезагрузке.')
+            return
+        if not self.profile:
+            QMessageBox.warning(self, 'NOVA', 'Сначала выберите профиль Windows.')
+            return
+        selected = [key for key, check in self.checks.items() if check.isChecked()]
+        if not selected:
+            QMessageBox.warning(self, 'NOVA', 'Выберите хотя бы одну категорию.')
+            return
+        if 'extra' in selected and not self.extra:
+            QMessageBox.warning(self, 'NOVA', 'Для дополнительной папки нужно указать каталог.')
+            return
+        if not ui.confirm(self, 'Подтверждение', 'Будут скопированы только отмеченные категории в домашнюю папку NOVA. '
+            'Windows останется без изменений. Начать?'):
+            return
+        try:
+            self.target.mkdir(mode=0o700, parents=True, exist_ok=True)
+        except OSError as exc:
+            QMessageBox.warning(self, 'Ошибка папки', str(exc))
+            return
+        self.worker = CopyWorker(self.profile, selected, self.target, self.extra)
+        self.thread = QThread(self)
+        self.worker.moveToThread(self.thread)
+        self.thread.started.connect(self.worker.run)
+        self.worker.progress.connect(self.log.append)
+        self.worker.failed.connect(self.fail)
+        self.worker.finished.connect(self.done)
+        self.worker.finished.connect(self.thread.quit)
+        self.worker.failed.connect(self.thread.quit)
+        self.thread.finished.connect(self.worker.deleteLater)
+        self.thread.finished.connect(self.thread.deleteLater)
+        self.start_button.setEnabled(False)
+        self.cancel_button.setEnabled(True)
+        self.log.append('Копирование начато. Не отключайте накопитель Windows до завершения.')
+        self.thread.start()
+
+    def cancel(self):
+        if self.worker:
+            self.worker.stop_event.set()
+            self.log.append('Запрошена остановка. Частично скопированные файлы остаются в новой папке.')
+            self.cancel_button.setEnabled(False)
+
+    def done(self, summary):
+        self.start_button.setEnabled(True)
+        self.cancel_button.setEnabled(False)
+        self.log.append(f'Завершено. Файлов: {summary["copied"]}, закладок: {summary["bookmarks"]}, '
+                        f'программ в каталоге: {summary["programs_catalogued"]}, ошибок: '
+                        f'{len(summary["failed"])}, отменено: {summary["cancelled"]}.')
+        self.log.append('Результаты: ' + summary['destination'])
+        QMessageBox.information(self, 'NOVA Migration', 'Импорт завершён. Проверьте отчёт и ваши файлы.')
+
+    def fail(self, reason):
+        self.start_button.setEnabled(True)
+        self.cancel_button.setEnabled(False)
+        self.log.append('ОШИБКА: ' + reason)
+        QMessageBox.warning(self, 'Ошибка импорта', reason)
+
+    def open_target(self):
+        self.target.mkdir(mode=0o700, parents=True, exist_ok=True)
+        subprocess.Popen(['dolphin', str(self.target)])
+
+
+def main():
+    app = QApplication(sys.argv)
+    win = MigrationWindow()
+    win.show()
+    return app.exec()
+
+if __name__ == '__main__':
+    raise SystemExit(main())

@@ -1,0 +1,4 @@
+# NOVA OS: volume keys change volume by 2 % like Windows (KDE default: 5 %).
+[General]
+VolumeStep=2
+RaiseMaximumVolume=false

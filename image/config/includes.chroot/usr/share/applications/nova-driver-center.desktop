@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=NOVA Driver Center
+Name[ru]=NOVA — Драйверы и оборудование
+Comment=Driver detection and verified Debian downloads with manual approval
+Comment[ru]=Подбор, загрузка и установка проверенных драйверов с подтверждением
+Exec=/usr/local/bin/nova-driver-center
+Icon=nova
+Categories=Settings;System;Utility;
+Terminal=false

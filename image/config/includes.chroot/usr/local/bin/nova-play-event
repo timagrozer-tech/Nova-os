@@ -1,0 +1,11 @@
+#!/usr/bin/env python3
+"""Sound hook for opt-in NOVA modules; e.g. nova-play-event nova.game."""
+import sys
+from nova_sound_core import EVENTS,load_settings,resolve_sound,play_sound
+if __name__ == '__main__':
+    if len(sys.argv)!=2 or sys.argv[1] not in EVENTS:
+        print('Use: nova-play-event <event>. Choices: '+', '.join(EVENTS),file=sys.stderr)
+        raise SystemExit(2)
+    settings=load_settings()
+    sound=resolve_sound(sys.argv[1],settings)
+    if sound: play_sound(sound,settings['volume'])

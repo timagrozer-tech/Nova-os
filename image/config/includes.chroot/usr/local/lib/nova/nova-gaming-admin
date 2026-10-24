@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Only explicitly requested gamepad rules, never install Steam or change power policy automatically.
+set -Eeuo pipefail
+[[ $EUID == 0 && "${1:-}" == install-gamepad-rules ]] || { echo 'Allowed: install-gamepad-rules' >&2; exit 2; }
+. /etc/os-release
+[[ ${ID:-} == debian && ${VERSION_CODENAME:-} == trixie ]] || { echo 'Debian 13 required' >&2; exit 3; }
+apt-get update
+apt-get install -y steam-devices

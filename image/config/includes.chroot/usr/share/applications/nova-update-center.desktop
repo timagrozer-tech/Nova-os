@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=NOVA Update & Recovery Center
+Name[ru]=NOVA — Обновления и восстановление
+Comment=Safe Debian updates with Timeshift snapshots
+Comment[ru]=Проверка обновлений, снимки системы и восстановление
+Exec=/usr/local/bin/nova-update-center
+Icon=nova
+Categories=Settings;System;Utility;
+Terminal=false

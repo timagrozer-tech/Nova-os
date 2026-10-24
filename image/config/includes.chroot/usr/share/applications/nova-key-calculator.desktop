@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Калькулятор (multimedia key)
+Name[ru]=Калькулятор (мультимедийная клавиша)
+Exec=nova-key calculator
+Icon=input-keyboard
+NoDisplay=true
+Terminal=false
+X-KDE-Shortcuts=Calculator

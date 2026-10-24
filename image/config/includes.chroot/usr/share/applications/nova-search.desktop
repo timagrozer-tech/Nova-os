@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=NOVA Search
+Comment=Поиск файлов, приложений и действий
+Exec=/usr/local/bin/nova-search
+Icon=nova
+Terminal=false
+Categories=System;Utility;
+StartupNotify=true

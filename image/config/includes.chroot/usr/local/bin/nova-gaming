@@ -1,0 +1,106 @@
+#!/usr/bin/env python3
+"""NOVA Gaming: game library launcher and gamepad assistant using Steam Big Picture.
+No performance tweak occurs without consent; Steam is optional.
+"""
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+from PyQt6.QtCore import QTimer
+from PyQt6.QtWidgets import (QApplication,QWidget,QMainWindow,QVBoxLayout,QHBoxLayout,
+    QLabel,QPushButton,QTextEdit,QMessageBox,QCheckBox)
+from nova_theme import load_nova_stylesheet
+import nova_ui as ui
+
+
+def gamepad_names(devices_text):
+    names=[]
+    for block in devices_text.split('\n\n'):
+        if not any(t in block for t in ('Handlers=js','Handlers=event','Handlers=mouse')):continue
+        line=next((line for line in block.splitlines() if line.startswith('N: Name=')),None)
+        if not line:continue
+        name=line.split('=',1)[1].strip('"')
+        if any(k in name.casefold() for k in ['wireless controller','dualshock','dualsense','xbox','gamepad','pro controller','steam controller']):
+            names.append(name)
+    return sorted(set(names))
+
+class Gaming(QMainWindow):
+    def __init__(self):
+        super().__init__();self.setWindowTitle('NOVA Gaming — режим консоли');ui.setup_window(self, size=(850, 630), app_id='nova-gaming')
+        w=QWidget();v=QVBoxLayout(w);self.setCentralWidget(w)
+        t=QLabel('NOVA  /  GAMING');t.setObjectName('brand');v.addWidget(t)
+        v.addWidget(QLabel('Игровая библиотека, DualShock / DualSense, Steam Input, энергопрофили и мониторинг.'))
+        row=QHBoxLayout();v.addLayout(row)
+        self.button(row,'🎮 Открыть Steam Big Picture',self.steam)
+        self.button(row,'Магазин / установка Steam',lambda:self.start('plasma-discover'))
+        v.addWidget(QLabel('Контроллеры USB и Bluetooth'))
+        self.controller=QLabel('Поиск контроллеров…');v.addWidget(self.controller)
+        row=QHBoxLayout();v.addLayout(row)
+        self.button(row,'Обновить контроллеры',self.refresh)
+        self.button(row,'Настроить Bluetooth',lambda:self.start('systemsettings'))
+        self.button(row,'Настройки геймпада в Steam',self.steam)
+        self.button(row,'Правила Steam Input',self.install_gamepad)
+        self.button(row,'Тест кнопок и стиков',lambda:self.start('nova-gamepad-test'))
+        self.button(row,'Центр производительности',lambda:self.start('nova-performance'))
+        v.addWidget(QLabel('Профиль ноутбука'))
+        row=QHBoxLayout();v.addLayout(row)
+        for name,profile in [('Энергосбережение','power-saver'),('Сбалансированный','balanced'),
+                             ('Высокая производительность','performance')]:
+            self.button(row,name,lambda p=profile:self.power(p))
+        self.quiet=QCheckBox('Показывать подсказку о режиме «Не беспокоить» перед игрой');self.quiet.setChecked(True)
+        v.addWidget(self.quiet)
+        row=QHBoxLayout();v.addLayout(row)
+        self.button(row,'Проверить GameMode / MangoHud',self.check_tools)
+        self.button(row,'Настройки уведомлений',lambda:self.start('systemsettings'))
+        v.addWidget(QLabel('Для Steam-игр включите Steam Play/Proton в настройках Steam; несовместимые античиты и игры могут не работать.'))
+        self.log=QTextEdit();self.log.setReadOnly(True);v.addWidget(self.log,1)
+        self.setStyleSheet(load_nova_stylesheet(''))
+        self.refresh()
+        self.timer=QTimer(self);self.timer.timeout.connect(self.refresh);self.timer.start(8000)
+
+    def button(self,layout,text,fn):
+        b=QPushButton(text);b.clicked.connect(fn);layout.addWidget(b)
+
+    def start(self,program,args=None):
+        if not shutil.which(program):
+            self.log.append('Не найдено: '+program+'. Установите через магазин приложений.');return False
+        try:subprocess.Popen([program]+(args or []),start_new_session=True);return True
+        except OSError as exc:self.log.append(str(exc));return False
+
+    def refresh(self):
+        try: raw=Path('/proc/bus/input/devices').read_text(errors='replace')
+        except OSError:raw=''
+        names=gamepad_names(raw)
+        self.controller.setText(('Обнаружены: '+', '.join(names)) if names else 'Контроллер не обнаружен. Подключите DualShock/DualSense по USB или Bluetooth.')
+
+    def steam(self):
+        if self.quiet.isChecked():
+            QMessageBox.information(self,'NOVA Gaming','Совет: активируйте «Не беспокоить» в панели KDE перед игрой.')
+        if self.start('steam',['-bigpicture']):
+            self.start('nova-play-event',['nova.game'])
+            self.log.append('Запрошен запуск Steam Big Picture. Steam может попросить вход и обновление.')
+
+    def power(self,profile):
+        if not shutil.which('powerprofilesctl'):
+            self.log.append('powerprofilesctl отсутствует.');return
+        if profile=='performance' and not ui.confirm(self, 'Нагрузка на ноутбук', 'Включить высокий профиль мощности? Увеличатся нагрев, энергопотребление и шум, если поддерживается.'):return
+        try:
+            p=subprocess.run(['powerprofilesctl','set',profile],capture_output=True,text=True,timeout=8)
+            self.log.append('Профиль '+profile+': '+ ('применён' if p.returncode==0 else p.stderr.strip()[:300]))
+        except (OSError,subprocess.TimeoutExpired) as exc:self.log.append(str(exc))
+
+    def install_gamepad(self):
+        if not ui.confirm(self, 'Права устройств', 'Установить steam-devices из Debian? Это добавит правила udev для устройств Sony, Xbox и Steam Input. '
+            'Изменение системных разрешений может быть нежелательным на общем ноутбуке.'):return
+        self.start('pkexec',['/usr/local/lib/nova/nova-gaming-admin','install-gamepad-rules'])
+        self.log.append('Запущен запрос установки steam-devices; проверьте завершение установки в окне авторизации.')
+
+    def check_tools(self):
+        self.log.append('Steam: '+('найден' if shutil.which('steam') else 'не установлен'))
+        self.log.append('GameMode: '+('найден' if shutil.which('gamemoderun') else 'не найден'))
+        self.log.append('MangoHud: '+('найден' if shutil.which('mangohud') else 'не найден'))
+        self.log.append('В Steam задайте параметры запуска игры: gamemoderun %command% или mangohud %command%, если инструменты установлены.')
+
+def main():
+    app=QApplication(sys.argv);w=Gaming();w.show();return app.exec()
+if __name__=='__main__':raise SystemExit(main())

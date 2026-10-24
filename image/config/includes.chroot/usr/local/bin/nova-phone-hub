@@ -1,0 +1,133 @@
+#!/usr/bin/env python3
+"""NOVA Phone Hub: user-approved USB/Wi-Fi connection and scrcpy actions."""
+import shutil
+import subprocess
+import sys
+from PyQt6.QtCore import QProcess
+from PyQt6.QtWidgets import (QApplication,QWidget,QMainWindow,QHBoxLayout,QVBoxLayout,
+    QLineEdit,QLabel,QPushButton,QComboBox,QTextEdit,QMessageBox,QCheckBox,QFileDialog)
+from nova_theme import load_nova_stylesheet
+import nova_ui as ui
+from nova_phone_core import pairing_command,connection_command,parse_adb_devices,mirror_command
+
+class Phone(QMainWindow):
+    def __init__(self):
+        super().__init__();self.setWindowTitle('NOVA Phone Hub — Android по USB и Wi-Fi');ui.setup_window(self, size=(880, 670), app_id='nova-phone-hub')
+        w=QWidget();v=QVBoxLayout(w);self.setCentralWidget(w)
+        t=QLabel('NOVA  /  PHONE HUB');t.setObjectName('brand');v.addWidget(t)
+        v.addWidget(QLabel('Экран телефона, передача файлов, уведомления и подключение без облачных аккаунтов.'))
+        v.addWidget(QLabel('USB: на телефоне вручную включите «Отладка по USB» и подтвердите ключ компьютера.'))
+        self.devices=QComboBox();v.addWidget(self.devices)
+        row=QHBoxLayout();v.addLayout(row)
+        self.button(row,'⟳ Найти устройства USB / Wi-Fi',self.refresh)
+        self.button(row,'Показать экран',lambda:self.mirror('screen'))
+        self.button(row,'Режим дополнительного экрана',lambda:self.mirror('desktop'))
+        quality=QHBoxLayout();v.addLayout(quality)
+        quality.addWidget(QLabel('Качество трансляции'))
+        self.quality=QComboBox()
+        for label,value in [('Экономия трафика · 1024 / 30 FPS','economy'),
+                            ('Сбалансированно · 1600 / 60 FPS','balanced'),
+                            ('Высокое · 2560 / 60 FPS','quality')]:
+            self.quality.addItem(label,value)
+        self.quality.setCurrentIndex(1);quality.addWidget(self.quality)
+        self.record=QCheckBox('Записать трансляцию в новый MP4/MKV файл')
+        quality.addWidget(self.record)
+        v.addWidget(QLabel('Wi-Fi: компьютер и телефон должны быть в одной доверенной сети.'))
+        row=QHBoxLayout();v.addLayout(row)
+        self.endpoint=QLineEdit();self.endpoint.setPlaceholderText('Адрес телефона и порт, например 192.168.1.10:37123');row.addWidget(self.endpoint)
+        self.code=QLineEdit();self.code.setPlaceholderText('Код сопряжения (6 цифр)');self.code.setMaxLength(6);self.code.setEchoMode(QLineEdit.EchoMode.Password)
+        row.addWidget(self.code)
+        row=QHBoxLayout();v.addLayout(row)
+        self.button(row,'Сопряжение по Wi-Fi',self.pair)
+        self.button(row,'Подключить по Wi-Fi',self.connect)
+        self.button(row,'Отключить все Wi-Fi ADB',self.disconnect)
+        row=QHBoxLayout();v.addLayout(row)
+        self.button(row,'KDE Connect — файлы и уведомления',lambda:self.launch('kdeconnect-app'))
+        self.button(row,'Установить scrcpy',self.install_scrcpy)
+        self.button(row,'Настроить Bluetooth',lambda:self.launch('systemsettings'))
+        v.addWidget(QLabel('Samsung DeX: на Linux фирменный DeX for PC не доступен; дополнительный экран — экспериментальная альтернатива scrcpy.'))
+        v.addWidget(QLabel('ADB Wi-Fi отключайте после сеанса, особенно вне домашней сети.'))
+        self.output=QTextEdit();self.output.setReadOnly(True);v.addWidget(self.output,1)
+        self.jobs=[];self.setStyleSheet(load_nova_stylesheet(''))
+        self.refresh()
+
+    def button(self,layout,caption,callback):
+        b=QPushButton(caption);b.clicked.connect(callback);layout.addWidget(b)
+
+    def launch(self,app,args=None):
+        if not shutil.which(app):self.output.append(f'Не установлен {app}.');return
+        try:subprocess.Popen([app]+(args or []),start_new_session=True)
+        except OSError as err:self.output.append(str(err))
+
+    def run(self,args,done=None,pair_code=None):
+        if not shutil.which(args[0]):self.output.append(f'Не установлен {args[0]}.');return
+        p=QProcess(self);self.jobs.append(p)
+        self.output.append('Запуск: '+ ' '.join(args[:2]) + (' (код не журналируется)' if pair_code else ''))
+        p.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+        def finished(code,status):
+            output=bytes(p.readAllStandardOutput()).decode('utf-8','replace')
+            if pair_code:
+                output=output.replace(pair_code,'[скрыто]')
+            self.output.append(output[:4000]+f'\nКод завершения: {code}')
+            if done:done()
+            if p in self.jobs:self.jobs.remove(p)
+        p.finished.connect(finished);p.start(args[0],args[1:])
+        if pair_code:
+            if p.waitForStarted(1200):
+                p.write((pair_code+'\n').encode('ascii'))
+                p.closeWriteChannel()
+
+    def refresh(self):
+        if not shutil.which('adb'):
+            self.output.append('ADB не найден. Требуется пакет adb.');return
+        try:
+            p=subprocess.run(['adb','devices','-l'],capture_output=True,text=True,timeout=8)
+            result=parse_adb_devices(p.stdout)
+        except (OSError,subprocess.TimeoutExpired) as exc:
+            self.output.append(str(exc));return
+        self.devices.clear()
+        for serial,status in result:self.devices.addItem(f'{serial}  [{status}]', (serial,status))
+        if not result:self.output.append('Устройства не найдены. Проверьте USB-кабель, отладку USB и разрешения телефона.')
+
+    def mirror(self,mode):
+        device=self.devices.currentData()
+        if not device or device[1]!='device':
+            QMessageBox.warning(self,'NOVA','Нужно авторизованное устройство со статусом device.');return
+        if mode=='desktop':
+            if not ui.confirm(self, 'Экспериментальный дисплей', 'Создать виртуальный дисплей Android? Это не оригинальный Samsung DeX и может не поддерживаться телефоном.'):return
+        target=None
+        if self.record.isChecked():
+            target,_=QFileDialog.getSaveFileName(self,'Новый файл записи',
+                         str(__import__('pathlib').Path.home()/'Videos'/'NOVA-phone.mp4'),
+                         'Видео MP4 (*.mp4);;Видео MKV (*.mkv)')
+            if not target:return
+        try:command=mirror_command(device[0],mode,quality=self.quality.currentData(),record=target)
+        except ValueError as exc:self.output.append(str(exc));return
+        self.launch(command[0],command[1:])
+        if target:self.output.append('Запись по вашему запросу: '+target)
+        self.output.append('Запуск '+('виртуального дисплея' if mode=='desktop' else 'зеркалирования')+' устройства '+device[0])
+
+    def pair(self):
+        try:command=pairing_command(self.endpoint.text(),self.code.text())
+        except ValueError as exc:QMessageBox.warning(self,'NOVA',str(exc));return
+        code=self.code.text()
+        self.code.clear()
+        self.run(command,pair_code=code)
+
+    def connect(self):
+        try:command=connection_command(self.endpoint.text())
+        except ValueError as exc:QMessageBox.warning(self,'NOVA',str(exc));return
+        self.run(command,done=self.refresh)
+
+    def disconnect(self):
+        if ui.confirm(self, 'NOVA', 'Отключить все ADB-сеансы по Wi-Fi?'):
+            self.run(['adb','disconnect'],done=self.refresh)
+
+    def install_scrcpy(self):
+        if ui.confirm(self, 'Установка scrcpy', 'Добавить официальный репозиторий Debian Backports и установить scrcpy через интернет?\n'
+            'Пакет Debian может загружать компонент scrcpy-server с официального upstream.'):
+            self.run(['pkexec','/usr/local/lib/nova/nova-phone-admin','install'])
+
+def main():
+    app=QApplication(sys.argv);w=Phone();w.show();return app.exec()
+if __name__=='__main__':raise SystemExit(main())

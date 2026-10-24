@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Почта (multimedia key)
+Name[ru]=Почта (мультимедийная клавиша)
+Exec=nova-key mail
+Icon=input-keyboard
+NoDisplay=true
+Terminal=false
+X-KDE-Shortcuts=Launch Mail

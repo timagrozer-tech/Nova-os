@@ -1,0 +1,426 @@
+#!/usr/bin/env python3
+"""NOVA Control 0.12 — adaptive navigation, audited actions, no silent dangerous tweaks."""
+import shutil
+import subprocess
+import sys
+import nova_ui as ui
+from PyQt6.QtCore import Qt, QUrl
+from PyQt6.QtGui import QDesktopServices, QKeySequence, QShortcut
+from PyQt6.QtWidgets import (QApplication, QHBoxLayout, QLabel, QLineEdit, QMainWindow,
+                             QTextEdit, QVBoxLayout, QWidget)
+
+def cmd(argv, timeout=8):
+    try:
+        output = subprocess.run(argv, text=True, capture_output=True, timeout=timeout)
+        return (output.stdout + '\n' + output.stderr).strip() or f'Код завершения: {output.returncode}'
+    except (OSError, subprocess.TimeoutExpired) as err:
+        return f'Недоступно: {err}'
+
+
+def memory_line():
+    """Second line of `free -h` or a readable fallback (never raises)."""
+    lines = cmd(['free', '-h']).splitlines()
+    return lines[1] if len(lines) > 1 else ('Память: ' + (lines[0] if lines else 'нет данных'))
+
+
+VERSION = ui.nova_version()
+
+
+class Control(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        ui.setup_window(self, 'NOVA Control · Air', size=(1180, 760), app_id='nova-control')
+        self.jobs = []
+        root = QWidget(); outer = QVBoxLayout(root)
+        outer.setContentsMargins(18, 14, 18, 10)
+        top = QHBoxLayout(); outer.addLayout(top)
+        top.addWidget(ui.header('NOVA Control',
+            'Приватность, безопасность, программы, оборудование и персонализация — в одном месте.'), 1)
+        self.search = QLineEdit(); self.search.setPlaceholderText('Поиск раздела…  (Ctrl+F)')
+        self.search.setClearButtonEnabled(True); self.search.setMaximumWidth(360)
+        self.search.setAccessibleName('Поиск раздела')
+        top.addWidget(self.search, 0, Qt.AlignmentFlag.AlignTop)
+        self.nav = ui.adaptive_nav()
+        outer.addWidget(self.nav, 1)
+        self.pages = [
+            ('⌂ Обзор', self.page_home),
+            ('◐ Оформление и панель', self.page_personalize),
+            ('♡ NOVA Health', self.page_health),
+            ('▣ Драйверы и оборудование', self.page_drivers),
+            ('◉ NOVA Performance', self.page_performance),
+            ('◈ Конфиденциальность', self.page_privacy),
+            ('⬡ NOVA Defender', self.page_defender),
+            ('⚡ NOVA Optimizer', self.page_optimizer),
+            ('▣ NOVA Uninstaller', self.page_uninstaller),
+            ('▤ Диспетчер задач', self.page_tasks),
+            ('⌕ Быстрый поиск', self.page_search),
+            ('▧ Windows-программы', self.page_windows),
+            ('⇄ Windows и перенос данных', self.page_migration),
+            ('◉ Android и Google', self.page_android),
+            ('♫ Звуки NOVA', self.page_sound_studio),
+            ('🎮 Игры и геймпады', self.page_gaming),
+            ('▣ Телефон и Samsung', self.page_phone),
+            ('◉ Персонализация KDE', self.page_appearance),
+            ('▱ Дисплей и звук', self.page_display),
+            ('⌨ Клавиатура и горячие клавиши', self.page_keyboard),
+            ('⋈ Сеть и устройства', self.page_network),
+            ('⇪ Обновления и копии', self.page_update),
+        ]
+        for title, renderer in self.pages:
+            self.nav.add_page(title, renderer())
+        self.search.textChanged.connect(self.nav.set_filter)
+        self.nav.select(0)
+        footer = QLabel(f'NOVA OS {VERSION} — экспериментальная сборка. Защита и совместимость зависят от оборудования, настроек и конкретных программ.')
+        footer.setObjectName('description'); footer.setWordWrap(True); outer.addWidget(footer)
+        self.setCentralWidget(root)
+        QShortcut(QKeySequence('Ctrl+F'), self, activated=lambda: (self.search.setFocus(), self.search.selectAll()))
+        QShortcut(QKeySequence('Escape'), self.search, activated=self.search.clear)
+
+    # Compatibility helpers used by all page builders (unchanged signatures).
+    def page(self, intro):
+        return ui.scroll_page(intro)
+
+    def card(self, parent, title, description):
+        frame, layout = ui.card(title, description)
+        ui.add_to_page(parent, frame)
+        return layout
+
+    def button(self, box, label, callback, variant='secondary'):
+        b = ui.make_button(label, callback, variant)
+        box.addWidget(b); return b
+
+    def log(self, box, minheight=105):
+        w = QTextEdit(); w.setReadOnly(True); w.setMinimumHeight(minheight)
+        box.addWidget(w); return w
+
+    def open(self, executable, argv=None):
+        if shutil.which(executable):
+            try: subprocess.Popen([executable] + (argv or []), start_new_session=True)
+            except OSError as exc: ui.error(self, 'NOVA', str(exc))
+        else: ui.error(self, 'NOVA', f'Компонент не найден: {executable}')
+
+    def kcm(self, module):
+        self.open('kcmshell6', [module]) if shutil.which('kcmshell6') else self.open('systemsettings')
+
+    def url(self, url): QDesktopServices.openUrl(QUrl(url))
+
+    def run_process(self, command, view):
+        runner = ui.process_runner(self, view)
+        proc = runner(list(command))
+        if proc is not None:
+            self.jobs.append(proc)
+            proc.finished.connect(lambda *_a, p=proc: self.jobs.remove(p) if p in self.jobs else None)
+
+    def admin(self, task, view, question):
+        if ui.confirm(self, 'Подтверждение', question):
+            self.run_process(['pkexec', '/usr/local/lib/nova/nova-admin', task], view)
+
+    def select_page(self, name):
+        for i, (title, _) in enumerate(self.pages):
+            if name in title:
+                self.search.setText(''); self.nav.select(i); break
+
+    def page_personalize(self):
+        page, lay = self.page('Режимы рабочего стола Windows-like / Dock-like / Hybrid, светлая и тёмная тема NOVA Air, '
+                              'акцентный цвет, плотность и анимации. Перед изменением панели создаётся резервная копия.')
+        v = self.card(lay, 'NOVA Персонализация', 'Мастер оформления: тема, акцент, режим панели, плотность, анимации, сброс к KDE.')
+        self.button(v, 'Открыть персонализацию', lambda: self.open('nova-personalize'), 'primary')
+        out = None
+        v = self.card(lay, 'Быстрое переключение режима', 'Текущая раскладка сохраняется в ~/.local/share/nova/layout-backups.')
+        out = self.log(v, 80)
+        for caption, mode in [('Windows-like: панель снизу по центру', 'windows'),
+                              ('Dock-like: верхняя строка + док', 'dock'),
+                              ('Hybrid: плавающая панель', 'hybrid')]:
+            self.button(v, caption, lambda _c=False, m=mode, o=out: ui.confirm(self, 'Изменить панель?',
+                        'Текущие панели Plasma будут заменены (с резервной копией).') and self.run_process(['nova-layout', 'apply', m], o))
+        self.button(v, 'Вернуть KDE Plasma по умолчанию', lambda: ui.confirm(self, 'Сброс оформления',
+                    'Вернуть стандартные оформление и панель KDE (Breeze)? Текущая раскладка сохранится.', danger=True,
+                    yes='Вернуть KDE') and self.run_process(['nova-layout', 'reset-kde'], out), 'danger')
+        v = self.card(lay, 'Самопроверка системы', 'Сеанс, графика, экраны, сеть, звук, защита — отчёт без изменений системы.')
+        out2 = self.log(v, 120)
+        self.button(v, 'Запустить nova-selftest', lambda: self.run_process(['nova-selftest'], out2))
+        return page
+
+    def page_home(self):
+        page, lay = self.page('Состояние NOVA OS и основные модули. Сведения остаются локально на ноутбуке.')
+        v = self.card(lay, 'Система', 'Драйверы, память, сеть, процессор и версия ядра.')
+        view = self.log(v)
+        def update():
+            view.setPlainText(f'NOVA OS {VERSION}  ·  ' + cmd(['uname','-sr']) + '\n' +
+                 memory_line() + '\n' +
+                 cmd(['nmcli','-t','-f','STATE','general']) + '\n' +
+                 '\nВидеокарты:\n' + '\n'.join(l for l in cmd(['lspci']).splitlines() if 'VGA' in l or '3D controller' in l))
+        self.button(v, 'Обновить состояние', update); update()
+        v = self.card(lay, 'Панель быстрых действий', 'Один клик для основных инструментов без терминала.')
+        for text, command in [
+            ('NOVA Персонализация', 'nova-personalize'),
+            ('NOVA — дисплеи и частота', 'nova-display'),
+            ('NOVA — горячие клавиши', 'nova-hotkeys'),
+            ('NOVA Game Bar', 'nova-game-bar'),
+            ('NOVA Health', 'nova-health'),
+            ('NOVA Performance Center', 'nova-performance'),
+            ('NOVA Welcome', 'nova-first-run'),
+            ('NOVA Defender', 'nova-defender'),
+            ('NOVA Uninstaller', 'nova-uninstaller'), ('Диспетчер задач', 'nova-task-manager'),
+            ('Системные настройки KDE', 'systemsettings'),
+            ('Проверка оборудования перед установкой', 'nova-preflight'),
+            ('Android Hub', 'nova-android-hub'),
+            ('NOVA Sound Studio', 'nova-sound-studio'),
+            ('NOVA Gaming', 'nova-gaming'),
+            ('Проверка геймпада', 'nova-gamepad-test'),
+            ('NOVA Phone Hub', 'nova-phone-hub'),
+            ('Установить рядом с Windows 11', 'nova-dualboot'),
+            ('Перенос данных Windows', 'nova-migration')]:
+            self.button(v, text, lambda c=command: self.open(c))
+        return page
+
+    def page_health(self):
+        page, lay = self.page('Проверка оборудования и настройки нового пользователя без изменений диска или драйверов.')
+        v = self.card(lay, 'NOVA Health', 'Сведения о графике, сети, звуке, дисках, Secure Boot и профиле мощности. Результаты остаются локально.')
+        self.button(v, 'Открыть диагностику', lambda: self.open('nova-health'))
+        self.button(v, 'Мастер первого запуска', lambda: self.open('nova-first-run'))
+        self.button(v, 'Проверка перед установкой', lambda: self.open('nova-preflight'))
+        return page
+
+    def page_privacy(self):
+        page, lay = self.page('Контроль доступа приложений, локальных данных, истории, Bluetooth, сети и индексации.')
+        v = self.card(lay, 'Разрешения и изоляция Flatpak',
+                      'Flatseal позволяет ограничить доступ приложений к файловой системе, устройствам и сеансу.')
+        self.button(v, 'Открыть Flatseal', lambda: self.open('flatpak', ['run', 'com.github.tchx84.Flatseal']))
+        install_view = self.log(v)
+        self.button(v, 'Установить Flatseal из Flathub',
+                    lambda: self.run_process(['/usr/local/lib/nova/nova-flatpak-flatseal'], install_view)
+                    if ui.confirm(self, 'Загрузка компонентов', 'Установить Flatseal с Flathub через интернет?') else None)
+        self.button(v, 'Информация о разрешениях Flatpak', lambda: self.url('https://docs.flathub.org/docs/for-users/permissions'))
+        v = self.card(lay, 'Индексирование и поиск', 'Баланс между мгновенным поиском файлов и локальной приватностью.')
+        view = self.log(v)
+        self.button(v, 'Состояние индексирования', lambda: self.run_process(['balooctl6','status'], view))
+        for label, action in [('Включить локальный индекс', 'enable'), ('Выключить индекс файлов', 'disable')]:
+            def operation(act=action):
+                if ui.confirm(self, 'Индексирование', f'Baloo: {act}? Изменится скорость поиска файлов.'):
+                    self.run_process(['balooctl6', act], view)
+            self.button(v, label, operation)
+        self.button(v, 'Настройки поиска KDE', lambda: self.kcm('kcm_baloofile'))
+        v = self.card(lay, 'Сетевые настройки', 'DNS, прокси, VPN, Wi-Fi, Bluetooth и проверка разрешённых служб.')
+        self.button(v, 'Настройки сети', lambda: self.open('systemsettings'))
+        self.button(v, 'Настройки Bluetooth', lambda: self.open('systemsettings'))
+        return page
+
+    def page_defender(self):
+        page, lay = self.page('NOVA Defender объединяет реальные средства защиты Linux. Не является аналогом Microsoft Defender EDR.')
+        v = self.card(lay, 'Центр защиты', 'AppArmor, UFW, ClamAV, состояние сигнатур и проверка файлов.')
+        self.button(v, 'Открыть NOVA Defender', lambda: self.open('nova-defender'))
+        v = self.card(lay, 'Сетевой экран', 'Запрещает новые входящие подключения; сетевые сервисы могут потребовать исключений.')
+        output = self.log(v)
+        self.button(v, 'Проверить состояние UFW', lambda: self.run_process(['pkexec','/usr/local/lib/nova/nova-admin','firewall-status'], output))
+        self.button(v, 'Включить UFW', lambda: self.admin('firewall-on', output, 'Включить блокировку входящих подключений?'))
+        self.button(v, 'Выключить UFW', lambda: self.admin('firewall-off', output, 'Отключить сетевой экран? Это снижает защиту.'))
+        v = self.card(lay, 'Безопасность приложений', 'Linux AppArmor, безопасные контейнеры Flatpak, штатные обновления.')
+        self.button(v, 'Проверить AppArmor', lambda: self.run_process(['aa-status'], output))
+        self.button(v, 'Настройки разрешений', lambda: self.select_page('Конфиденциальность'))
+        return page
+
+    def page_performance(self):
+        page, lay = self.page('Мониторинг температуры, CPU, RAM и батареи, игровые настройки и безопасное управление нагрузкой.')
+        v = self.card(lay, 'NOVA Performance Center', 'Профили питания, предупреждения по температурам, пользовательские процессы и игровой запуск. Без разгона или изменения вентиляторов.')
+        self.button(v, 'Открыть Performance Center', lambda: self.open('nova-performance'))
+        self.button(v, 'Подробный мониторинг KDE', lambda: self.open('plasma-systemmonitor'))
+        return page
+
+    def page_optimizer(self):
+        page, lay = self.page('Консервативная оптимизация: никаких отключений важных защит, случайных чистильщиков RAM и опасных твиков.')
+        v = self.card(lay, 'Производительность и автономность', 'Режимы зависят от поддерживаемого платформой драйвера.')
+        self.button(v, 'Открыть NOVA Performance Center', lambda: self.open('nova-performance'))
+        output = self.log(v)
+        self.button(v, 'Доступные профили', lambda: self.run_process(['powerprofilesctl','list'],output))
+        for caption, profile in [('Энергосбережение', 'power-saver'), ('Сбалансированный', 'balanced'), ('Максимальная производительность', 'performance')]:
+            self.button(v, caption, lambda p=profile: self.run_process(['powerprofilesctl','set',p], output))
+        v = self.card(lay, 'Бережная очистка', 'Очистка кэша APT не затрагивает документы и программы. Остальные данные не стираются автоматически.')
+        self.button(v, 'Очистить кэш APT', lambda: self.admin('clean-cache', output, 'Удалить скачанные архивы пакетов APT?'))
+        self.button(v, 'Проверить использование журнала', lambda: self.run_process(['journalctl','--disk-usage'],output))
+        v = self.card(lay, 'Диагностика', 'Проверка запуска и дисков; обслуживание SSD выполняет штатный таймер TRIM.')
+        self.button(v, 'Время загрузки Linux', lambda: self.run_process(['systemd-analyze'],output))
+        self.button(v, 'Состояние TRIM', lambda: self.run_process(['systemctl','status','fstrim.timer','--no-pager'],output))
+        self.button(v, 'Здоровье дисков', lambda: self.open('systemsettings'))
+        self.button(v, 'Автозагрузка и фоновые службы', lambda: self.open('systemsettings'))
+        return page
+
+    def page_uninstaller(self):
+        page, lay = self.page('Для максимально чистого удаления сначала показываем зависимости и последствия. Без удаления общих библиотек и чужих файлов.')
+        v = self.card(lay, 'NOVA Uninstaller', 'APT: предварительный расчёт, ограничение удаления зависимостей. Flatpak: удаление приложения и его данных после подтверждения.')
+        self.button(v, 'Открыть NOVA Uninstaller', lambda: self.open('nova-uninstaller'))
+        v = self.card(lay, 'Windows-приложения', 'Окружения Bottles удаляются в интерфейсе Bottles, чтобы не повредить остальные программы.')
+        self.button(v, 'Bottles — управление окружениями', lambda: self.open('flatpak',['run','com.usebottles.bottles']))
+        self.button(v, 'Магазин и удаление приложений', lambda: self.open('plasma-discover'))
+        return page
+
+    def page_tasks(self):
+        page, lay = self.page('Отдельный NOVA Task Manager показывает все процессы, использование CPU/RAM, дисков и сетевой трафик.')
+        v = self.card(lay, 'NOVA Task Manager', 'Обновление каждые 2 секунды, поиск PID и остановка только собственных процессов.')
+        self.button(v, 'Открыть NOVA Task Manager', lambda: self.open('nova-task-manager'))
+        v = self.card(lay, 'Полный мониторинг KDE', 'Графики, датчики, история и системные процессы.')
+        self.button(v, 'Открыть Plasma System Monitor', lambda: self.open('plasma-systemmonitor'))
+        return page
+
+    def page_search(self):
+        page, lay = self.page('Моментальный поиск встроен в Plasma: KRunner запускается Alt+Пробел. Поиск файлов использует локальный индекс Baloo.')
+        v = self.card(lay, 'NOVA Search / KRunner', 'Приложения, файлы, расчёты, закладки и действия рабочего стола.')
+        self.button(v, 'Запустить мгновенный поиск', lambda: self.open('nova-search'))
+        self.button(v, 'Настройки поисковых модулей', lambda: self.kcm('kcm_krunnersettings'))
+        self.button(v, 'Настройки индексирования', lambda: self.select_page('Конфиденциальность'))
+        return page
+
+    def page_migration(self):
+        page, lay = self.page('NOVA OS рядом с Windows 11 и выборочный импорт документов и пользовательских данных.')
+        v = self.card(lay, 'Dual Boot — оставить Windows',
+                      'Помощник проверяет диски без изменений. Изменение разделов возможно только в установщике после вашего выбора.')
+        self.button(v, 'Открыть NOVA Dual Boot', lambda: self.open('nova-dualboot'))
+        self.button(v, 'Проверить ноутбук перед установкой', lambda: self.open('nova-preflight'))
+        v = self.card(lay, 'NOVA Migration — перенос данных из Windows',
+                      'Выберите только нужные папки, закладки и список Windows-программ. Исходные файлы не удаляются.')
+        self.button(v, 'Запустить мастер переноса', lambda: self.open('nova-migration'))
+        return page
+
+    def page_windows(self):
+        page, lay = self.page('Совместимость с Windows многослойная. Универсального запуска абсолютно всех EXE, MSI и игр нет.')
+        v = self.card(lay, 'Открытие EXE / MSI', 'Wine — базовый уровень; по возможности используйте отдельное окружение Bottles на программу.')
+        self.button(v, 'Выбрать EXE или MSI', lambda: self.open('nova-open-windows'))
+        self.button(v, 'Bottles', lambda: self.open('flatpak',['run','com.usebottles.bottles']))
+        installlog = self.log(v)
+        self.button(v, 'Установить Bottles из Flathub', lambda: self.run_process(['/usr/local/lib/nova/nova-flatpak-bottles'], installlog)
+                    if ui.confirm(self, 'Загрузка компонентов', 'Установить Bottles с Flathub через интернет?') else None)
+        v = self.card(lay, 'Microsoft Office без предустановленного офисного пакета',
+                      'Веб-версия Microsoft 365 работает в браузере. Для новой настольной версии Office надёжнее лицензированная Windows в виртуальной машине.')
+        self.button(v, 'Открыть Microsoft 365 в браузере', lambda: self.url('https://www.microsoft365.com/'))
+        self.button(v, 'Запустить менеджер виртуальных машин', lambda: self.open('virt-manager'))
+        self.button(v, 'Проверить поддержку Windows-программы', lambda: self.url('https://www.codeweavers.com/compatibility'))
+        return page
+
+    def page_android(self):
+        page, lay = self.page('Android-приложения с помощью Waydroid. Установка и загрузка образа происходят только по запросу пользователя. Нужна сессия Wayland.')
+        v = self.card(lay, 'NOVA Android Hub', 'Установите Waydroid из Debian 13 Backports; выберите чистую Android-среду или отдельную GAPPS-сборку.')
+        self.button(v, 'Открыть Android Hub', lambda: self.open('nova-android-hub'))
+        status = self.log(v)
+        self.button(v, 'Состояние Waydroid', lambda: self.run_process(['waydroid','status'], status))
+        v = self.card(lay, 'Почта и сервисы Google', 'Gmail безопаснее открывать в браузере; аккаунт NOVA OS не хранит и не перехватывает.')
+        self.button(v, 'Gmail в браузере', lambda: self.url('https://mail.google.com/'))
+        self.button(v, 'Google Диск в браузере', lambda: self.url('https://drive.google.com/'))
+        self.button(v, 'Документация о сертификации Google Play', lambda: self.url('https://docs.waydro.id/faq/google-play-certification'))
+        return page
+
+    def page_sound_studio(self):
+        page, lay = self.page('Назначение звуков событиям, каталог, обрезка и затухание без изменения исходных файлов.')
+        v = self.card(lay, 'NOVA Sound Studio',
+                      'Звуки подключения и отключения зарядки через UPower; другие события NOVA по специальным хукам.')
+        self.button(v, 'Открыть редактор и каталог звуков', lambda: self.open('nova-sound-studio'))
+        self.button(v, 'Уведомления KDE (звуки приложений)', lambda: self.open('systemsettings'))
+        return page
+
+    def page_gaming(self):
+        page, lay = self.page('Игровая библиотека, Steam Big Picture, геймпады Sony DualShock / DualSense и профили мощности.')
+        v = self.card(lay, 'NOVA Gaming', 'Steam и Proton устанавливаются отдельно; поддержка игр зависит от совместимости.')
+        self.button(v, 'Открыть NOVA Gaming', lambda: self.open('nova-gaming'))
+        self.button(v, 'NOVA Game Bar (Win+G)', lambda: self.open('nova-game-bar'))
+        self.button(v, 'Performance Center', lambda: self.open('nova-performance'))
+        self.button(v, 'Игровая библиотека Steam', lambda: self.open('steam', ['-bigpicture']))
+        return page
+
+    def page_phone(self):
+        page, lay = self.page('Дублирование экрана по USB или Wi-Fi, передача файлов и уведомления через KDE Connect.')
+        v = self.card(lay, 'NOVA Phone Hub', 'scrcpy для отображения экрана; Android разрешает отладку только после подтверждения на телефоне.')
+        self.button(v, 'Открыть NOVA Phone Hub', lambda: self.open('nova-phone-hub'))
+        self.button(v, 'KDE Connect', lambda: self.open('kdeconnect-app'))
+        return page
+
+    def page_appearance(self):
+        page, lay = self.page('Полная кастомизация KDE Plasma: темы, иконки, оформление окон, виртуальные столы, плагины, панели, эффекты и горячие клавиши.')
+        v = self.card(lay, 'NOVA Air — тема приложений', 'Светлый/тёмный стиль NOVA Control, Defender, Android Hub и других инструментов. Перезапустите приложения NOVA после изменения.')
+        def save_theme(kind):
+            try:
+                ui.save_choice(kind)
+                self.setStyleSheet(ui.stylesheet())
+            except (OSError, ValueError) as exc:
+                ui.error(self, 'NOVA', 'Не удалось сохранить тему: ' + str(exc))
+        self.button(v, 'Светлая тема NOVA', lambda: save_theme('light'))
+        self.button(v, 'Тёмная тема NOVA', lambda: save_theme('dark'))
+        self.button(v, 'Как в KDE Plasma (авто)', lambda: save_theme('auto'))
+        self.button(v, 'Настройки оформления Plasma', lambda: self.open('systemsettings'))
+        v = self.card(lay, 'Глобальные темы и цвета', 'NOVA Air: светлая и тёмная темы интерфейса приложений NOVA; KDE Plasma оформляется отдельно.')
+        for title, module in [('Глобальная тема', 'kcm_lookandfeel'), ('Цветовые схемы', 'kcm_colors'),
+                ('Иконки', 'kcm_icons'), ('Курсоры', 'kcm_cursortheme'), ('Шрифты', 'kcm_fonts'),
+                ('Рамки окон', 'kcm_kwindecoration'), ('Стиль приложений', 'kcm_style')]:
+            self.button(v, title, lambda m=module: self.kcm(m))
+        v = self.card(lay, 'Рабочее пространство', 'Эффекты, виртуальные столы, правила окон, жесты, углы экрана и многоэкранные конфигурации.')
+        for title, module in [('Эффекты рабочего стола', 'kcm_kwin_effects'), ('Виртуальные столы', 'kcm_kwin_virtualdesktops'),
+                 ('Горячие клавиши', 'kcm_keys'), ('Поведение окон', 'kcm_kwinoptions'),
+                 ('Экран блокировки', 'screenlocker'), ('Автозапуск', 'kcm_autostart')]:
+            self.button(v, title, lambda m=module: self.kcm(m))
+        self.button(v, 'Все настройки KDE', lambda: self.open('systemsettings'))
+        return page
+
+    def page_display(self):
+        page, lay = self.page('Настройка экрана, цветовой температуры, масштабирования, частоты обновления, звука и устройств.')
+        v = self.card(lay, 'Дисплей', 'Разрешение, частота обновления (Гц), масштаб, второй монитор (как Win+P), профили мониторов, яркость внешнего монитора.')
+        self.button(v, 'NOVA — дисплеи (частота, второй монитор)', lambda: self.open('nova-display'), 'primary')
+        self.button(v, 'Экран и мониторы KDE', lambda: self.kcm('kcm_kscreen'))
+        self.button(v, 'Энергосбережение', lambda: self.kcm('powerdevilglobalconfig'))
+        v = self.card(lay, 'Аудио и микрофоны', 'Звуковые устройства и входы PipeWire/WirePlumber, уровень громкости и приложения.')
+        self.button(v, 'Звук', lambda: self.kcm('kcm_pulseaudio'))
+        self.button(v, 'Каталог звуков и события зарядки', lambda: self.open('nova-sound-studio'))
+        self.button(v, 'Устройства и Bluetooth', lambda: self.kcm('bluedevilglobal'))
+        return page
+
+    def page_keyboard(self):
+        page, lay = self.page('Сочетания клавиш как в Windows (Win+↑, Win+Tab, Win+Shift+S, Ctrl+Shift+Esc, Win+I, Win+G…), '
+                              'мультимедийные клавиши и проверка, распознаёт ли система кнопку ноутбука.')
+        v = self.card(lay, 'NOVA — горячие клавиши', 'Шпаргалка, проверка клавиш, применение и возврат стандартов KDE.')
+        self.button(v, 'Открыть горячие клавиши', lambda: self.open('nova-hotkeys'), 'primary')
+        out = self.log(v, 80)
+        self.button(v, 'Применить сочетания как в Windows', lambda: self.run_process(['nova-hotkeys', 'apply'], out))
+        self.button(v, 'Вернуть стандартные сочетания KDE', lambda: ui.confirm(self, 'Сброс сочетаний',
+                    'Вернуть стандартные сочетания KDE?') and self.run_process(['nova-hotkeys', 'reset-kde'], out))
+        v = self.card(lay, 'Раскладка и ввод', 'EN/RU по Alt+Shift и Win+Пробел; тачпад, мышь, экранная клавиатура.')
+        for title, module in [('Раскладки клавиатуры', 'kcm_keyboard'), ('Тачпад', 'kcm_touchpad'),
+                              ('Мышь', 'kcm_mouse'), ('Все комбинации клавиш KDE', 'kcm_keys')]:
+            self.button(v, title, lambda m=module: self.kcm(m))
+        return page
+
+    def page_drivers(self):
+        page, lay = self.page('Безопасная диагностика GPU, Wi-Fi, сети, батареи и Secure Boot. Инвентаризация не гарантирует работу всех устройств.')
+        v = self.card(lay, 'NOVA Driver Center', 'Диагностика оборудования, скачивание официальных пакетов Debian, установка проверенных прошивок и переход к сайтам производителей — с подтверждением пользователя.')
+        self.button(v, 'Открыть NOVA Driver Center', lambda: self.open('nova-driver-center'))
+        self.button(v, 'Общая диагностика NOVA Health', lambda: self.open('nova-health'))
+        self.button(v, 'Проверка перед установкой', lambda: self.open('nova-preflight'))
+        v = self.card(lay, 'Проверка прошивок', 'Проверять обновления безопаснее через KDE Discover и fwupd. Список поддерживаемых устройств неполон.')
+        self.button(v, 'Открыть обновления', lambda: self.open('plasma-discover'))
+        return page
+
+    def page_network(self):
+        page, lay = self.page('NetworkManager, Bluetooth, прошивки устройств, USB и реальное состояние подключённых драйверов.')
+        v = self.card(lay, 'Wi-Fi и соединения', 'Wi-Fi, Ethernet, VPN, прокси и другие подключения средствами NetworkManager.')
+        self.button(v, 'Настройки соединений', lambda: self.open('nm-connection-editor') if shutil.which('nm-connection-editor') else self.open('systemsettings'))
+        v = self.card(lay, 'Диагностика оборудования', 'Проверка драйверов и периферии; NVIDIA не устанавливается вслепую.')
+        output = self.log(v)
+        self.button(v, 'Полные сведения об устройстве', lambda: self.run_process(['inxi','-Fz'], output))
+        self.button(v, 'Модули драйверов PCI', lambda: self.run_process(['lspci','-nnk'], output))
+        self.button(v, 'NOVA Driver Center', lambda: self.open('nova-driver-center'))
+        self.button(v, 'Проверка совместимости перед установкой', lambda: self.open('nova-preflight'))
+        self.button(v, 'Доступные обновления firmware', lambda: self.run_process(['fwupdmgr','get-updates'], output))
+        return page
+
+    def page_update(self):
+        page, lay = self.page('Система обновлений и восстановление: изменения не отключают исправления безопасности.')
+        v = self.card(lay, 'Обновления ОС и прошивок', 'Обновления пакетов Debian, Flatpak и устройства с fwupd.')
+        self.button(v, 'NOVA Update & Recovery Center', lambda: self.open('nova-update-center'))
+        self.button(v, 'Открыть Discover', lambda: self.open('plasma-discover'))
+        v = self.card(lay, 'Снимки и резервные копии', 'Timeshift: настройка расписания и точек восстановления. Для личных файлов требуется отдельная резервная копия.')
+        self.button(v, 'Открыть Timeshift', lambda: self.open('timeshift-launcher') if shutil.which('timeshift-launcher') else self.open('nova-update-center'))
+        return page
+
+def main():
+    app = QApplication(sys.argv)
+    app.setApplicationName('NOVA Control')
+    app.setDesktopFileName('nova-control')
+    window = Control(); window.show(); return app.exec()
+
+if __name__ == '__main__': raise SystemExit(main())

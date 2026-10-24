@@ -1,0 +1,199 @@
+#!/usr/bin/env python3
+"""NOVA Sound Studio — per-event sounds, user library, preview and nondestructive trim/fade."""
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+from PyQt6.QtCore import QProcess, Qt
+from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    QLabel, QPushButton, QComboBox, QFileDialog, QMessageBox, QListWidget, QSlider,
+    QDoubleSpinBox, QCheckBox, QGroupBox)
+from nova_theme import load_nova_stylesheet
+import nova_ui as ui
+from nova_sound_core import (EVENTS, DEFAULTS, BUNDLED, load_settings, save_settings,
+    resolve_sound, import_sound, library_path, edit_command, play_sound)
+
+class Studio(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle('NOVA Sound Studio — звук системы')
+        ui.setup_window(self, size=(1030, 690), app_id='nova-sound-studio')
+        self.settings=load_settings()
+        self.pending=None
+        w=QWidget(); whole=QVBoxLayout(w); self.setCentralWidget(w)
+        title=QLabel('♫  NOVA Sound Studio'); title.setObjectName('brand'); whole.addWidget(title)
+        whole.addWidget(QLabel('Собственные звуки для событий NOVA · настройки действуют только для вашей учётной записи'))
+        top=QHBoxLayout(); whole.addLayout(top)
+        self.enabled=QCheckBox('Включить звуки NOVA'); self.enabled.setChecked(self.settings['enabled'])
+        top.addWidget(self.enabled)
+        top.addWidget(QLabel('Громкость:'))
+        self.volume=QSlider(Qt.Orientation.Horizontal);self.volume.setRange(0,100)
+        self.volume.setValue(self.settings['volume']);top.addWidget(self.volume,1)
+        self.voltext=QLabel(str(self.settings['volume'])+'%');self.volume.valueChanged.connect(lambda v:self.voltext.setText(str(v)+'%'));top.addWidget(self.voltext)
+        columns=QHBoxLayout();whole.addLayout(columns,1)
+        left=QVBoxLayout();columns.addLayout(left,1)
+        left.addWidget(QLabel('События'))
+        self.events=QListWidget();self.events.addItems(EVENTS.values());left.addWidget(self.events,1)
+        right=QVBoxLayout();columns.addLayout(right,2)
+        self.current=QLabel('Выберите событие');self.current.setObjectName('heading');right.addWidget(self.current)
+        right.addWidget(QLabel('Выберите встроенный или импортированный звук:'))
+        self.sounds=QComboBox();right.addWidget(self.sounds)
+        self.sounds.currentIndexChanged.connect(self.change_sound)
+        row=QHBoxLayout();right.addLayout(row)
+        for title,call in [('▶ Прослушать',self.preview),('＋ Добавить звук',self.add_sound),('Сохранить настройки',self.save)]:
+            button=QPushButton(title);button.clicked.connect(call);row.addWidget(button)
+        box=QGroupBox('Редактор аудиофрагмента — исходный звук не изменяется')
+        edit=QVBoxLayout(box);right.addWidget(box)
+        edit.addWidget(QLabel('Начало и продолжительность в секундах; затухания применяются к сохранённой копии.'))
+        editors=QHBoxLayout();edit.addLayout(editors)
+        self.controls={}
+        for title,name,value,minimum,maximum in [('Начало','start',0,0,86400),('Длина','duration',2,.1,3600),
+                                                   ('Появление','fadein',.1,0,3600),('Затухание','fadeout',.2,0,3600)]:
+            group=QVBoxLayout();editors.addLayout(group)
+            group.addWidget(QLabel(title))
+            spin=QDoubleSpinBox();spin.setDecimals(2);spin.setRange(minimum,maximum);spin.setValue(value)
+            group.addWidget(spin);self.controls[name]=spin
+        self.editbutton=QPushButton('✂ Обрезать и сохранить копию в библиотеке')
+        self.editbutton.clicked.connect(self.edit_audio);edit.addWidget(self.editbutton)
+        bridge=QGroupBox('Системные события KDE / Linux')
+        bridge_layout=QVBoxLayout(bridge)
+        bridge_layout.addWidget(QLabel('Экспортируйте персональную тему freedesktop. Это не изменяет существующие темы или настройки KDE.'))
+        controls=QHBoxLayout();bridge_layout.addLayout(controls)
+        self.export_button=QPushButton('Экспортировать тему звуков')
+        self.export_button.clicked.connect(self.export_theme)
+        controls.addWidget(self.export_button)
+        kde_button=QPushButton('Настроить события KDE')
+        kde_button.clicked.connect(self.open_kde_sounds)
+        controls.addWidget(kde_button)
+        right.addWidget(bridge)
+        right.addWidget(QLabel('Встроенные звуки и пользовательские файлы находятся только на вашем устройстве.'))
+        self.status=QLabel('Звуки зарядки автоматически меняются при входе в систему.');right.addWidget(self.status)
+        right.addStretch()
+        self.events.currentRowChanged.connect(self.select_event)
+        self.events.setCurrentRow(0)
+        self.setStyleSheet(load_nova_stylesheet(''))
+
+    def available(self):
+        result=[]
+        for p in sorted(BUNDLED.glob('*.wav')):
+            result.append(('NOVA · '+p.stem, str(p)))
+        for p in sorted(library_path().glob('*')):
+            if p.is_file() and p.suffix.lower() in {'.wav','.ogg','.mp3','.flac','.m4a','.opus'}:
+                result.append(('Мой звук · '+p.name,str(p)))
+        return result
+
+    def select_event(self,row):
+        if row<0: return
+        key=list(EVENTS)[row]
+        self.current.setText(EVENTS[key])
+        self.sounds.blockSignals(True);self.sounds.clear()
+        self.sounds.addItem('Без звука', 'off')
+        self.sounds.addItem('По умолчанию', '')
+        for label,path in self.available():self.sounds.addItem(label,path)
+        configured=self.settings['events'].get(key) or ''
+        idx=self.sounds.findData(configured)
+        if idx<0 and configured:
+            self.sounds.addItem('Внешний файл · '+Path(configured).name,configured)
+            idx=self.sounds.count()-1
+        self.sounds.setCurrentIndex(max(0,idx))
+        self.sounds.blockSignals(False)
+
+    def change_sound(self, index):
+        row=self.events.currentRow()
+        if row >= 0 and index >= 0:
+            self.settings["events"][list(EVENTS)[row]]=self.sounds.itemData(index)
+
+    def chosen_path(self):
+        row=self.events.currentRow()
+        if row<0: return None
+        key=list(EVENTS)[row]
+        selection=self.sounds.currentData()
+        if selection=='off':return None
+        if selection: return Path(selection)
+        return BUNDLED/DEFAULTS[key]
+
+    def preview(self):
+        path=self.chosen_path()
+        if not path or not path.is_file():
+            QMessageBox.information(self,'NOVA','Выберите существующий звук.');return
+        if not play_sound(path,self.volume.value()):
+            QMessageBox.warning(self,'NOVA','Не найден ffplay (пакет ffmpeg).')
+
+    def add_sound(self):
+        path,_=QFileDialog.getOpenFileName(self,'Импорт аудио','','Аудио (*.wav *.ogg *.mp3 *.flac *.m4a *.opus)')
+        if not path:return
+        try: imported=import_sound(path)
+        except (OSError,ValueError) as exc:
+            QMessageBox.warning(self,'NOVA',str(exc));return
+        self.select_event(self.events.currentRow())
+        self.sounds.setCurrentIndex(self.sounds.findData(str(imported)))
+        self.status.setText('Добавлено в локальную библиотеку. Нажмите «Сохранить настройки».')
+
+    def save(self):
+        row=self.events.currentRow()
+        if row>=0:self.settings['events'][list(EVENTS)[row]]=self.sounds.currentData()
+        self.settings['enabled']=self.enabled.isChecked()
+        self.settings['volume']=self.volume.value()
+        try: save_settings(self.settings)
+        except OSError as exc:
+            QMessageBox.warning(self,'NOVA',str(exc));return
+        self.status.setText('Настройки сохранены. Демон применит их при следующем событии.')
+
+    def open_kde_sounds(self):
+        if not shutil.which('systemsettings'):
+            QMessageBox.warning(self, 'NOVA', 'Не найдено приложение systemsettings.');return
+        subprocess.Popen(['systemsettings'], start_new_session=True)
+        self.status.setText('KDE: найдите «Уведомления → Настроить события» или «Звуковая тема».')
+
+    def export_theme(self):
+        # Do not export unsaved UI changes; make this explicit.
+        if not ui.confirm(self, 'NOVA Sound Studio', 'Экспортировать текущие СОХРАНЁННЫЕ назначения в новую тему freedesktop? '
+            'Настройка звуков KDE выполняется отдельно.'):return
+        self.export_button.setEnabled(False)
+        self.status.setText('Экспортируем тему в домашнюю папку…')
+        self.export_proc=QProcess(self)
+        self.export_proc.setProgram('/usr/local/bin/nova-export-sound-theme')
+        self.export_proc.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+        self.export_proc.finished.connect(self.export_finished)
+        self.export_proc.start()
+
+    def export_finished(self,code,status):
+        self.export_button.setEnabled(True)
+        message=bytes(self.export_proc.readAllStandardOutput()).decode('utf-8','replace')
+        self.status.setText('Тема создана. Выберите её в параметрах KDE.' if code==0 else 'Ошибка экспорта темы.')
+        QMessageBox.information(self if code==0 else self, 'Экспорт звуков NOVA',message[:1500] or f'Код: {code}')
+
+    def edit_audio(self):
+        source=self.chosen_path()
+        if source is None or not source.is_file():
+            QMessageBox.information(self,'NOVA','Выберите звук для обработки.');return
+        dest=library_path();dest.mkdir(parents=True,exist_ok=True)
+        import uuid
+        target=dest/('edit-'+uuid.uuid4().hex+'.ogg')
+        try:
+            params={name:box.value() for name,box in self.controls.items()}
+            command=edit_command(source,target,params['start'],params['duration'],params['fadein'],params['fadeout'])
+        except ValueError as exc:
+            QMessageBox.warning(self,'NOVA',str(exc));return
+        if not shutil.which('ffmpeg'):
+            QMessageBox.warning(self,'NOVA','Не установлен ffmpeg.');return
+        self.editbutton.setEnabled(False);self.status.setText('Сохраняем новый фрагмент…')
+        self.proc=QProcess(self);self.proc.setProgram(command[0]);self.proc.setArguments(command[1:])
+        self.proc.finished.connect(lambda code,status,t=target:self.finished_edit(code,t))
+        self.proc.errorOccurred.connect(lambda _: self.finished_edit(127,target))
+        self.proc.start()
+
+    def finished_edit(self,code,target):
+        self.editbutton.setEnabled(True)
+        if code==0 and target.is_file():
+            self.select_event(self.events.currentRow())
+            idx=self.sounds.findData(str(target));self.sounds.setCurrentIndex(idx)
+            self.status.setText('Новый фрагмент добавлен. Сохраните назначение звука.')
+        else:
+            self.status.setText('Не удалось отредактировать файл. Проверьте границы фрагмента и кодек.')
+
+def main():
+    app=QApplication(sys.argv);app.setApplicationName('NOVA Sound Studio')
+    window=Studio();window.show();return app.exec()
+
+if __name__=='__main__':raise SystemExit(main())

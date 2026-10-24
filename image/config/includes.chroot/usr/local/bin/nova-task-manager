@@ -1,0 +1,90 @@
+#!/usr/bin/env python3
+"""NOVA Task Manager — processes and live machine load using psutil."""
+import os
+import sys
+import psutil
+from nova_theme import load_nova_stylesheet
+import nova_ui as ui
+from PyQt6.QtCore import QTimer, Qt
+from PyQt6.QtWidgets import (QApplication, QHBoxLayout, QLabel, QLineEdit,
+                             QMainWindow, QMessageBox, QPushButton, QTableWidget,
+                             QTableWidgetItem, QVBoxLayout, QWidget)
+
+class Manager(QMainWindow):
+    def __init__(self):
+        super().__init__(); self.setWindowTitle('NOVA Task Manager'); ui.setup_window(self, size=(990, 740), app_id='nova-task-manager')
+        self.procs = {}; self.current_filter = ''
+        panel = QWidget(); lay = QVBoxLayout(panel)
+        lay.addWidget(QLabel('NOVA TASK MANAGER  |  Процессы и ресурсы'))
+        self.stats = QLabel('Загрузка…'); lay.addWidget(self.stats)
+        toolbar = QHBoxLayout(); lay.addLayout(toolbar)
+        self.query = QLineEdit(); self.query.setPlaceholderText('Поиск процесса по имени или PID…');
+        self.query.textChanged.connect(lambda txt: setattr(self, 'current_filter', txt.casefold())); toolbar.addWidget(self.query)
+        kill_button = QPushButton('Завершить выбранный процесс'); kill_button.clicked.connect(self.stop_process)
+        toolbar.addWidget(kill_button)
+        self.table = QTableWidget(0, 5)
+        self.table.setHorizontalHeaderLabels(['PID', 'Процесс', 'CPU %', 'RAM (МБ)', 'Пользователь'])
+        self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.table.setSortingEnabled(True)
+        self.table.horizontalHeader().setStretchLastSection(True)
+        lay.addWidget(self.table, 1)
+        tip = QLabel('Обновление каждые 2 сек. Завершать можно только собственные процессы; это может привести к потере несохранённых данных.')
+        tip.setWordWrap(True); lay.addWidget(tip)
+        self.setCentralWidget(panel)
+        self.setStyleSheet(load_nova_stylesheet())
+        self.timer = QTimer(self); self.timer.timeout.connect(self.refresh); self.timer.start(2000)
+        psutil.cpu_percent(interval=None); self.refresh()
+
+    def refresh(self):
+        mem = psutil.virtual_memory(); cpu = psutil.cpu_percent(interval=None)
+        disk = psutil.disk_usage('/'); net = psutil.net_io_counters()
+        self.stats.setText(f'CPU: {cpu:.0f}%   RAM: {mem.percent:.0f}%  ({mem.used/1024**3:.1f}/{mem.total/1024**3:.1f} ГБ)'
+                           f'   Диск: {disk.percent:.0f}%   Сеть: ↑{net.bytes_sent/1024**2:.0f} МБ ↓{net.bytes_recv/1024**2:.0f} МБ (с запуска)')
+        selected_pid = self.selected_pid()
+        self.table.setSortingEnabled(False)
+        self.table.setRowCount(0)
+        observed = set()
+        for p in psutil.process_iter(['pid', 'name', 'username', 'memory_info']):
+            try:
+                pid = p.info['pid']; observed.add(pid)
+                name = p.info.get('name') or '?'
+                if self.current_filter not in (str(pid) + ' ' + name).casefold(): continue
+                cached = self.procs.setdefault(pid, p)
+                percent = cached.cpu_percent(interval=None) / max(psutil.cpu_count(), 1)
+                ram = ((p.info.get('memory_info').rss if p.info.get('memory_info') else 0) / 1024**2)
+                row = self.table.rowCount(); self.table.insertRow(row)
+                values = (str(pid), name, f'{percent:.1f}', f'{ram:.1f}', p.info.get('username') or '')
+                for col, value in enumerate(values):
+                    item = QTableWidgetItem(value)
+                    if col in (0, 2, 3): item.setData(Qt.ItemDataRole.EditRole, float(value) if col else int(value))
+                    self.table.setItem(row, col, item)
+                if pid == selected_pid: self.table.selectRow(row)
+            except (psutil.NoSuchProcess, psutil.AccessDenied, OSError, ValueError): continue
+        self.procs = {pid: process for pid, process in self.procs.items() if pid in observed}
+        self.table.setSortingEnabled(True)
+
+    def selected_pid(self):
+        """PID of the selected row, read from column 0 (any selected cell may come first)."""
+        selected = self.table.selectedItems()
+        if not selected: return -1
+        item = self.table.item(selected[0].row(), 0)
+        try: return int(item.text()) if item else -1
+        except ValueError: return -1
+
+    def stop_process(self):
+        pid = self.selected_pid()
+        if pid < 0: return
+        try:
+            p = psutil.Process(pid)
+            if pid in (0, 1, os.getpid()) or p.uids().effective != os.geteuid():
+                QMessageBox.warning(self, 'NOVA', 'Защищённый или чужой процесс.'); return
+            if ui.confirm(self, 'Завершение процесса', f'Отправить SIGTERM процессу {p.name()} (PID {pid})? Несохранённые данные могут быть потеряны.'):
+                p.terminate()
+        except (psutil.Error, OSError) as err:
+            QMessageBox.warning(self, 'NOVA', str(err))
+
+def main():
+    app = QApplication(sys.argv); win = Manager(); win.show(); return app.exec()
+
+if __name__ == '__main__': raise SystemExit(main())

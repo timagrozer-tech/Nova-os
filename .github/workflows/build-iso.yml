@@ -1,0 +1,179 @@
+name: Build NOVA OS ISO (experimental)
+
+# How to use from a phone: GitHub app/website → Actions → "Build NOVA OS ISO"
+# → Run workflow. Results appear as downloadable artifacts of the run.
+on:
+  workflow_dispatch:
+    inputs:
+      build_iso:
+        description: 'Build the ISO (60–120 min)'
+        type: boolean
+        default: true
+      boot_test:
+        description: 'Boot-test the ISO in QEMU (BIOS + UEFI, screenshots)'
+        type: boolean
+        default: true
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nova-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate sources (static checks + unit tests)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Static checks and unit tests
+        run: bash tools/validate-project.sh
+
+  ui-smoke:
+    name: UI smoke (all NOVA windows, 4 screen sizes, light + dark)
+    needs: validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PyQt6 and fonts
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libegl1 libgl1 libxkbcommon0 libfontconfig1 \
+            libdbus-1-3 fonts-noto-core fonts-noto-color-emoji
+          sudo apt-get install -y --no-install-recommends fonts-inter || echo 'fonts-inter unavailable on runner (Noto used)'
+          python3 -m pip install --user --break-system-packages PyQt6 psutil
+      - name: Render every NOVA window offscreen
+        run: |
+          set +e
+          python3 image/config/includes.chroot/usr/local/bin/nova-selftest --ui-smoke output/ui-smoke --themes light,dark > output-ui.txt
+          code=$?
+          set -e
+          python3 tools/ui_smoke_summary.py output/ui-smoke/ui-report.json >> "$GITHUB_STEP_SUMMARY"
+          exit $code
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: NOVA-UI-smoke-screenshots
+          path: output/ui-smoke
+          if-no-files-found: warn
+          retention-days: 14
+
+  build-iso:
+    name: Build ISO in Debian 13 container
+    needs: validate
+    if: github.event_name == 'workflow_dispatch' && inputs.build_iso || startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: version
+        name: Read VERSION
+        run: echo "version=$(tr -d '[:space:]' < VERSION)" >> "$GITHUB_OUTPUT"
+      - name: Free runner disk space
+        run: |
+          df -h .
+          sudo rm -rf /usr/local/lib/android /opt/hostedtoolcache /usr/share/dotnet /opt/ghc /usr/local/share/boost
+          sudo docker system prune -af || true
+          df -h .
+      - name: Build Debian 13 ISO in privileged disposable container
+        run: |
+          docker run --rm --privileged \
+            -v "$GITHUB_WORKSPACE:/project" \
+            -w /project \
+            debian:trixie \
+            bash -c 'set -Eeuo pipefail; bash tools/install-build-deps.sh; bash tools/build-iso.sh'
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## NOVA OS ${{ steps.version.outputs.version }} — ISO build"
+            if [ -f output/verify-report.txt ]; then echo '```'; cat output/verify-report.txt; echo '```'; fi
+            if [ -f output/SHA256SUMS ]; then echo "SHA-256: \`$(cat output/SHA256SUMS)\`"; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload ISO and checksum
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: NOVA-OS-${{ steps.version.outputs.version }}-ISO
+          path: |
+            output/NOVA-OS-${{ steps.version.outputs.version }}-amd64.iso
+            output/SHA256SUMS
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+      - name: Upload build reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: NOVA-OS-build-reports
+          path: |
+            output/build.log
+            output/build-manifest.txt
+            output/verify-report.txt
+          if-no-files-found: ignore
+          retention-days: 14
+
+  boot-test:
+    name: Boot test in QEMU (${{ matrix.firmware }})
+    needs: build-iso
+    if: github.event_name != 'workflow_dispatch' || inputs.boot_test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        firmware: [bios, uefi]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+          ls -l /dev/kvm || echo 'No KVM: QEMU will use slow TCG emulation'
+      - name: Install QEMU and OVMF
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends qemu-system-x86 qemu-utils ovmf
+      - uses: actions/download-artifact@v4
+        with:
+          name: NOVA-OS-${{ needs.build-iso.outputs.version }}-ISO
+          path: output
+      - name: Verify checksum
+        run: cd output && sha256sum --check SHA256SUMS
+      - name: Boot, log in, self-test, screenshots
+        run: |
+          python3 tools/nova_qemu_smoke.py \
+            --iso output/NOVA-OS-${{ needs.build-iso.outputs.version }}-amd64.iso \
+            --firmware ${{ matrix.firmware }} --out output/boot-test-${{ matrix.firmware }} --resolutions
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Boot test: ${{ matrix.firmware }}"
+            echo '```json'
+            cat output/boot-test-${{ matrix.firmware }}/result.json 2>/dev/null || echo '{"verdict":"no result"}'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: NOVA-OS-boot-test-${{ matrix.firmware }}
+          path: |
+            output/boot-test-${{ matrix.firmware }}/*.png
+            output/boot-test-${{ matrix.firmware }}/*.json
+            output/boot-test-${{ matrix.firmware }}/*.txt
+            output/boot-test-${{ matrix.firmware }}/*.log
+          if-no-files-found: warn
+          retention-days: 14

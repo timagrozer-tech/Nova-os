@@ -1,0 +1,133 @@
+#!/usr/bin/env python3
+"""Read-only Windows coexistence advisor; never edits partitions or boot variables."""
+import json
+import subprocess
+import sys
+from pathlib import Path
+from PyQt6.QtWidgets import (QApplication, QCheckBox, QLabel, QMainWindow,
+                              QMessageBox, QPushButton, QTextEdit, QVBoxLayout, QWidget)
+from nova_theme import load_nova_stylesheet
+import nova_ui as ui
+
+
+def command(argv, timeout=12):
+    try:
+        res = subprocess.run(argv, text=True, capture_output=True, timeout=timeout)
+        return res.stdout.strip(), res.stderr.strip(), res.returncode
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return '', str(exc), 1
+
+
+def walk_devices(devices):
+    for device in devices:
+        yield device
+        yield from walk_devices(device.get('children', []))
+
+
+def audit():
+    """Heuristic only. Detecting a Windows partition is not evidence that shrink is safe."""
+    uefi = Path('/sys/firmware/efi').is_dir()
+    lsblk, err, status = command(['lsblk', '-J', '-o', 'NAME,PATH,SIZE,FSTYPE,LABEL,PARTLABEL,MOUNTPOINTS,TYPE'])
+    details = []
+    detected_ntfs = 0
+    detected_encrypted = 0
+    if status == 0:
+        try:
+            data = json.loads(lsblk)
+            for item in walk_devices(data.get('blockdevices', [])):
+                fs = str(item.get('fstype') or '').lower()
+                if 'ntfs' in fs: detected_ntfs += 1
+                if fs in ('bitlocker','bitlocker2') or 'bitlocker' in str(item.get('label') or '').lower():
+                    detected_encrypted += 1
+                if fs in ('ntfs','bitlocker','bitlocker2','vfat'):
+                    details.append(f'{item.get("path")}: {item.get("size")} '
+                                   f'{item.get("fstype") or "?"}  {item.get("label") or ""} '
+                                   f'{item.get("mountpoints") or ""}')
+        except (ValueError, TypeError) as exc:
+            err = str(exc)
+    efi, error_efi, _ = command(['efibootmgr', '-v']) if uefi else ('', 'Запуск не в UEFI', 1)
+    manager = 'windows boot manager' in efi.lower()
+    result = [f'Режим UEFI: {"да" if uefi else "нет (проверьте режим загрузки!)"}',
+              f'Windows Boot Manager в UEFI: {"обнаружен" if manager else "не подтверждён"}',
+              f'Найдено разделов NTFS: {detected_ntfs}',
+              f'Подозрение на BitLocker: {"да" if detected_encrypted else "нет данных — проверьте в Windows"}',
+              '', 'Обнаруженные разделы (без изменений):', '\n'.join(details) or 'Не определены',
+              '', 'Важно: NTFS и EFI не доказывают, что Windows цела, а диск можно уменьшить.',
+              'Статус BitLocker и Fast Startup необходимо проверить в Windows.',
+              'Перед переразметкой сделайте внешнюю резервную копию.']
+    if err: result += ['', 'Диагностика lsblk: ' + err]
+    if error_efi: result += ['', 'Диагностика загрузчика: ' + error_efi]
+    return '\n'.join(result)
+
+
+class DualBoot(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle('NOVA OS · установить рядом с Windows 11')
+        ui.setup_window(self, size=(850, 740), app_id='nova-dualboot')
+        root = QWidget()
+        layout = QVBoxLayout(root)
+        layout.setContentsMargins(22, 18, 22, 18)
+        title = QLabel('NOVA / DUAL BOOT')
+        title.setObjectName('brand')
+        layout.addWidget(title)
+        desc = QLabel('Windows и NOVA OS на одном ноутбуке. Этот мастер ничего не меняет на диске; '
+                      'разметка выполняется позже в Calamares после вашего подтверждения.')
+        desc.setWordWrap(True)
+        layout.addWidget(desc)
+        layout.addWidget(QLabel('Обзор существующих разделов (только чтение)'))
+        self.output = QTextEdit()
+        self.output.setReadOnly(True)
+        layout.addWidget(self.output, 1)
+        button = QPushButton('Повторить диагностику')
+        button.clicked.connect(self.refresh)
+        layout.addWidget(button)
+        layout.addWidget(QLabel('Контрольный список перед запуском установщика:'))
+        requirements = (
+            'Сделал резервную копию Windows и личных файлов на другом носителе',
+            'Сохранил и проверил ключ восстановления BitLocker / Device Encryption',
+            'В Windows отключил «Быстрый запуск» (Fast Startup) и гибернацию',
+            'Подготовил незанятое место через «Управление дисками» Windows',
+            'Загрузил флешку в том же UEFI-режиме, что и Windows',
+            'Понимаю: нельзя форматировать Windows, EFI, MSR и Recovery-разделы',
+        )
+        self.checks=[]
+        for text in requirements:
+            box = QCheckBox(text)
+            self.checks.append(box)
+            layout.addWidget(box)
+        button = QPushButton('Перейти к проверке ноутбука → Установщик')
+        button.clicked.connect(self.go)
+        layout.addWidget(button)
+        footer=QLabel('В Calamares выбирайте ТОЛЬКО «Установить рядом» или ручную разметку '
+                      'с сохранением Windows. «Стереть диск» удалит обе системы.')
+        footer.setWordWrap(True)
+        layout.addWidget(footer)
+        self.setCentralWidget(root)
+        self.setStyleSheet(load_nova_stylesheet())
+        self.refresh()
+
+    def refresh(self):
+        self.output.setPlainText(audit())
+
+    def go(self):
+        if not all(c.isChecked() for c in self.checks):
+            QMessageBox.warning(self, 'NOVA Dual Boot', 'Все пункты требуют реальной проверки до установки.')
+            return
+        if not ui.confirm(self, 'Последнее напоминание', 'Разметка разделов рискованна даже в режиме «рядом с Windows». '
+            'Установщик Calamares также имеет действие «Стереть диск» — НЕ выбирайте его. Продолжить?'): return
+        out, err, code = command(['which', 'nova-preflight'])
+        if code:
+            QMessageBox.warning(self, 'NOVA', 'NOVA Hardware Check не установлен: ' + err)
+            return
+        subprocess.Popen(['nova-preflight'])
+
+
+def main():
+    app = QApplication(sys.argv)
+    win = DualBoot()
+    win.show()
+    return app.exec()
+
+if __name__ == '__main__':
+    raise SystemExit(main())

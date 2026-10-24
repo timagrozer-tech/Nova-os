@@ -1,0 +1,57 @@
+#!/bin/sh
+# NOVA OS 0.12 — binary hook (runs on the BUILD HOST inside the binary/ tree).
+#
+# Calamares (calamares-settings-debian) installs GRUB with
+#   deb [trusted=yes] file:/run/live/medium trixie main
+# so the medium must contain pool/ AND dists/trixie/main/binary-amd64/Packages.
+# live-build copies *.list.binary packages to pool/; this hook makes sure the
+# APT indices exist. It never touches anything outside the binary/ tree and
+# never deletes files.
+set -eu
+
+DIST=trixie
+ARCH=amd64
+INDEX="dists/$DIST/main/binary-$ARCH"
+MARKER=".disk/nova-offline-bootloader"
+
+mkdir -p .disk
+
+if [ ! -d pool ]; then
+	echo "NOVA WARNING: no pool/ on the medium; offline Calamares GRUB install will need Internet." >&2
+	echo "missing-pool" > "$MARKER"
+	exit 0
+fi
+
+count_debs() { find pool -type f -name "$1" | wc -l; }
+bios=$(count_debs 'grub-pc_*.deb')
+efi=$(count_debs 'grub-efi-amd64_*.deb')
+signed=$(count_debs 'grub-efi-amd64-signed_*.deb')
+
+if [ ! -s "$INDEX/Packages" ] && [ ! -s "$INDEX/Packages.gz" ] && [ ! -s "$INDEX/Packages.xz" ]; then
+	if command -v apt-ftparchive >/dev/null 2>&1; then
+		mkdir -p "$INDEX"
+		apt-ftparchive packages pool > "$INDEX/Packages"
+		gzip -9 -k -n "$INDEX/Packages"
+		apt-ftparchive \
+			-o "APT::FTPArchive::Release::Suite=$DIST" \
+			-o "APT::FTPArchive::Release::Codename=$DIST" \
+			-o "APT::FTPArchive::Release::Components=main" \
+			-o "APT::FTPArchive::Release::Architectures=$ARCH" \
+			-o "APT::FTPArchive::Release::Label=NOVA OS medium" \
+			release "dists/$DIST" > "dists/$DIST/Release.tmp"
+		mv "dists/$DIST/Release.tmp" "dists/$DIST/Release"
+		echo "NOVA: generated APT indices for the ISO pool."
+	else
+		echo "NOVA WARNING: apt-ftparchive (apt-utils) missing on the build host; pool has no indices." >&2
+	fi
+fi
+
+if [ "$bios" -ge 1 ] && [ "$efi" -ge 1 ] && [ "$signed" -ge 1 ] && \
+   { [ -s "$INDEX/Packages" ] || [ -s "$INDEX/Packages.gz" ] || [ -s "$INDEX/Packages.xz" ]; }; then
+	echo "ok grub-pc=$bios grub-efi-amd64=$efi grub-efi-amd64-signed=$signed" > "$MARKER"
+	echo "NOVA: offline bootloader packages present on the medium."
+else
+	echo "incomplete grub-pc=$bios grub-efi-amd64=$efi grub-efi-amd64-signed=$signed" > "$MARKER"
+	echo "NOVA WARNING: offline bootloader pool incomplete ($(cat "$MARKER"))." >&2
+fi
+exit 0

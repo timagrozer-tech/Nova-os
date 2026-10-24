@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=NOVA Migration
+Name[ru]=NOVA — перенос данных из Windows
+Comment=Copy selected Windows user data and export bookmarks or a software catalog
+Exec=nova-migration
+Icon=folder-download
+Terminal=false
+Categories=System;Utility;

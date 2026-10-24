@@ -1,0 +1,179 @@
+#!/usr/bin/env python3
+"""NOVA Update & Recovery Center: reviews real APT plans; explicit privileged updates."""
+from __future__ import annotations
+import shutil
+import subprocess
+import sys
+from PyQt6.QtCore import QThread, pyqtSignal
+from PyQt6.QtWidgets import (QApplication, QHBoxLayout, QLabel,
+                             QMainWindow, QMessageBox, QPushButton, QTabWidget,
+                             QTextEdit, QVBoxLayout, QWidget)
+from nova_theme import load_nova_stylesheet
+import nova_ui as ui
+from nova_update_core import host_state, parse_plan, formatted_plan, run_readonly
+
+ADMIN='/usr/local/lib/nova/nova-update-admin'
+
+class Work(QThread):
+    finished_job=pyqtSignal(int,str)
+    def __init__(self,argv,timeout=1800,parent=None):
+        super().__init__(parent); self.argv=argv; self.timeout=timeout
+    def run(self):
+        try:
+            # Keep machine-readable APT output in a stable locale.
+            import os
+            env=os.environ.copy()
+            if self.argv[0] == 'apt-get':env['LC_ALL']='C'
+            proc=subprocess.run(self.argv,env=env,stdin=subprocess.DEVNULL,
+                   stdout=subprocess.PIPE,stderr=subprocess.STDOUT,
+                   text=True,encoding='utf-8',errors='replace',timeout=self.timeout)
+            self.finished_job.emit(proc.returncode,(proc.stdout or '')[-18000:])
+        except (OSError,subprocess.TimeoutExpired) as error:
+            self.finished_job.emit(127,type(error).__name__)
+
+class UpdateCenter(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle('NOVA Update & Recovery Center')
+        ui.setup_window(self, size=(1050, 780), app_id='nova-update-center')
+        self.job=None; self.plan_ok=False; self.plan_count=0
+        main=QWidget(); layout=QVBoxLayout(main)
+        layout.setContentsMargins(24,20,24,20)
+        brand=QLabel('NOVA  /  UPDATE & RECOVERY');brand.setObjectName('brand')
+        layout.addWidget(brand)
+        description=QLabel('Системные обновления Debian · приложение Flatpak · снимки Timeshift · ядро Linux')
+        description.setWordWrap(True);layout.addWidget(description)
+        self.overview=QLabel('Проверка системы…');self.overview.setWordWrap(True)
+        layout.addWidget(self.overview)
+        self.tabs=QTabWidget();layout.addWidget(self.tabs,1)
+        self.add_debian();self.add_snapshots();self.add_apps();self.add_kernel()
+        foot=QLabel('Обновления ядра и драйверов могут потребовать перезагрузки. Timeshift — не резервная копия личных файлов.')
+        foot.setWordWrap(True);layout.addWidget(foot)
+        self.setCentralWidget(main)
+        self.setStyleSheet(load_nova_stylesheet())
+        self.refresh_state()
+
+    def add_debian(self):
+        tab=QWidget();lay=QVBoxLayout(tab)
+        intro=QLabel('Просмотр текущего плана APT без изменений. Для установки необходим успешно созданный снимок Timeshift и отдельное подтверждение.')
+        intro.setWordWrap(True);lay.addWidget(intro)
+        bar=QHBoxLayout();lay.addLayout(bar)
+        self.btn_catalog=self.button(bar,'Обновить список пакетов',lambda:self.run(['pkexec',ADMIN,'refresh']))
+        self.btn_preview=self.button(bar,'Проверить обновления',self.preview)
+        self.btn_apply=self.button(bar,'Создать снимок и обновить',self.apply)
+        self.btn_apply.setEnabled(False)
+        self.debian_log=self.viewer(lay)
+        self.tabs.addTab(tab,'Debian / APT')
+
+    def add_snapshots(self):
+        tab=QWidget();lay=QVBoxLayout(tab)
+        intro=QLabel('Настройте Timeshift на отдельном накопителе или подходящем разделе. Btrfs и RSYNC имеют разные требования к диску и восстановлению.')
+        intro.setWordWrap(True);lay.addWidget(intro)
+        bar=QHBoxLayout();lay.addLayout(bar)
+        self.button(bar,'Настроить Timeshift',lambda:self.open_tool('timeshift-gtk',elevated=True))
+        self.button(bar,'Создать снимок вручную',lambda:self.confirm_run('Создать системный снимок Timeshift?', ['pkexec',ADMIN,'snapshot']))
+        self.button(bar,'Показать снимки',lambda:self.run(['pkexec',ADMIN,'snapshots']))
+        self.button(bar,'История операций',lambda:self.run(['pkexec',ADMIN,'history']))
+        self.button(bar,'Открыть восстановление',self.restore)
+        self.snapshot_log=self.viewer(lay)
+        self.tabs.addTab(tab,'Снимки и восстановление')
+
+    def add_apps(self):
+        tab=QWidget();lay=QVBoxLayout(tab)
+        intro=QLabel('Приложения Flatpak и системные пакеты — разные источники обновлений. Flatpak запускается отдельно в пользовательском контексте.')
+        intro.setWordWrap(True);lay.addWidget(intro)
+        bar=QHBoxLayout();lay.addLayout(bar)
+        self.button(bar,'Проверить Flatpak',lambda:self.run(['flatpak','--user','remote-ls','--updates']))
+        self.button(bar,'Обновить мои Flatpak',lambda:self.confirm_run('Обновить пользовательские Flatpak-приложения?', ['flatpak','--user','update','-y']))
+        self.button(bar,'Открыть Discover',lambda:self.open_tool('plasma-discover'))
+        self.apps_log=self.viewer(lay)
+        self.tabs.addTab(tab,'Приложения')
+
+    def add_kernel(self):
+        tab=QWidget();lay=QVBoxLayout(tab)
+        text=QLabel('Информация о загруженном ядре и установленных версиях. Удаление старых ядер здесь не выполняется: это требует тестирования восстановления GRUB/UEFI.')
+        text.setWordWrap(True);lay.addWidget(text)
+        self.button(lay,'Проверить ядра',self.show_kernels)
+        self.button(lay,'Проверить обновления прошивок',lambda:self.run(['fwupdmgr','get-updates']))
+        self.button(lay,'Открыть центр драйверов',lambda:self.open_tool('nova-driver-center'))
+        self.kernel_log=self.viewer(lay)
+        self.tabs.addTab(tab,'Ядро и драйверы')
+
+    def button(self,container,title,callback):
+        button=QPushButton(title);button.clicked.connect(callback)
+        container.addWidget(button);return button
+    def viewer(self,container):
+        widget=QTextEdit();widget.setReadOnly(True);container.addWidget(widget,1)
+        return widget
+    def set_buttons(self,enabled):
+        for button in (self.btn_catalog,self.btn_preview):button.setEnabled(enabled)
+        self.btn_apply.setEnabled(enabled and self.plan_ok and self.plan_count>0)
+    def set_output(self,txt):
+        current=self.tabs.currentIndex()
+        (self.debian_log,self.snapshot_log,self.apps_log,self.kernel_log)[current].setPlainText(txt)
+    def run(self,argv,on_done=None,timeout=1800):
+        if self.job is not None and self.job.isRunning():
+            QMessageBox.warning(self,'Идёт операция','Дождитесь окончания текущей операции.');return
+        if not shutil.which(argv[0]):
+            self.set_output('Команда недоступна: '+argv[0]);return
+        tab_index=self.tabs.currentIndex()
+        destination=(self.debian_log,self.snapshot_log,self.apps_log,self.kernel_log)[tab_index]
+        destination.setPlainText('Выполняется: '+argv[0]+' …')
+        if argv == ['pkexec',ADMIN,'refresh']:
+            self.plan_ok=False;self.plan_count=0
+        self.set_buttons(False)
+        self.job=Work(argv,timeout=timeout,parent=self)
+        def done(code,text):
+            destination.setPlainText(('Успех\n' if code==0 else f'Ошибка (код {code})\n')+text)
+            self.set_buttons(True)
+            self.refresh_state()
+            if on_done:on_done(code,text)
+        self.job.finished_job.connect(done)
+        self.job.start()
+    def refresh_state(self):
+        state=host_state()
+        status=('Live USB: системные изменения заблокированы' if state['live'] else 'Установленная система')
+        backup=('Timeshift настроен' if state['timeshift_configured'] else 'Timeshift требует настройки')
+        self.overview.setText(f'{status}   ·   {backup}   ·   Файловая система /: {state["root_fs"]}   ·   Ядро: {state["kernel"]}')
+        self.btn_apply.setEnabled(self.plan_ok and self.plan_count>0 and not state['live'] and state['timeshift_configured'])
+    def preview(self):
+        self.plan_ok=False;self.plan_count=0;self.btn_apply.setEnabled(False)
+        def finished(code,text):
+            if code!=0:return
+            plan=parse_plan(text)
+            self.plan_ok=plan['valid'];self.plan_count=len(plan['upgrades'])
+            self.debian_log.setPlainText(formatted_plan(plan))
+            self.refresh_state()
+        self.run(['apt-get','-s','-o','Debug::NoLocking=1','upgrade'],on_done=finished,timeout=60)
+    def apply(self):
+        state=host_state()
+        if not self.plan_ok or self.plan_count<=0 or state['live'] or not state['timeshift_configured']:
+            QMessageBox.warning(self,'Установка заблокирована','Сначала проверка APT и настройка Timeshift.');return
+        self.confirm_run('Создать снимок Timeshift, затем установить обновления Debian? Это может занять место на диске и потребовать перезагрузки. Без снимка обновление не начнётся.', ['pkexec',ADMIN,'apply'],invalidate=True)
+    def confirm_run(self,question,argv,invalidate=False):
+        answer=QMessageBox.question(self,'Подтверждение операции',question,
+                 QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.No,
+                 QMessageBox.StandardButton.No)
+        if answer==QMessageBox.StandardButton.Yes:
+            if invalidate:self.plan_ok=False;self.plan_count=0
+            self.run(argv)
+    def restore(self):
+        QMessageBox.information(self,'Восстановление','Откроется Timeshift. Восстановление изменяет систему и может затронуть загрузчик. Сначала создайте резервную копию файлов и проверьте раздел Windows. Автоматического отката NOVA пока нет.')
+        self.open_tool('timeshift-gtk',elevated=True)
+    def open_tool(self,program,elevated=False):
+        if not shutil.which(program):
+            self.set_output('Приложение не найдено: '+program);return
+        args=['pkexec',program] if elevated else [program]
+        try:subprocess.Popen(args,start_new_session=True,stdin=subprocess.DEVNULL,
+                              stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+        except OSError as err:self.set_output(str(err))
+    def show_kernels(self):
+        returncode,output=run_readonly(['dpkg-query','-W','-f=${binary:Package}\t${Version}\n','linux-image-*'],timeout=15)
+        current=host_state()['kernel']
+        self.kernel_log.setPlainText('Текущее ядро: '+current+'\n\n'+(output if returncode==0 else 'Список установленных ядер недоступен.'))
+
+def main():
+    app=QApplication(sys.argv);app.setApplicationName('NOVA Update Center')
+    w=UpdateCenter();w.show();return app.exec()
+
+if __name__=='__main__':raise SystemExit(main())

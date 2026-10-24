@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=NOVA Displays
+Name[ru]=NOVA — дисплеи
+Comment=Resolution, refresh rate (Hz), scale, second monitor, profiles
+Comment[ru]=Разрешение, частота (Гц), масштаб, второй монитор, профили
+Exec=nova-display
+Icon=preferences-desktop-display
+Terminal=false
+Categories=Settings;HardwareSettings;
+Keywords=monitor;hz;refresh;resolution;second screen;монитор;герц;частота;разрешение;второй экран;проектор;
+X-KDE-Shortcuts=Meta+Shift+P

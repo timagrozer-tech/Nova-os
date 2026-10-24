@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Optional opt-in installation of Debian backports scrcpy, no remote install scripts.
+set -Eeuo pipefail
+[[ $EUID == 0 && "${1:-}" == install ]] || { echo 'Only: pkexec nova-phone-admin install' >&2; exit 2; }
+. /etc/os-release
+[[ ${ID:-} == debian && ${VERSION_CODENAME:-} == trixie ]] || { echo 'Debian 13 trixie required.' >&2; exit 3; }
+if [[ ! -f /etc/apt/sources.list.d/nova-trixie-backports.sources ]]; then
+  cat > /etc/apt/sources.list.d/nova-trixie-backports.sources <<'EOF'
+Types: deb
+URIs: http://deb.debian.org/debian
+Suites: trixie-backports
+Components: main contrib non-free non-free-firmware
+Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+EOF
+fi
+apt-get update
+apt-get install -y -t trixie-backports scrcpy

@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Actions for multimedia / launch keys (Windows-like). Fixed allow-list only.
+set -u
+case "${1:-}" in
+  calculator) for c in kcalc gnome-calculator qalculate-qt; do command -v "$c" >/dev/null && exec "$c"; done ;;
+  explorer)   exec dolphin ;;
+  homepage)   exec /usr/local/bin/nova-open-browser ;;
+  mail)       exec /usr/local/bin/nova-open-mail ;;
+  tools)      exec /usr/local/bin/nova-control ;;
+  *) echo 'usage: nova-key calculator|explorer|homepage|mail|tools' >&2; exit 2 ;;
+esac
+echo "nova-key: no program for ${1}" >&2
+exit 3

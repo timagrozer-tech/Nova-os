@@ -1,0 +1,84 @@
+#!/usr/bin/env python3
+"""Interactive joystick diagnostics for already accessible kernel js devices.
+Reads button/axis events; does not write to or remap the device.
+"""
+import errno
+import os
+import sys
+from pathlib import Path
+from PyQt6.QtCore import QSocketNotifier
+from PyQt6.QtWidgets import (QApplication,QDialog,QVBoxLayout,QLabel,QComboBox,
+                             QTextEdit,QPushButton,QHBoxLayout)
+from nova_gamepad_core import STRUCT, decode_event, valid_js_device
+from nova_theme import load_nova_stylesheet
+import nova_ui as ui
+
+class GamepadTest(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle('NOVA — проверка DualShock / DualSense / геймпада')
+        ui.setup_window(self, size=(660, 430), app_id='nova-gamepad-test')
+        self.fd=None; self.notifier=None; self.pending=bytearray()
+        layout=QVBoxLayout(self)
+        title=QLabel('Тест кнопок и стиков'); title.setObjectName('brand');layout.addWidget(title)
+        layout.addWidget(QLabel('Подключите геймпад через USB или Bluetooth. События только читаются.'))
+        row=QHBoxLayout();layout.addLayout(row)
+        self.device=QComboBox();row.addWidget(self.device,1)
+        update=QPushButton('Найти устройства');update.clicked.connect(self.refresh);row.addWidget(update)
+        open_button=QPushButton('Начать тест');open_button.clicked.connect(self.open_device);row.addWidget(open_button)
+        stop=QPushButton('Остановить');stop.clicked.connect(self.close_device);row.addWidget(stop)
+        self.info=QLabel('Ожидание устройства');layout.addWidget(self.info)
+        self.events=QTextEdit();self.events.setReadOnly(True);layout.addWidget(self.events,1)
+        layout.addWidget(QLabel('При отсутствии /dev/input/js* попробуйте Steam Input; не запускайте приложение с sudo.'))
+        self.setStyleSheet(load_nova_stylesheet(''))
+        self.refresh()
+
+    def refresh(self):
+        self.close_device()
+        self.device.clear()
+        for path in sorted(Path('/dev/input').glob('js[0-9]*')) if Path('/dev/input').is_dir() else []:
+            if valid_js_device(str(path)):self.device.addItem(str(path))
+        if not self.device.count():self.info.setText('Устройств js не найдено. Проверяйте USB/Bluetooth и модули Linux.')
+
+    def open_device(self):
+        self.close_device()
+        path=self.device.currentText()
+        if not valid_js_device(path):return
+        try:
+            self.fd=os.open(path, os.O_RDONLY | os.O_NONBLOCK | getattr(os,'O_CLOEXEC',0))
+        except OSError as exc:
+            self.info.setText('Не удалось открыть устройство: '+str(exc));return
+        self.notifier=QSocketNotifier(self.fd,QSocketNotifier.Type.Read,self)
+        self.notifier.activated.connect(self.read_events)
+        self.info.setText('Слушаем '+path+' — нажимайте кнопки и двигайте стики')
+
+    def read_events(self):
+        if self.fd is None:return
+        try:
+            while True:
+                part=os.read(self.fd,STRUCT.size*20)
+                if not part:
+                    self.close_device();self.info.setText('Контроллер отключён.');return
+                self.pending.extend(part)
+                while len(self.pending)>=STRUCT.size:
+                    packet=bytes(self.pending[:STRUCT.size]);del self.pending[:STRUCT.size]
+                    parsed=decode_event(packet)
+                    if parsed and not parsed['initial']:
+                        self.events.append(f"{parsed['kind']} №{parsed['number']} = {parsed['value']}")
+                if len(part)<STRUCT.size*20:return
+        except BlockingIOError:return
+        except OSError as exc:
+            self.info.setText('Ошибка чтения: '+str(exc));self.close_device()
+
+    def close_device(self):
+        if self.notifier is not None:
+            self.notifier.setEnabled(False);self.notifier.deleteLater();self.notifier=None
+        if self.fd is not None:os.close(self.fd);self.fd=None
+        self.pending.clear()
+
+    def closeEvent(self,event):
+        self.close_device();super().closeEvent(event)
+
+if __name__=='__main__':
+    app=QApplication(sys.argv)
+    window=GamepadTest();window.show();raise SystemExit(app.exec())

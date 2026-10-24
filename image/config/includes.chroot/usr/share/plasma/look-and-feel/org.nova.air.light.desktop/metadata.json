@@ -1,0 +1,20 @@
+{
+    "KPackageStructure": "Plasma/LookAndFeel",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "NOVA OS community project"
+            }
+        ],
+        "Category": "",
+        "Description": "NOVA Air: calm Plasma look with a centred taskbar (based on Breeze)",
+        "Description[ru]": "NOVA Air: спокойное оформление Plasma с центрированной панелью (на основе Breeze)",
+        "Id": "org.nova.air.light.desktop",
+        "License": "GPL-2.0-or-later",
+        "Name": "NOVA Air Light",
+        "Name[ru]": "NOVA Air — светлая",
+        "Version": "0.12",
+        "Website": ""
+    },
+    "X-Plasma-APIVersion": "2"
+}

@@ -1,0 +1,56 @@
+name: Unpack NOVA source ZIP
+
+# Phone-friendly bootstrap: upload NOVA-OS-*-SOURCE.zip to the repository root,
+# then run this workflow. It extracts the project into the repository and
+# removes the ZIP. GitHub does not allow the automatic token to write into
+# .github/workflows, so workflow files are placed into nova-workflows/ —
+# move them into .github/workflows/ with the web editor (rename the path).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  unpack:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract the uploaded source ZIP
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          zips=(NOVA-OS-*-SOURCE.zip)
+          if [ "${#zips[@]}" -ne 1 ]; then
+            echo "Expected exactly one NOVA-OS-*-SOURCE.zip in the repository root, found ${#zips[@]}" >&2
+            exit 1
+          fi
+          tmp="$(mktemp -d)"
+          unzip -q "${zips[0]}" -d "$tmp"
+          # The ZIP contains one top-level folder NOVA-OS-vX.Y/
+          top="$(find "$tmp" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
+          [ -f "$top/VERSION" ] || { echo 'ZIP does not look like a NOVA source tree (no VERSION)'; exit 1; }
+          mkdir -p nova-workflows
+          if [ -d "$top/.github/workflows" ]; then
+            cp "$top"/.github/workflows/*.yml nova-workflows/
+            rm -rf "$top/.github"
+          fi
+          cp -a "$top"/. .
+          git rm -q --cached "${zips[0]}" || true
+          rm -f "${zips[0]}"
+      - name: Commit extracted project
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m "Import NOVA OS sources from uploaded ZIP" || echo 'Nothing to commit'
+          git push
+      - name: Next step
+        run: |
+          {
+            echo '## Sources imported'
+            echo 'Move `nova-workflows/build-iso.yml` to `.github/workflows/build-iso.yml`'
+            echo '(open the file → ✏️ Edit → change the path at the top → Commit), then run'
+            echo '**Actions → Build NOVA OS ISO (experimental) → Run workflow**.'
+          } >> "$GITHUB_STEP_SUMMARY"

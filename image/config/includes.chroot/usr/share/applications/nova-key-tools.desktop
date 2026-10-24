@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Параметры (multimedia key)
+Name[ru]=Параметры (мультимедийная клавиша)
+Exec=nova-key tools
+Icon=input-keyboard
+NoDisplay=true
+Terminal=false
+X-KDE-Shortcuts=Tools

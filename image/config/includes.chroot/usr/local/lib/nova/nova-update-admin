@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# Root-only UPDATE helper. Separate administrative trust boundary, no arbitrary argv.
+set -Eeuo pipefail
+umask 077
+(( EUID == 0 )) || { echo 'Нужны права администратора.' >&2; exit 1; }
+(( $# == 1 )) || { echo 'Требуется одна разрешённая команда.' >&2; exit 2; }
+CORE='/usr/local/bin/nova_update_core.py'
+ROOT='/var/lib/nova-update-center/history'
+is_live() { grep -Eq '(^|[[:space:]])boot=live([[:space:]]|$)' /proc/cmdline; }
+case "$1" in
+  refresh)
+    if is_live; then echo 'Запрещено в Live USB.' >&2; exit 3; fi
+    apt-get update ;;
+  snapshots)
+    if ! command -v timeshift >/dev/null; then echo 'Timeshift не установлен.'; exit 4; fi
+    timeshift --list --scripted ;;
+  history)
+    python3 "$CORE" --history "$ROOT" ;;
+  snapshot)
+    if is_live; then echo 'Запрещено в Live USB.' >&2; exit 3; fi
+    python3 "$CORE" --timeshift-check || { echo 'Сначала настройте Timeshift.' >&2; exit 4; }
+    timeshift --create --comments 'NOVA OS: ручной снимок' --tags O --scripted --yes ;;
+  apply)
+    if is_live; then echo 'Обновление запрещено в Live USB.' >&2; exit 3; fi
+    if ! python3 "$CORE" --timeshift-check; then
+      echo 'Сначала запустите Timeshift и настройте хранилище снимков.' >&2; exit 4
+    fi
+    command -v timeshift >/dev/null || { echo 'Timeshift отсутствует.' >&2; exit 4; }
+    install -d -m 0700 "$ROOT"
+    transaction="$(mktemp -d "$ROOT/tx-$(date -u +%Y%m%dT%H%M%SZ)-XXXXXX")"
+    printf '%s\n' running > "$transaction/status"
+    uname -r > "$transaction/kernel-before.txt"
+    dpkg-query -W -f='${binary:Package}\t${Version}\n' > "$transaction/packages-before.tsv"
+    # Recalculate the plan as root; never trust a GUI-provided plan.
+    if ! LC_ALL=C apt-get -s -o Debug::NoLocking=1 upgrade > "$transaction/apt-plan.txt" 2>&1; then
+      echo blocked > "$transaction/status"; echo 'APT: ошибка предварительной проверки.' >&2; exit 5
+    fi
+    if ! python3 "$CORE" --check "$transaction/apt-plan.txt"; then
+      echo blocked > "$transaction/status"; echo 'Обновление заблокировано из-за изменений плана.' >&2; exit 5
+    fi
+    # NEVER apply updates if the snapshot was not successfully created.
+    if ! timeshift --create --comments "NOVA OS: перед обновлением $(date -u +%Y-%m-%d)" --tags O --scripted --yes > "$transaction/snapshot.log" 2>&1; then
+      echo snapshot_failed > "$transaction/status"
+      echo 'Снимок Timeshift не создан: обновление отменено. Проверьте настройки и диск.' >&2
+      exit 6
+    fi
+    # apt-get upgrade, unlike dist-upgrade, will not deliberately remove packages.
+    # Still set --no-remove as a second line of defence.
+    export DEBIAN_FRONTEND=noninteractive
+    if apt-get -y --no-remove upgrade > "$transaction/apt.log" 2>&1; then
+      echo success > "$transaction/status"
+      dpkg-query -W -f='${binary:Package}\t${Version}\n' > "$transaction/packages-after.tsv"
+      echo 'Обновление завершено. Проверьте работу системы и перезапустите ноутбук при необходимости.'
+    else
+      echo failed > "$transaction/status"
+      dpkg-query -W -f='${binary:Package}\t${Version}\n' > "$transaction/packages-after.tsv" || true
+      echo 'Обновление завершилось с ошибкой. Откройте Timeshift для восстановления после проверки журналов.' >&2
+      exit 7
+    fi
+    echo "Журнал обновления: $transaction" ;;
+  *) echo 'Недопустимая операция.' >&2; exit 2 ;;
+esac

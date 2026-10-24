@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=NOVA Gamepad Test
+Name[ru]=NOVA — тест геймпада
+Comment=Test buttons and analog sticks safely
+Exec=/usr/local/bin/nova-gamepad-test
+Icon=input-gaming
+Terminal=false
+Categories=Game;Settings;

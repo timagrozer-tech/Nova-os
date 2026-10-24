@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=NOVA Personalize
+Name[ru]=NOVA — персонализация
+Comment=Theme, accent colour, Windows/Dock/Hybrid desktop modes
+Comment[ru]=Тема, акцентный цвет, режимы рабочего стола Windows/Dock/Гибрид
+Exec=nova-personalize
+Icon=preferences-desktop-theme
+Terminal=false
+Categories=Settings;DesktopSettings;
+Keywords=theme;dark;light;dock;taskbar;panel;тема;панель;док;оформление;

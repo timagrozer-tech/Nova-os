@@ -1,0 +1,103 @@
+#!/bin/sh
+# NOVA OS 0.12 chroot hook. Runs INSIDE the image chroot during the ISO build.
+# Rules: no disk changes, no remote scripts, no proprietary drivers, no security
+# features disabled. Every optional step is fail-soft and logged.
+set -eu
+
+log() { echo "NOVA hook: $*"; }
+
+chmod 0755 /usr/local/bin/nova-* /usr/local/lib/nova/nova-*
+find /usr/local/bin -name '__pycache__' -type d -prune -exec rm -rf {} + 2>/dev/null || true
+
+# --- Services -------------------------------------------------------------
+for unit in NetworkManager.service fstrim.timer bluetooth.service apparmor.service ufw.service; do
+	systemctl enable "$unit" 2>/dev/null || log "could not enable $unit (package missing?)"
+done
+
+# --- Firewall: ON by default (deny incoming, allow outgoing) ---------------
+# ufw cannot talk to the kernel inside a chroot, so only flip ENABLED=yes;
+# ufw.service applies the default policy at boot. Users can still change it in
+# NOVA Defender / plasma-firewall. KDE Connect needs ports 1714-1764 (Phone Hub
+# explains how to allow them explicitly).
+if [ -f /etc/ufw/ufw.conf ]; then
+	sed -i 's/^ENABLED=.*/ENABLED=yes/' /etc/ufw/ufw.conf
+	grep -q '^ENABLED=yes' /etc/ufw/ufw.conf && log "ufw enabled by default"
+fi
+
+# ClamAV database updates require Internet. Do not promise realtime AV protection.
+# No automatic NVIDIA driver or destructive hardening, no automatic disk modifications.
+# Debian's locale-gen takes no locale arguments: enable entries in /etc/locale.gen.
+if [ -f /etc/locale.gen ]; then
+	sed -i -E 's/^# *(ru_RU\.UTF-8 UTF-8)$/\1/; s/^# *(en_US\.UTF-8 UTF-8)$/\1/' /etc/locale.gen
+	grep -q '^ru_RU.UTF-8 UTF-8' /etc/locale.gen || echo 'ru_RU.UTF-8 UTF-8' >> /etc/locale.gen
+	grep -q '^en_US.UTF-8 UTF-8' /etc/locale.gen || echo 'en_US.UTF-8 UTF-8' >> /etc/locale.gen
+fi
+locale-gen || true
+
+# --- Calamares branding: NOVA on top of Debian's proven configuration -------
+# We COPY Debian's working branding (keeps show.qml/stylesheet valid), change
+# only names/colours/images, and switch settings.conf only if everything is
+# in place. bootloaderEntryName stays "Debian" on purpose: the signed GRUB
+# used for Secure Boot expects /EFI/debian.
+NOVA_VERSION=$(sed -n 's/^NOVA_OS_VERSION=//p' /etc/nova-release 2>/dev/null | head -n 1)
+[ -n "$NOVA_VERSION" ] || NOVA_VERSION=dev
+BR_SRC=/etc/calamares/branding/debian
+BR_DST=/etc/calamares/branding/nova
+ART=/usr/share/nova/branding
+if [ -f "$BR_SRC/branding.desc" ] && [ -f /etc/calamares/settings.conf ] && [ -f "$ART/logo.png" ]; then
+	rm -rf "$BR_DST"
+	cp -a "$BR_SRC" "$BR_DST"
+	desc="$BR_DST/branding.desc"
+	sed -i \
+		-e 's/^\([[:space:]]*componentName:[[:space:]]*\).*/\1nova/' \
+		-e 's/^\([[:space:]]*productName:[[:space:]]*\).*/\1"NOVA OS"/' \
+		-e 's/^\([[:space:]]*shortProductName:[[:space:]]*\).*/\1"NOVA OS"/' \
+		-e 's/^\([[:space:]]*version:[[:space:]]*\).*/\1"'"$NOVA_VERSION"' (Debian 13)"/' \
+		-e 's/^\([[:space:]]*shortVersion:[[:space:]]*\).*/\1"'"$NOVA_VERSION"'"/' \
+		-e 's/^\([[:space:]]*versionedName:[[:space:]]*\).*/\1"NOVA OS '"$NOVA_VERSION"' (Debian 13 trixie)"/' \
+		-e 's/^\([[:space:]]*shortVersionedName:[[:space:]]*\).*/\1"NOVA OS '"$NOVA_VERSION"'"/' \
+		-e 's/^\([[:space:]]*SidebarBackground:[[:space:]]*\).*/\1"#14233b"/' \
+		-e 's/^\([[:space:]]*SidebarText:[[:space:]]*\).*/\1"#ffffff"/' \
+		-e 's/^\([[:space:]]*SidebarTextCurrent:[[:space:]]*\).*/\1"#14233b"/' \
+		-e 's/^\([[:space:]]*SidebarBackgroundCurrent:[[:space:]]*\).*/\1"#dbe9ff"/' \
+		"$desc"
+	# Replace image files referenced by Debian's branding (keep file names).
+	for key in productLogo productIcon productWelcome; do
+		img=$(sed -n "s/^[[:space:]]*$key:[[:space:]]*\"\{0,1\}\([^\"]*\)\"\{0,1\}[[:space:]]*$/\1/p" "$desc" | head -n 1)
+		[ -n "$img" ] || continue
+		case "$img" in */*|..*) continue ;; esac
+		if [ "$key" = productWelcome ] && [ -f "$ART/welcome.png" ]; then
+			cp "$ART/welcome.png" "$BR_DST/$img"
+		else
+			cp "$ART/logo.png" "$BR_DST/$img"
+		fi
+	done
+	if grep -q '^[[:space:]]*componentName:[[:space:]]*nova' "$desc" && grep -q 'NOVA OS' "$desc"; then
+		sed -i 's/^\([[:space:]]*branding:[[:space:]]*\).*/\1nova/' /etc/calamares/settings.conf
+		log "Calamares branding switched to NOVA"
+	else
+		log "Calamares branding patch incomplete; keeping Debian branding"
+		rm -rf "$BR_DST"
+	fi
+else
+	log "Calamares Debian branding not found; skipping NOVA branding"
+fi
+
+# Calamares launcher name in the live menu (keeps Debian's install-debian helper).
+if [ -f /usr/share/applications/install-debian.desktop ]; then
+	sed -i -e 's/^Name=.*/Name=Установить NOVA OS/' \
+	       -e 's/^Name\[ru\]=.*/Name[ru]=Установить NOVA OS/' \
+	       /usr/share/applications/install-debian.desktop || true
+fi
+
+# --- Plasma defaults --------------------------------------------------------
+# Make the NOVA look-and-feel/layouts available to plasmashell's first start.
+if [ -d /usr/share/plasma/look-and-feel/org.nova.air.light.desktop ]; then
+	log "NOVA Air look-and-feel installed"
+fi
+# Icon cache for the NOVA logo.
+gtk-update-icon-cache -q -f /usr/share/icons/hicolor 2>/dev/null || true
+
+# Byte-compile NOVA Python modules so first start is faster (optional).
+python3 -m compileall -q /usr/local/bin >/dev/null 2>&1 || true
+exit 0

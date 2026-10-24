@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=NOVA Self-test
+Name[ru]=NOVA — самопроверка системы
+Comment=Read-only check of session, screens, GPU, network, sound and security
+Comment[ru]=Проверка сеанса, экранов, видеокарты, сети, звука и защиты (только чтение)
+Exec=nova-selftest-window
+Icon=utilities-system-monitor
+Terminal=false
+Categories=System;Monitor;

@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# Root-only driver package manager; no auto NVIDIA, no rollback claims.
+set -Eeuo pipefail
+umask 077
+(( EUID == 0 )) || { echo 'Требуются права администратора.' >&2; exit 1; }
+(( $# >= 1 && $# <= 9 )) || exit 2
+ROOT='/var/lib/nova-driver-center/history'
+TRANSACTION='/usr/local/bin/nova_driver_transaction.py'
+# Protect installed system: no changes to driver stack from Live USB.
+is_live() { grep -Eq '(^|[[:space:]])boot=live([[:space:]]|$)' /proc/cmdline; }
+case "$1" in
+  refresh)
+    (( $# == 1 )) || exit 2
+    if is_live; then echo 'Запрещено в Live USB.' >&2; exit 3; fi
+    apt-get update ;;
+  history)
+    (( $# == 1 )) || exit 2
+    python3 "$TRANSACTION" history "$ROOT" ;;
+  install)
+    shift
+    (( $# >= 1 && $# <= 8 )) || exit 2
+    if is_live; then echo 'Запрещено в Live USB.' >&2; exit 3; fi
+    export DEBIAN_FRONTEND=noninteractive
+    # Validate again at the administrative trust boundary.
+    python3 - "$@" <<'PY'
+import sys
+sys.path.insert(0, '/usr/local/bin')
+from nova_driver_catalog import validate_selection, inspect_package
+try:
+    packages = validate_selection(sys.argv[1:])
+    for package in packages:
+        check = inspect_package(package)
+        if not check['verified']:
+            raise ValueError(f'{package}: {check["error"]}')
+except ValueError as error:
+    print(f'Проверка источника пакетов: {error}', file=sys.stderr)
+    sys.exit(4)
+PY
+    # Only root can inspect journal. No backups of personal data are created.
+    install -d -m 0700 "$ROOT"
+    transaction="$(mktemp -d "$ROOT/tx-$(date -u +%Y%m%dT%H%M%SZ)-XXXXXX")"
+    chmod 0700 "$transaction"
+    printf 'started\n' > "$transaction/status"
+    printf '%s\n' "$@" > "$transaction/selected-packages.txt"
+    uname -r > "$transaction/kernel-before.txt"
+    dpkg-query -W -f='${binary:Package}\t${Version}\n' > "$transaction/packages-before.tsv"
+    # APT simulation/installer use the same exact package vector, no shell interpolation.
+    if ! LC_ALL=C apt-get -s install -- "$@" > "$transaction/apt-plan.txt" 2>&1; then
+      echo 'blocked' > "$transaction/status"
+      echo 'APT simulation failed. Operation journal:' "$transaction" >&2
+      exit 5
+    fi
+    if ! python3 "$TRANSACTION" check-plan "$transaction/apt-plan.txt"; then
+      echo 'blocked' > "$transaction/status"
+      echo 'APT simulation requires manual review. Operation journal:' "$transaction" >&2
+      exit 5
+    fi
+    printf '%s\n' 'APT simulation passed. Journal:' "$transaction"
+    # Restrict APT: never remove installed packages. Capture output for recovery diagnosis.
+    if apt-get -y --no-remove install -- "$@" > "$transaction/apt-install.log" 2>&1; then
+      echo 'success' > "$transaction/status"
+      dpkg-query -W -f='${binary:Package}\t${Version}\n' > "$transaction/packages-after.tsv"
+      echo 'Установка завершена. Перезагрузите систему при необходимости.'
+      echo 'Журнал:' "$transaction"
+    else
+      echo 'failed' > "$transaction/status"
+      dpkg-query -W -f='${binary:Package}\t${Version}\n' > "$transaction/packages-after.tsv" || true
+      echo 'Установка завершилась с ошибкой; журнал:' "$transaction" >&2
+      echo 'Не пытайтесь автоматически откатывать драйвер: используйте снимок Timeshift или ручное восстановление.' >&2
+      exit 6
+    fi ;;
+  *) echo 'Неподдерживаемое действие.' >&2; exit 2 ;;
+esac

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=NOVA Health
+Name[ru]=NOVA Health
+Comment=Read-only hardware and driver status
+Exec=/usr/local/bin/nova-health
+Icon=nova
+Categories=Settings;System;Utility;
+Terminal=false

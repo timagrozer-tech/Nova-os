@@ -1,0 +1,8 @@
+#!/usr/bin/env python3
+"""Open KDE KRunner, NOVA's live application/setting/file search interface."""
+import shutil
+import subprocess
+import sys
+if shutil.which('krunner'):
+    raise SystemExit(subprocess.call(['krunner'] + sys.argv[1:]))
+raise SystemExit('KRunner не установлен; откройте поиск Plasma комбинацией Alt+Пробел.')

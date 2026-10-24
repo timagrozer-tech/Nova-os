@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=NOVA Android Hub
+Name[ru]=NOVA Android — приложения и Google
+Comment=Install and manage Waydroid Android apps and Google integration
+Exec=nova-android-hub
+Icon=nova
+Terminal=false
+Categories=System;Utility;

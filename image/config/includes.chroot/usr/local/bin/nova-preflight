@@ -1,0 +1,104 @@
+#!/usr/bin/env python3
+"""Read-only readiness inspection before Calamares. Never partitions, installs or erases disks."""
+import subprocess
+import sys
+from pathlib import Path
+from PyQt6.QtCore import QProcess
+from PyQt6.QtWidgets import (QApplication, QCheckBox, QFileDialog, QFrame,
+    QHBoxLayout, QLabel, QMainWindow, QMessageBox, QPushButton,
+    QTextEdit, QVBoxLayout, QWidget)
+from nova_theme import load_nova_stylesheet
+import nova_ui as ui
+
+CHECKS = (
+    'Wi-Fi и интернет (или Ethernet) работают',
+    'Есть звук из динамиков и работает микрофон',
+    'Экран, яркость, разрешение и внешние выходы исправны',
+    'Работают клавиатура, тачпад, Bluetooth и веб-камера',
+    'Проверены сон/пробуждение и гибридная графика NVIDIA/AMD',
+    'Документы, ключи BitLocker и средства восстановления Windows сохранены отдельно',
+    'Если сохраняю Windows: отключил Fast Startup, освободил место в Windows и выберу только «рядом»',
+)
+
+def command(args, timeout=8):
+    try:
+        p = subprocess.run(args, capture_output=True, text=True, timeout=timeout)
+        return (p.stdout+'\n'+p.stderr).strip() or 'Нет данных'
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return 'Недоступно: '+str(exc)
+
+class Preflight(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle('NOVA OS · проверка совместимости перед установкой')
+        ui.setup_window(self, size=(1000, 700), app_id='nova-preflight')
+        self.proc = None
+        w=QWidget(); lay=QVBoxLayout(w);lay.setContentsMargins(23,20,23,20)
+        title=QLabel('NOVA  /  HARDWARE CHECK');title.setObjectName('brand');lay.addWidget(title)
+        desc=QLabel('Проверка оборудования в Live-режиме до удаления Windows. Это не гарантирует совместимость всех драйверов.')
+        desc.setWordWrap(True);lay.addWidget(desc)
+        main=QHBoxLayout();lay.addLayout(main,1)
+        left=QFrame();left.setObjectName('card');left.setMinimumWidth(390);ll=QVBoxLayout(left)
+        ll.addWidget(QLabel('Что необходимо проверить вручную'))
+        self.checks=[]
+        for text in CHECKS:
+            check=QCheckBox(text);ll.addWidget(check);self.checks.append(check)
+        ll.addStretch(1)
+        b=QPushButton('Открыть установщик Calamares…');b.clicked.connect(self.installer);ll.addWidget(b)
+        warning=QLabel('ВНИМАНИЕ: «Стереть диск» удалит Windows и данные на выбранном накопителе.')
+        warning.setWordWrap(True);ll.addWidget(warning)
+        dual = QPushButton('Инструкция по сохранению Windows (Dual Boot)')
+        dual.clicked.connect(lambda: subprocess.Popen(['nova-dualboot']))
+        ll.addWidget(dual)
+        main.addWidget(left)
+        right=QFrame();right.setObjectName('card');rr=QVBoxLayout(right)
+        rr.addWidget(QLabel('Диагностика доступных компонентов Linux'))
+        self.report=QTextEdit();self.report.setReadOnly(True);rr.addWidget(self.report,1)
+        actions=QHBoxLayout();rr.addLayout(actions)
+        b=QPushButton('Обновить отчёт');b.clicked.connect(self.refresh);actions.addWidget(b)
+        b=QPushButton('Сохранить отчёт…');b.clicked.connect(self.save);actions.addWidget(b)
+        main.addWidget(right,1)
+        lay.addWidget(QLabel('NOVA OS 0.4 — прототип. Если устройство не работает в Live-сессии, Windows не удалять.'))
+        self.setCentralWidget(w);self.setStyleSheet(load_nova_stylesheet());self.refresh()
+
+    def refresh(self):
+        sections=[('Ядро',command(['uname','-a'])),
+                  ('Сеть',command(['nmcli','-t','-f','DEVICE,TYPE,STATE','device'])),
+                  ('Сетевые адаптеры и модули',command(['lspci','-nnk'])),
+                  ('Аудио',command(['wpctl','status'])),
+                  ('Подсветка', ', '.join(p.name for p in Path('/sys/class/backlight').glob('*')) or 'Системных устройств нет'),
+                  ('Накопители (только просмотр)',command(['lsblk','-o','NAME,MODEL,SIZE,TYPE,FSTYPE,MOUNTPOINTS'])),
+                  ('Дисплей/видеокарты',command(['inxi','-Gxx'])),
+                  ('Безопасная загрузка',command(['mokutil','--sb-state']))]
+        self.report.setPlainText('\n\n'.join(f'== {name} ==\n{output}' for name,output in sections))
+
+    def save(self):
+        filepath, _ = QFileDialog.getSaveFileName(self,'Сохранить диагностику',str(Path.home()/'nova-hardware-report.txt'),'Текстовый файл (*.txt)')
+        if not filepath: return
+        try:
+            Path(filepath).write_text(self.report.toPlainText(),encoding='utf-8')
+            QMessageBox.information(self,'NOVA','Отчёт сохранён локально. Перед отправкой другим людям удалите серийные номера и сетевые данные.')
+        except OSError as err:
+            QMessageBox.warning(self,'NOVA',str(err))
+
+    def installer(self):
+        if not all(ch.isChecked() for ch in self.checks):
+            QMessageBox.warning(self,'Проверка не завершена','Отметьте каждый пункт после реальной проверки. Автоматическая диагностика не заменяет ваши испытания.')
+            return
+        try:
+            live='boot=live' in Path('/proc/cmdline').read_text()
+        except OSError: live=False
+        if not live:
+            QMessageBox.warning(self,'NOVA','Установщик можно открывать только из Live-системы, запущенной с USB.')
+            return
+        if not ui.confirm(self, 'Подтвердите резервное копирование', 'Вы сделали внешнюю резервную копию и проверили работу оборудования?\n'
+            'Следующие окна могут предложить ПОЛНОСТЬЮ СТЕРЕТЬ выбранный диск. Для сохранения Windows выберите «Установить рядом»! Запустить Calamares?'): return
+        self.proc=QProcess(self)
+        self.proc.start('pkexec',['calamares'])
+        if not self.proc.waitForStarted(3000):
+            QMessageBox.warning(self,'NOVA','Не удалось запустить Calamares. Проверьте установленные пакеты и права.')
+
+def main():
+    app=QApplication(sys.argv); win=Preflight();win.show();return app.exec()
+
+if __name__=='__main__': raise SystemExit(main())

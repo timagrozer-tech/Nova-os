@@ -1,0 +1,141 @@
+#!/usr/bin/env python3
+"""NOVA Performance Center — conservative performance controls for laptops."""
+import shutil
+import subprocess
+import sys
+import psutil
+from PyQt6.QtCore import Qt,QTimer
+from PyQt6.QtWidgets import (QApplication,QMainWindow,QWidget,QVBoxLayout,QHBoxLayout,QGridLayout,
+    QLabel,QPushButton,QListWidget,QMessageBox,QSpinBox,QGroupBox,QTextEdit,QProgressBar)
+from nova_theme import load_nova_stylesheet
+import nova_ui as ui
+from nova_performance_core import (snapshot,gpu_snapshot,read_threshold,write_threshold,
+    supported_profiles,current_profile,set_profile,lower_priority)
+
+class Performance(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle('NOVA Performance Center · Advanced Performance')
+        ui.setup_window(self, size=(1050, 750), app_id='nova-performance')
+        self.previous=None
+        self.processes=[]
+        wrap=QWidget();outer=QVBoxLayout(wrap);outer.setContentsMargins(24,18,24,18)
+        headline=QLabel('NOVA  /  PERFORMANCE');headline.setObjectName('brand');outer.addWidget(headline)
+        info=QLabel('Показатели ноутбука, энергопрофили и процессы. Никакого автоматического разгона или отключения защиты.')
+        info.setWordWrap(True);outer.addWidget(info)
+        box=QGroupBox('Мониторинг в реальном времени');grid=QGridLayout(box)
+        self.labels={}
+        for i,(key,title) in enumerate([('cpu','CPU'),('ram','Оперативная память'),('battery','Батарея'),
+                    ('temp','Температура'),('freq','Частота CPU'),('profile','Профиль')]):
+            frame=QVBoxLayout();name=QLabel(title);frame.addWidget(name)
+            value=QLabel('—');value.setStyleSheet('font-size:18px;font-weight:600;');frame.addWidget(value)
+            self.labels[key]=value;grid.addLayout(frame,i//3,i%3)
+        outer.addWidget(box)
+        self.gpu=QLabel('GPU: метрики ещё не получены');outer.addWidget(self.gpu)
+        self.sensors=QLabel('Датчики: —');self.sensors.setWordWrap(True);outer.addWidget(self.sensors)
+        group=QGroupBox('Профили питания · только поддерживаемые оборудованием');row=QHBoxLayout(group)
+        for text,value in [('Экономия','power-saver'),('Баланс','balanced'),('Высокая производительность','performance')]:
+            btn=QPushButton(text);btn.clicked.connect(lambda checked=False,p=value:self.apply_profile(p));row.addWidget(btn)
+        btn=QPushButton('Вернуть прежний');btn.clicked.connect(self.restore);row.addWidget(btn)
+        outer.addWidget(group)
+        row=QHBoxLayout();outer.addLayout(row)
+        row.addWidget(QLabel('Температура предупреждения (°C):'))
+        self.threshold=QSpinBox();self.threshold.setRange(65,105);self.threshold.setValue(read_threshold());row.addWidget(self.threshold)
+        b=QPushButton('Сохранить порог');b.clicked.connect(self.save_threshold);row.addWidget(b)
+        row.addStretch(1)
+        group=QGroupBox('Процессы с высокой нагрузкой · без автоматического завершения');v=QVBoxLayout(group)
+        self.processlist=QListWidget();v.addWidget(self.processlist)
+        row=QHBoxLayout();v.addLayout(row)
+        btn=QPushButton('Понизить приоритет выбранного процесса');btn.clicked.connect(self.renice);row.addWidget(btn)
+        btn=QPushButton('Полный диспетчер задач');btn.clicked.connect(lambda:self.launch('plasma-systemmonitor'));row.addWidget(btn)
+        outer.addWidget(group,1)
+        row=QHBoxLayout();outer.addLayout(row)
+        for label,callback in [('Открыть Steam Big Picture',lambda:self.launch('steam',['-bigpicture'])),
+                               ('NOVA Gaming',lambda:self.launch('nova-gaming')),
+                               ('GameMode: самопроверка',self.gamemode_test),('Обновить',self.update)]:
+            b=QPushButton(label);b.clicked.connect(callback);row.addWidget(b)
+        self.log=QTextEdit();self.log.setReadOnly(True);self.log.setMaximumHeight(85);outer.addWidget(self.log)
+        outer.addWidget(QLabel('GameMode: для игры в Steam используйте «gamemoderun %command%»; MangoHud — «mangohud %command%».'))
+        self.setCentralWidget(wrap);self.setStyleSheet(load_nova_stylesheet())
+        self.timer=QTimer(self);self.timer.timeout.connect(self.update);self.timer.start(4000)
+        self.update()
+
+    def update(self):
+        try:
+            data=snapshot()
+            self.labels['cpu'].setText(f"{data['cpu']:.1f}%")
+            self.labels['ram'].setText(f"{data['ram']:.1f}%  · {data['ram_used_gib']}/{data['ram_total_gib']} ГиБ")
+            battery='Нет датчика' if data['battery'] is None else f"{data['battery']}% · {'сеть' if data['plugged'] else 'батарея'}"
+            self.labels['battery'].setText(battery)
+            temps=data['thermals'];max_temp=temps[0][1] if temps else None
+            warn=self.threshold.value()
+            temp_text='Недоступно' if max_temp is None else f'{max_temp} °C'
+            if max_temp is not None and max_temp>=warn:temp_text+=' · ВЫСОКАЯ'
+            self.labels['temp'].setText(temp_text)
+            self.labels['freq'].setText('Нет данных' if data['frequency_mhz'] is None else f"{data['frequency_mhz']} МГц")
+            self.labels['profile'].setText(data['profile'] or 'Не определён')
+            self.sensors.setText('Датчики: '+(', '.join(f'{name}: {value}°C' for name,value in temps[:4]) if temps else 'не обнаружены'))
+            self.gpu.setText(gpu_snapshot())
+            selected=self.processlist.currentRow()
+            self.processes=data['processes'];self.processlist.clear()
+            for proc in self.processes:
+                self.processlist.addItem(f"{proc['pid']:>7} | CPU {proc.get('cpu_percent') or 0:5.1f}% | RAM {proc.get('memory_percent') or 0:5.1f}% | {str(proc.get('name') or 'неизвестно')[:60]}")
+            if 0 <= selected < len(self.processes):self.processlist.setCurrentRow(selected)
+        except (OSError,ValueError,psutil.Error) as exc:self.log.append('Мониторинг: '+str(exc))
+
+    def apply_profile(self,profile):
+        before=current_profile()
+        if profile=='performance' and not ui.confirm(self, 'Высокая нагрузка', 'Этот профиль увеличивает расход батареи, нагрев и шум. Применить, если поддерживается?'):return
+        success,note=set_profile(profile)
+        if success and before and before!=profile:self.previous=before
+        self.log.append(('Применено: ' if success else 'Не удалось применить: ')+profile+' · '+note)
+        self.update()
+
+    def restore(self):
+        if not self.previous:
+            self.log.append('Нет сохранённого предыдущего профиля в текущем сеансе.');return
+        success,note=set_profile(self.previous)
+        self.log.append(('Восстановлено: ' if success else 'Не восстановлено: ')+self.previous+' · '+note)
+        if success:self.previous=None
+        self.update()
+
+    def save_threshold(self):
+        try:write_threshold(self.threshold.value())
+        except (ValueError,OSError) as error:self.log.append('Не сохранено: '+str(error));return
+        self.log.append('Порог записан локально. Это только отображение, а не управление вентилятором.')
+
+    def renice(self):
+        row=self.processlist.currentRow()
+        if not 0<=row<len(self.processes):
+            self.log.append('Выберите процесс из списка.');return
+        entry=self.processes[row]
+        if entry.get('create_time') is None:
+            self.log.append('Недоступно время запуска процесса.');return
+        if QMessageBox.question(self,'Изменить приоритет процесса?',
+             f"Понизить приоритет процесса {entry['pid']} ({entry.get('name','')})? Это может замедлить приложение; завершение запрещено.",
+             QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.No,
+             QMessageBox.StandardButton.No)!=QMessageBox.StandardButton.Yes:return
+        try:ok,msg=lower_priority(psutil.Process(entry['pid']),entry['create_time'])
+        except psutil.Error as exc:ok,msg=False,str(exc)
+        self.log.append(msg)
+        self.update()
+
+    def gamemode_test(self):
+        if not shutil.which('gamemoded'):
+            self.log.append('GameMode не обнаружен.');return
+        try:
+            p=subprocess.run(['gamemoded','-t'],capture_output=True,text=True,timeout=8)
+            self.log.append(('GameMode OK' if p.returncode==0 else 'GameMode: диагностика не пройдена')+' · '+(p.stdout+p.stderr)[-250:])
+        except (OSError,subprocess.TimeoutExpired) as exc:self.log.append(str(exc))
+
+    def launch(self,program,args=None):
+        if not shutil.which(program):self.log.append('Программа отсутствует: '+program);return
+        try:subprocess.Popen([program]+(args or []),start_new_session=True)
+        except OSError as exc:self.log.append(str(exc))
+
+def main():
+    app=QApplication(sys.argv)
+    window=Performance();window.show()
+    return app.exec()
+
+if __name__=='__main__':raise SystemExit(main())

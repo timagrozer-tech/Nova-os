@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=NOVA Performance Center
+Name[ru]=NOVA Центр производительности
+Comment=Thermals, power profiles and safe background task controls
+Comment[ru]=Температуры, профили питания, управление фоновыми задачами
+Exec=/usr/local/bin/nova-performance
+Icon=nova
+Categories=System;Settings;Utility;
+Terminal=false

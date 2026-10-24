@@ -1,0 +1,165 @@
+# NOVA OS 0.12 – Debian 13 KDE Plasma Live ISO (without an office suite)
+# Deliberately no task-kde-desktop, live-task-kde, kde-standard or libreoffice.
+# Every name below was checked against the Debian 13 (trixie/stable) archive
+# via api.ftp-master.debian.org/madison on 2026-10-24 (see nova-docs/AUDIT_0.12_RU.md).
+
+# Live system plumbing (explicit instead of relying on Recommends)
+live-boot
+live-config
+live-config-systemd
+user-setup
+sudo
+
+# Installer (Calamares). Bootloader packages for the target system live in
+# nova-installer.list.binary (ISO pool), because Debian's Calamares settings
+# install GRUB with apt from file:/run/live/medium.
+calamares
+calamares-settings-debian
+cryptsetup
+btrfs-progs
+dosfstools
+exfatprogs
+
+# KDE Plasma 6 (Wayland by default, X11 fallback session for problematic GPUs)
+plasma-desktop
+plasma-workspace
+kwin-wayland
+kwin-x11
+qt6-wayland
+sddm
+sddm-theme-breeze
+kde-config-sddm
+systemsettings
+kde-cli-tools
+libkf6config-bin
+libkscreen-bin
+kscreen
+kde-config-flatpak
+kde-config-gtk-style
+breeze-gtk-theme
+plasma-nm
+plasma-discover
+plasma-discover-backend-flatpak
+plasma-discover-backend-fwupd
+plasma-systemmonitor
+plasma-firewall
+plasma-disks
+baloo6
+dolphin
+konsole
+kde-spectacle
+kdeconnect
+ark
+kate
+kcalc
+kinfocenter
+okular
+bluedevil
+powerdevil
+maliit-keyboard
+fonts-noto
+fonts-noto-color-emoji
+fonts-inter
+locales
+
+# Hardware/network/audio/firmware (proprietary NVIDIA is NOT auto installed)
+linux-image-amd64
+linux-headers-amd64
+network-manager
+wpasupplicant
+wireless-regdb
+bluez
+pipewire-audio
+wireplumber
+firmware-linux
+firmware-linux-nonfree
+firmware-misc-nonfree
+firmware-iwlwifi
+firmware-realtek
+firmware-atheros
+firmware-mediatek
+firmware-brcm80211
+firmware-amd-graphics
+firmware-intel-graphics
+firmware-nvidia-graphics
+firmware-sof-signed
+intel-microcode
+amd64-microcode
+fwupd
+power-profiles-daemon
+upower
+lm-sensors
+smartmontools
+inxi
+pciutils
+usbutils
+rfkill
+mesa-utils
+nvidia-detect
+
+# Desktop tools, Windows compatibility and safety
+firefox-esr
+flatpak
+wine
+winetricks
+python3-pyqt6
+python3-pyqt6.qtsvg
+python3-psutil
+polkitd
+pkexec
+ufw
+apparmor
+apparmor-utils
+clamav
+clamav-freshclam
+timeshift
+curl
+ca-certificates
+xdg-utils
+print-manager
+cups
+sane-utils
+
+# Vulkan, optional gaming tools, and full Windows-VM fallback (not Office itself)
+mesa-vulkan-drivers
+vulkan-tools
+gamemode
+mangohud
+virt-manager
+qemu-system-x86
+libvirt-daemon-system
+libvirt-clients
+ovmf
+swtpm
+xdg-desktop-portal-kde
+breeze
+breeze-icon-theme
+papirus-icon-theme
+kwin-addons
+plasma-widgets-addons
+plasma-pa
+brightnessctl
+ddcutil
+libinput-tools
+udisks2
+
+# Sound Studio, USB / Wi-Fi phone and gamepad integration
+ffmpeg
+python3-dbus
+python3-gi
+adb
+
+# Dual boot Windows detection / EFI tooling
+os-prober
+efibootmgr
+mokutil
+ntfs-3g
+
+# DKMS status inspection (does not install GPU drivers)
+dkms
+
+# Virtual-machine integration. Both services start ONLY when the matching
+# virtual device exists (QEMU/KVM, virt-manager, GNOME Boxes); they are inert
+# on real laptops. The guest agent lets CI run nova-selftest inside the VM.
+qemu-guest-agent
+spice-vdagent

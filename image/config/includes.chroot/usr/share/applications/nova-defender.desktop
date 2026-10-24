@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=NOVA Defender
+Comment=Сканер файлов и состояние системы безопасности
+Exec=/usr/local/bin/nova-defender
+Icon=nova
+Terminal=false
+Categories=System;Utility;
+StartupNotify=true

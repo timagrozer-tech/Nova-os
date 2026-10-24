@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=NOVA Welcome
+Name[ru]=NOVA Welcome
+Comment=First launch setup and optional components
+Exec=/usr/local/bin/nova-first-run
+Icon=nova
+Categories=Settings;System;Utility;
+Terminal=false

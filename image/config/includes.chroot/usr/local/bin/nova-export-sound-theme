@@ -1,0 +1,13 @@
+#!/usr/bin/env python3
+"""Manual sound-theme export. Never silently changes Plasma settings."""
+import sys
+from nova_sound_theme import export_theme
+
+if __name__ == '__main__':
+    try:
+        print('Создана тема:', export_theme())
+        print('Откройте Параметры системы KDE → Звук → Звуковая тема либо Уведомления.')
+        print('Не каждое приложение использует freedesktop-темы: настройки его событий — отдельно.')
+    except (OSError, ValueError, RuntimeError) as exc:
+        print('Ошибка:', exc, file=sys.stderr)
+        raise SystemExit(1)

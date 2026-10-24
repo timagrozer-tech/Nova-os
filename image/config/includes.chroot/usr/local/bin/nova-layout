@@ -1,0 +1,218 @@
+#!/usr/bin/env python3
+"""nova-layout — switch NOVA desktop modes and appearance on KDE Plasma 6.
+
+User-level only (no root, no system files). Before any layout change the
+current Plasma layout is backed up to ~/.local/share/nova/layout-backups/.
+
+  nova-layout status
+  nova-layout apply windows|dock|hybrid [--density compact|standard|touch]
+  nova-layout theme light|dark|auto
+  nova-layout accent '#1f6feb'
+  nova-layout animations off|fast|standard
+  nova-layout icons breeze|breeze-dark|Papirus|Papirus-Dark
+  nova-layout backup | backups | restore BACKUP_NAME
+  nova-layout reset-kde            # KDE Breeze defaults incl. stock panel
+  nova-layout print-script MODE    # show the Plasma script, change nothing
+Add --dry-run to print what would be executed.
+"""
+import argparse
+import shutil
+import subprocess
+import sys
+
+import nova_layout_core as core
+from nova_ui import CHOICES, save_choice
+
+DRY = False
+
+
+def run(argv, check=True):
+    if DRY:
+        print('DRY-RUN:', ' '.join(argv))
+        return 0
+    if not shutil.which(argv[0]):
+        print(f'Нет программы {argv[0]} (нужна сессия KDE Plasma 6).', file=sys.stderr)
+        if check:
+            raise SystemExit(3)
+        return 127
+    result = subprocess.run(argv, check=False)
+    if check and result.returncode != 0:
+        raise SystemExit(f'Команда завершилась с ошибкой {result.returncode}: {argv[0]}')
+    return result.returncode
+
+
+def evaluate_plasma_script(script: str) -> str:
+    if DRY:
+        print('DRY-RUN: org.kde.PlasmaShell.evaluateScript (%d bytes)' % len(script))
+        return ''
+    try:
+        import dbus
+    except ImportError as exc:
+        raise SystemExit(f'Нужен python3-dbus: {exc}') from None
+    try:
+        bus = dbus.SessionBus()
+        shell = bus.get_object('org.kde.plasmashell', '/PlasmaShell')
+        return str(dbus.Interface(shell, 'org.kde.PlasmaShell').evaluateScript(script))
+    except dbus.DBusException as exc:
+        raise SystemExit(f'Plasma не отвечает (запущена ли сессия KDE Plasma?): {exc}') from None
+
+
+def backup(label='manual'):
+    if DRY:
+        print('DRY-RUN: backup of Plasma layout files')
+        return None
+    path = core.make_backup(label=label)
+    print('Резервная копия раскладки:', path if path else 'нечего сохранять (раскладка ещё не создана)')
+    return path
+
+
+def restart_plasmashell(action_between):
+    unit = 'plasma-plasmashell.service'
+    use_systemd = shutil.which('systemctl') and subprocess.run(
+        ['systemctl', '--user', 'is-active', '--quiet', unit], check=False).returncode == 0
+    if use_systemd:
+        run(['systemctl', '--user', 'stop', unit])
+        try:
+            action_between()
+        finally:
+            run(['systemctl', '--user', 'start', unit])
+    else:
+        run(['kquitapp6', 'plasmashell'], check=False)
+        try:
+            action_between()
+        finally:
+            subprocess.Popen(['kstart', 'plasmashell'], start_new_session=True,
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def cmd_status(_args):
+    prefs = core.load_preferences()
+    print('Режим рабочего стола:', prefs.get('mode', 'windows (по умолчанию)'))
+    print('Плотность:', prefs.get('density', 'standard'))
+    print('Акцент:', prefs.get('accent', 'системный'))
+    backups = core.list_backups()
+    print('Резервных копий раскладки:', len(backups))
+    for b in backups[:5]:
+        print('  ', b.name)
+
+
+def cmd_apply(args):
+    script = core.plasma_script(args.mode, args.density)
+    backup(label=f'before-{args.mode}')
+    result = evaluate_plasma_script(script)
+    if result.strip():
+        print(result.strip())
+    if not DRY:
+        core.save_preferences({'mode': args.mode, 'density': args.density})
+    print('Готово:', core.MODE_TITLES[args.mode])
+    print('Вернуть прежнюю раскладку: nova-layout backups → nova-layout restore ИМЯ')
+
+
+def cmd_theme(args):
+    if args.variant in ('light', 'dark'):
+        run(core.lookandfeel_command(args.variant, reset_layout=False))
+    if not DRY:
+        save_choice(args.variant)
+    print('Тема NOVA:', args.variant, '(приложения NOVA применят её при следующем запуске)')
+
+
+def cmd_accent(args):
+    color = core.validate_accent(args.color)
+    for argv in core.accent_commands(color):
+        run(argv)
+    if shutil.which('plasma-apply-colorscheme') or DRY:
+        run(['plasma-apply-colorscheme', '--accent-color', color], check=False)
+    if not DRY:
+        core.save_preferences({'accent': color})
+    print('Акцентный цвет:', color)
+
+
+def cmd_animations(args):
+    run(core.animation_command(args.level))
+    print('Анимации:', args.level, '(полностью применяется после повторного входа)')
+
+
+def cmd_icons(args):
+    run(core.icon_command(args.theme))
+    print('Иконки:', core.ICON_THEMES[args.theme])
+
+
+def cmd_backups(_args):
+    items = core.list_backups()
+    if not items:
+        print('Резервных копий нет.')
+    for b in items:
+        print(b.name)
+
+
+def cmd_restore(args):
+    candidates = [b for b in core.list_backups() if b.name == args.name]
+    if not candidates:
+        raise SystemExit('Нет такой резервной копии. Список: nova-layout backups')
+    target = candidates[0]
+    backup(label='before-restore')
+
+    def put_back():
+        if DRY:
+            print('DRY-RUN: restore', target)
+        else:
+            print('Восстановлено:', ', '.join(core.restore_files(target)))
+    restart_plasmashell(put_back)
+
+
+def cmd_reset(_args):
+    backup(label='before-kde-reset')
+    run(core.lookandfeel_command('kde-default', reset_layout=True))
+    if not DRY:
+        save_choice('auto')
+    print('Восстановлены стандартные оформление и панель KDE Plasma (Breeze).')
+
+
+def cmd_print(args):
+    sys.stdout.write(core.plasma_script(args.mode, args.density))
+
+
+def main(argv=None):
+    global DRY
+    parser = argparse.ArgumentParser(prog='nova-layout', description='Режимы рабочего стола NOVA для KDE Plasma 6')
+    parser.add_argument('--dry-run', action='store_true', help='только показать действия')
+    sub = parser.add_subparsers(dest='command', required=True)
+    sub.add_parser('status').set_defaults(func=cmd_status)
+    p = sub.add_parser('apply')
+    p.add_argument('mode', choices=core.MODES)
+    p.add_argument('--density', choices=core.DENSITIES, default='standard')
+    p.set_defaults(func=cmd_apply)
+    p = sub.add_parser('theme')
+    p.add_argument('variant', choices=CHOICES)
+    p.set_defaults(func=cmd_theme)
+    p = sub.add_parser('accent')
+    p.add_argument('color')
+    p.set_defaults(func=cmd_accent)
+    p = sub.add_parser('animations')
+    p.add_argument('level', choices=('off', 'fast', 'standard'))
+    p.set_defaults(func=cmd_animations)
+    p = sub.add_parser('icons')
+    p.add_argument('theme', choices=tuple(core.ICON_THEMES))
+    p.set_defaults(func=cmd_icons)
+    sub.add_parser('backup').set_defaults(func=lambda _a: backup('manual'))
+    sub.add_parser('backups').set_defaults(func=cmd_backups)
+    p = sub.add_parser('restore')
+    p.add_argument('name')
+    p.set_defaults(func=cmd_restore)
+    sub.add_parser('reset-kde').set_defaults(func=cmd_reset)
+    p = sub.add_parser('print-script')
+    p.add_argument('mode', choices=core.MODES)
+    p.add_argument('--density', choices=core.DENSITIES, default='standard')
+    p.set_defaults(func=cmd_print)
+    args = parser.parse_args(argv)
+    DRY = args.dry_run
+    try:
+        args.func(args)
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
+        return 2
+    return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

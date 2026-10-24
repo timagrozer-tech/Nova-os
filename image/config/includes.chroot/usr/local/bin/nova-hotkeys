@@ -1,0 +1,191 @@
+#!/usr/bin/env python3
+"""NOVA Hotkeys — Windows-like shortcuts and multimedia keys for KDE Plasma 6.
+
+  nova-hotkeys                 window (cheat sheet, key tester, apply/reset)
+  nova-hotkeys apply           apply Windows-like shortcuts for this user
+  nova-hotkeys reset-kde       return KDE defaults for everything NOVA changed
+  nova-hotkeys volume-step N   volume keys step in % (Windows: 2)
+  nova-hotkeys list            print the cheat sheet
+Add --dry-run to print commands. User level only; ~/.config/kglobalshortcutsrc
+is backed up to ~/.local/share/nova/hotkey-backups/ before changes.
+"""
+import argparse
+import shutil
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+import nova_hotkeys_core as core
+
+UNIT = 'plasma-kglobalaccel.service'
+
+
+def backup():
+    src = Path.home() / '.config/kglobalshortcutsrc'
+    if not src.is_file():
+        return None
+    dst_dir = Path.home() / '.local/share/nova/hotkey-backups'
+    dst_dir.mkdir(parents=True, exist_ok=True)
+    dst = dst_dir / f'kglobalshortcutsrc-{time.strftime("%Y%m%d-%H%M%S")}'
+    shutil.copy2(src, dst)
+    return dst
+
+
+def run_all(cmds, dry):
+    if dry:
+        for c in cmds:
+            print('DRY-RUN:', ' '.join(c))
+        return 0
+    if not shutil.which('kwriteconfig6'):
+        print('kwriteconfig6 не найден (пакет libkf6config-bin).', file=sys.stderr)
+        return 3
+    restart = shutil.which('systemctl') and subprocess.run(
+        ['systemctl', '--user', 'is-active', '--quiet', UNIT], check=False).returncode == 0
+    if restart:  # stop first so the daemon cannot overwrite the file with its old state
+        subprocess.run(['systemctl', '--user', 'stop', UNIT], check=False)
+    code = 0
+    try:
+        for c in cmds:
+            code |= subprocess.run(c, check=False).returncode
+    finally:
+        if restart:
+            subprocess.run(['systemctl', '--user', 'start', UNIT], check=False)
+    if not restart:
+        print('Изменения применятся после повторного входа в систему.')
+    return code
+
+
+def cli(argv):
+    ap = argparse.ArgumentParser(prog='nova-hotkeys')
+    ap.add_argument('--dry-run', action='store_true')
+    sub = ap.add_subparsers(dest='cmd', required=True)
+    sub.add_parser('apply')
+    sub.add_parser('reset-kde')
+    sub.add_parser('list')
+    p = sub.add_parser('volume-step')
+    p.add_argument('step', type=int)
+    a = ap.parse_args(argv)
+    try:
+        if a.cmd == 'list':
+            for group, keys, meaning in core.cheat_sheet():
+                print(f'{group:28} {keys:28} {meaning}')
+            return 0
+        if a.cmd == 'volume-step':
+            return run_all([core.volume_step_command(a.step)], a.dry_run)
+        if not a.dry_run:
+            saved = backup()
+            print('Резервная копия:', saved or 'нет пользовательских сочетаний — копировать нечего')
+        code = run_all(core.apply_commands() if a.cmd == 'apply' else core.reset_commands(), a.dry_run)
+        print('Готово: сочетания как в Windows.' if a.cmd == 'apply' else 'Готово: стандартные сочетания KDE.')
+        return code
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
+        return 2
+
+
+def gui():
+    import nova_ui as ui
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtGui import QKeySequence
+    from PyQt6.QtWidgets import (QApplication, QComboBox, QHBoxLayout, QHeaderView, QLabel, QMainWindow,
+                                 QTableWidget, QTableWidgetItem, QTextEdit, QVBoxLayout, QWidget)
+
+    class KeyTester(QLabel):
+        def __init__(self, report):
+            super().__init__('Нажмите сюда и затем любую клавишу или сочетание…')
+            self.report = report
+            self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+            self.setMinimumHeight(64)
+            self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.setObjectName('heading')
+            self.setAccessibleName('Проверка клавиш')
+
+        def keyPressEvent(self, event):  # noqa: N802 (Qt API)
+            combo = event.keyCombination()
+            text = QKeySequence(combo).toString() or f'код {event.key()}'
+            meaning = core.describe_key(text)
+            self.setText(text)
+            self.report(f'{text}  · скан-код {event.nativeScanCode()}  · keysym {event.nativeVirtualKey()}'
+                        + (f'  → {meaning}' if meaning else ''))
+
+    class Hotkeys(QMainWindow):
+        def __init__(self):
+            super().__init__()
+            ui.setup_window(self, 'NOVA — клавиатура и горячие клавиши', size=(1000, 760), app_id='nova-hotkeys')
+            root = QWidget()
+            v = QVBoxLayout(root)
+            v.setContentsMargins(20, 16, 20, 12)
+            v.addWidget(ui.header('Горячие клавиши',
+                'Сочетания как в Windows и мультимедийные клавиши. Всё можно изменить в «Параметры → Комбинации клавиш» '
+                'или вернуть стандарты KDE одной кнопкой.'))
+            page, lay = ui.scroll_page()
+            v.addWidget(page, 1)
+            frame, box = ui.card('Применение', 'Перед изменением сохраняется копия ваших сочетаний.')
+            row = QHBoxLayout()
+            row.addWidget(ui.make_button('Сочетания как в Windows', lambda: self.run(['apply']), 'primary'))
+            row.addWidget(ui.make_button('Вернуть стандарт KDE', lambda: self.run(['reset-kde']) if ui.confirm(
+                self, 'Сброс сочетаний', 'Вернуть стандартные сочетания KDE для всех клавиш, изменённых NOVA?') else None))
+            box.addLayout(row)
+            row = QHBoxLayout()
+            row.addWidget(QLabel('Шаг громкости клавишами:'))
+            self.step = QComboBox()
+            for s in (1, 2, 3, 5, 10):
+                self.step.addItem(f'{s} %' + (' (как в Windows)' if s == 2 else ' (KDE)' if s == 5 else ''), s)
+            self.step.setCurrentIndex(1)
+            row.addWidget(self.step)
+            row.addWidget(ui.make_button('Сохранить шаг', lambda: self.run(['volume-step', str(self.step.currentData())])))
+            row.addStretch(1)
+            box.addLayout(row)
+            ui.add_to_page(lay, frame)
+
+            frame, box = ui.card('Проверка клавиш', 'Нажмите клавишу — увидите, как её видит система. Если мультимедийная '
+                                 'кнопка ничего не показывает, её перехватывает Plasma (это нормально) или ноутбуку нужна '
+                                 'прошивка/драйвер: сообщите модель в отчёте.')
+            self.tester = KeyTester(self.note)
+            box.addWidget(self.tester)
+            self.notes = QTextEdit()
+            self.notes.setReadOnly(True)
+            self.notes.setMaximumHeight(110)
+            box.addWidget(self.notes)
+            ui.add_to_page(lay, frame)
+
+            frame, box = ui.card('Шпаргалка', '')
+            rows = core.cheat_sheet()
+            table = QTableWidget(len(rows), 3)
+            table.setHorizontalHeaderLabels(['Группа', 'Клавиши', 'Действие'])
+            table.verticalHeader().setVisible(False)
+            table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+            for r, (g, k, m) in enumerate(rows):
+                for c, text in enumerate((g, k, m)):
+                    table.setItem(r, c, QTableWidgetItem(text))
+            table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+            table.resizeColumnsToContents()
+            table.setMinimumHeight(360)
+            box.addWidget(table)
+            ui.add_to_page(lay, frame)
+
+            frame, box = ui.card('Журнал', '')
+            self.log = QTextEdit()
+            self.log.setReadOnly(True)
+            self.log.setMinimumHeight(80)
+            box.addWidget(self.log)
+            ui.add_to_page(lay, frame)
+            self.runner = ui.process_runner(self, self.log)
+            self.setCentralWidget(root)
+
+        def note(self, text):
+            self.notes.append(text)
+
+        def run(self, args):
+            self.runner(['nova-hotkeys', *args])
+
+    app = QApplication(sys.argv)
+    app.setApplicationName('NOVA Hotkeys')
+    w = Hotkeys()
+    w.show()
+    return app.exec()
+
+
+if __name__ == '__main__':
+    raise SystemExit(cli(sys.argv[1:]) if len(sys.argv) > 1 else gui())

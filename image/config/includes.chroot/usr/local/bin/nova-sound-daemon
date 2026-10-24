@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+"""Listen to UPower OnBattery changes via D-Bus in the logged-in user session.
+No polling, no root and no UPower property modifications.
+"""
+import sys
+from nova_sound_core import power_transition, resolve_sound, load_settings, play_sound
+
+SERVICE='org.freedesktop.UPower'
+OBJECT='/org/freedesktop/UPower'
+INTERFACE='org.freedesktop.UPower'
+
+
+def main():
+    try:
+        import dbus
+        import dbus.mainloop.glib
+        from gi.repository import GLib
+    except ImportError as exc:
+        print(f'NOVA sound daemon: {exc}',file=sys.stderr)
+        return 2
+    dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+    try:
+        bus=dbus.SystemBus()
+        obj=bus.get_object(SERVICE, OBJECT)
+        prop=dbus.Interface(obj,dbus.PROPERTIES_IFACE)
+        state=bool(prop.Get(INTERFACE,'OnBattery'))
+    except dbus.DBusException as exc:
+        # Desktops/VMs without UPower or a battery: exit quietly instead of a traceback.
+        print(f'NOVA sound daemon: UPower недоступен ({exc.get_dbus_name()}); события питания отключены.',file=sys.stderr)
+        return 0
+    current={'on_battery':state}
+
+    def changed(interface, changed_props, invalidated):
+        if interface != INTERFACE or 'OnBattery' not in changed_props: return
+        next_state=bool(changed_props['OnBattery'])
+        event=power_transition(current['on_battery'],next_state)
+        current['on_battery']=next_state
+        if event:
+            config=load_settings()
+            path=resolve_sound(event,config)
+            if path: play_sound(path,config['volume'])
+
+    bus.add_signal_receiver(changed, signal_name='PropertiesChanged',
+                            dbus_interface=dbus.PROPERTIES_IFACE, path=OBJECT,
+                            bus_name=SERVICE)
+    GLib.MainLoop().run()
+    return 0
+
+if __name__=='__main__': raise SystemExit(main())

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Run Windows Installer (NOVA)
+Name[ru]=Запустить Windows-программу
+Exec=nova-open-windows %f
+Icon=application-x-executable
+Terminal=false
+MimeType=application/x-ms-dos-executable;application/x-msdownload;application/x-msi;
+Categories=Utility;

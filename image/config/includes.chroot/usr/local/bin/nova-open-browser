@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# "Home page" multimedia key: open the user's home page or the default browser.
+set -u
+home_file="${XDG_CONFIG_HOME:-$HOME/.config}/nova/homepage"
+if [[ -r "$home_file" ]]; then
+  url="$(head -n 1 "$home_file")"
+  if [[ "$url" =~ ^https?://[^[:space:]]+$ ]]; then exec xdg-open "$url"; fi
+fi
+desktop="$(xdg-settings get default-web-browser 2>/dev/null || true)"
+if [[ -n "$desktop" && -f "/usr/share/applications/$desktop" ]] && command -v kioclient >/dev/null; then
+  exec kioclient exec "/usr/share/applications/$desktop"
+fi
+exec firefox-esr

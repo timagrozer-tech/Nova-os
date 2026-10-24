@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=NOVA Sound Studio
+Comment=Custom system sound events and editor
+Exec=/usr/local/bin/nova-sound-studio
+Icon=nova
+Categories=Settings;Utility;
+Terminal=false

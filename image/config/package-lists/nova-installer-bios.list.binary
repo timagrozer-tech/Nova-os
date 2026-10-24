@@ -1,0 +1,11 @@
+# NOVA OS 0.12: ISO pool (NOT installed in the live system), BIOS/Legacy target.
+# calamares-settings-debian: `sources-media` adds
+#   deb [trusted=yes] file:/run/live/medium trixie main
+# and `bootloader-config` then runs `apt-get install grub-pc` (BIOS boot).
+# grub-pc conflicts with grub-efi-amd64, and live-build resolves every
+# *.list.binary file as one apt transaction, so BIOS and UEFI are split.
+grub-pc
+grub-pc-bin
+cryptsetup-initramfs
+keyutils
+os-prober

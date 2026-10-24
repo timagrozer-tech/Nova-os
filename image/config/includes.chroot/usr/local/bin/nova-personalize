@@ -1,0 +1,215 @@
+#!/usr/bin/env python3
+"""NOVA Personalize — theme, accent, desktop mode, density and animations.
+
+Everything is applied through `nova-layout` (user level, no root). Layout
+changes are always preceded by a backup; «Вернуть KDE по умолчанию» restores
+stock KDE Plasma (Breeze) appearance and panel.
+"""
+import shutil
+import subprocess
+import sys
+
+import nova_layout_core as core
+import nova_ui as ui
+from PyQt6.QtGui import QColor, QShortcut, QKeySequence
+from PyQt6.QtWidgets import (QApplication, QButtonGroup, QHBoxLayout, QLabel, QMainWindow,
+                             QPushButton, QRadioButton, QTextEdit, QVBoxLayout, QWidget,
+                             QListWidget)
+
+THEMES = (('light', 'Светлая'), ('dark', 'Тёмная'), ('auto', 'Как в KDE Plasma'))
+DENSITY = (('compact', 'Компактная'), ('standard', 'Стандартная'), ('touch', 'Сенсорная'))
+ANIMATIONS = (('off', 'Выключены'), ('fast', 'Быстрые'), ('standard', 'Стандартные'))
+
+
+class Personalize(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        ui.setup_window(self, 'NOVA — персонализация', size=(1080, 760), app_id='nova-personalize')
+        self.prefs = core.load_preferences()
+        root = QWidget()
+        outer = QVBoxLayout(root)
+        outer.setContentsMargins(20, 16, 20, 12)
+        outer.addWidget(ui.header('Персонализация',
+            'Тема, акцент, режим рабочего стола и плотность интерфейса. Всё применяется средствами KDE Plasma; '
+            'перед сменой панели создаётся резервная копия.'))
+        page, lay = ui.scroll_page()
+        outer.addWidget(page, 1)
+        grid = ui.responsive_grid(min_column=320, maximum=2)
+        ui.add_to_page(lay, grid)
+
+        # Theme
+        frame, box = ui.card('Тема оформления', 'Светлая или тёмная NOVA Air для Plasma и приложений NOVA.')
+        self.theme_group = QButtonGroup(self)
+        current = ui.read_choice()
+        for key, label in THEMES:
+            radio = QRadioButton(label)
+            radio.setChecked(key == current)
+            radio.toggled.connect(lambda on, k=key: on and self.cli(['theme', k]))
+            self.theme_group.addButton(radio)
+            box.addWidget(radio)
+        grid.add(frame)
+
+        # Accent
+        frame, box = ui.card('Цвет акцента', 'Кнопки, выделение и ссылки. Цвета подобраны с контрастом не ниже 4.5:1.')
+        row = QHBoxLayout()
+        row.setSpacing(8)
+        variant = ui.resolve_variant()
+        for name, light, dark in core.ACCENTS:
+            color = light if variant == 'light' else dark
+            b = QPushButton()
+            b.setFixedSize(34, 34)
+            b.setToolTip(name)
+            b.setAccessibleName(f'Акцент: {name}')
+            b.setStyleSheet(f'QPushButton{{background:{color};border-radius:17px;border:2px solid {QColor(color).darker(130).name()};}}'
+                            f'QPushButton:focus{{border:3px solid palette(text);}}')
+            b.clicked.connect(lambda _c=False, c=light: self.cli(['accent', c]))
+            row.addWidget(b)
+        row.addStretch(1)
+        box.addLayout(row)
+        grid.add(frame)
+
+        # Desktop mode
+        frame, box = ui.card('Режим рабочего стола', 'Панель и запуск приложений. Можно вернуть прежний вид из резервной копии.')
+        mode = self.prefs.get('mode', 'windows')
+        self.mode_group = QButtonGroup(self)
+        for key in core.MODES:
+            radio = QRadioButton(core.MODE_TITLES[key])
+            radio.setChecked(key == mode)
+            radio.setProperty('mode', key)
+            self.mode_group.addButton(radio)
+            box.addWidget(radio)
+        box.addWidget(QLabel('Плотность интерфейса (высота панели и элементов):'))
+        self.density_group = QButtonGroup(self)
+        drow = QHBoxLayout()
+        for key, label in DENSITY:
+            radio = QRadioButton(label)
+            radio.setChecked(key == self.prefs.get('density', 'standard'))
+            radio.setProperty('density', key)
+            self.density_group.addButton(radio)
+            drow.addWidget(radio)
+        drow.addStretch(1)
+        box.addLayout(drow)
+        box.addWidget(ui.make_button('Применить режим рабочего стола', self.apply_mode, 'primary'))
+        grid.add(frame)
+
+        # Animations
+        frame, box = ui.card('Анимации', 'Выключите анимации на слабом ноутбуке или если движение мешает.')
+        self.anim_group = QButtonGroup(self)
+        for key, label in ANIMATIONS:
+            radio = QRadioButton(label)
+            radio.setChecked(key == ('off' if ui.reduced_motion() else 'standard'))
+            radio.toggled.connect(lambda on, k=key: on and self.cli(['animations', k]))
+            self.anim_group.addButton(radio)
+            box.addWidget(radio)
+        grid.add(frame)
+
+        # Icons
+        frame, box = ui.card('Значки', 'Breeze — стандарт KDE; Papirus — популярный проект с GitHub (из подписанного пакета Debian).')
+        self.icon_group = QButtonGroup(self)
+        for key, label in core.ICON_THEMES.items():
+            radio = QRadioButton(label)
+            radio.toggled.connect(lambda on, k=key: on and self.cli(['icons', k]))
+            self.icon_group.addButton(radio)
+            box.addWidget(radio)
+        grid.add(frame)
+
+        # Screen / input
+        frame, box = ui.card('Экран, масштаб и ввод', 'Масштаб 100–200 %, частота, ночной режим, тачпад, сенсорный экран.')
+        box.addWidget(ui.make_button('NOVA — дисплеи: частота (Гц) и второй монитор',
+                                     lambda: subprocess.Popen(['nova-display'], start_new_session=True), 'primary'))
+        box.addWidget(ui.make_button('Горячие клавиши как в Windows',
+                                     lambda: subprocess.Popen(['nova-hotkeys'], start_new_session=True)))
+        for title, module in (('Экран и масштабирование', 'kcm_kscreen'), ('Тачпад (касание = щелчок)', 'kcm_touchpad'),
+                              ('Сенсорный экран', 'kcm_touchscreen'), ('Шрифты', 'kcm_fonts'),
+                              ('Экранная клавиатура', 'kcm_virtualkeyboard')):
+            box.addWidget(ui.make_button(title, lambda _c=False, m=module: self.kcm(m)))
+        grid.add(frame)
+
+        # Backups / reset
+        frame, box = ui.card('Резервные копии и сброс', 'Каждое изменение панели сохраняет прежнюю раскладку Plasma.')
+        self.backups = QListWidget()
+        self.backups.setMinimumHeight(96)
+        box.addWidget(self.backups)
+        r = QHBoxLayout()
+        r.addWidget(ui.make_button('Восстановить выбранную', self.restore))
+        r.addWidget(ui.make_button('Обновить список', self.load_backups))
+        box.addLayout(r)
+        box.addWidget(ui.make_button('Вернуть KDE Plasma по умолчанию', self.reset_kde, 'danger'))
+        grid.add(frame)
+
+        # Log
+        frame, box = ui.card('Журнал', '')
+        status = QHBoxLayout()
+        self.busy = ui.busy_indicator()
+        status.addWidget(self.busy)
+        self.state = QLabel('Готово.')
+        self.state.setObjectName('description')
+        status.addWidget(self.state, 1)
+        box.addLayout(status)
+        self.log = QTextEdit()
+        self.log.setReadOnly(True)
+        self.log.setMinimumHeight(90)
+        box.addWidget(self.log)
+        ui.add_to_page(lay, frame)
+        self.runner = ui.process_runner(self, self.log, self.busy)
+        self.setCentralWidget(root)
+        QShortcut(QKeySequence('Ctrl+R'), self, activated=self.load_backups)
+        self.load_backups()
+
+    def cli(self, args):
+        if not shutil.which('nova-layout'):
+            ui.error(self, 'NOVA', 'nova-layout не найден.')
+            return
+        self.state.setText('Применяется: ' + ' '.join(args))
+        self.runner(['nova-layout', *args], on_finished=lambda code: self.state.setText(
+            'Готово.' if code == 0 else f'Ошибка (код {code}). Подробности в журнале.'))
+
+    def kcm(self, module):
+        tool = 'kcmshell6' if shutil.which('kcmshell6') else 'systemsettings'
+        try:
+            subprocess.Popen([tool, module] if tool == 'kcmshell6' else [tool], start_new_session=True)
+        except OSError as exc:
+            ui.error(self, 'NOVA', str(exc))
+
+    def apply_mode(self):
+        mode_button = self.mode_group.checkedButton()
+        density_button = self.density_group.checkedButton()
+        if not mode_button or not density_button:
+            return
+        mode, density = mode_button.property('mode'), density_button.property('density')
+        if ui.confirm(self, 'Изменить панель Plasma?',
+                      f'{core.MODE_TITLES[mode]}.\nТекущие панели будут заменены. Перед этим создаётся резервная копия.'):
+            self.runner(['nova-layout', 'apply', mode, '--density', density],
+                        on_finished=lambda _c: self.load_backups())
+
+    def load_backups(self):
+        self.backups.clear()
+        for path in core.list_backups()[:20]:
+            self.backups.addItem(path.name)
+
+    def restore(self):
+        item = self.backups.currentItem()
+        if not item:
+            ui.info(self, 'NOVA', 'Выберите резервную копию в списке.')
+            return
+        if ui.confirm(self, 'Восстановить раскладку?',
+                      f'Plasma будет перезапущена и вернётся раскладка «{item.text()}». Открытые окна не закрываются.'):
+            self.runner(['nova-layout', 'restore', item.text()], on_finished=lambda _c: self.load_backups())
+
+    def reset_kde(self):
+        if ui.confirm(self, 'Вернуть стандартный KDE?',
+                      'Будут применены стандартные оформление и панель KDE Plasma (Breeze). '
+                      'Текущая раскладка сохранится в резервной копии.', danger=True, yes='Вернуть KDE'):
+            self.runner(['nova-layout', 'reset-kde'], on_finished=lambda _c: self.load_backups())
+
+
+def main():
+    app = QApplication(sys.argv)
+    app.setApplicationName('NOVA Personalize')
+    window = Personalize()
+    window.show()
+    return app.exec()
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

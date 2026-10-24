@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=NOVA Sound Events
+Comment=User sound feedback for charger connection and disconnection
+Exec=/usr/local/bin/nova-sound-daemon
+OnlyShowIn=KDE;
+X-KDE-autostart-after=panel
+Terminal=false
+NoDisplay=true
