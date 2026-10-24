@@ -31,9 +31,21 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+      - name: Test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends python3-psutil python3-pil nodejs
       - name: Static checks and unit tests
-        run: bash tools/validate-project.sh
+        run: |
+          set -o pipefail
+          bash tools/validate-project.sh 2>&1 | tee validate.log
+      - name: Report failures as annotations
+        if: failure()
+        run: |
+          grep -E '^(FAIL|ERROR)|Error|AssertionError|Traceback|not found|Missing|Bad ' validate.log | head -20 \
+            | while IFS= read -r line; do echo "::error title=validate::${line}"; done
+          tail -n 30 validate.log | sed 's/^/::warning title=validate-tail::/'
 
   ui-smoke:
     name: UI smoke (all NOVA windows, 4 screen sizes, light + dark)
@@ -41,7 +53,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install PyQt6 and fonts
         run: |
           sudo apt-get update
@@ -75,7 +87,7 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - id: version
         name: Read VERSION
         run: echo "version=$(tr -d '[:space:]' < VERSION)" >> "$GITHUB_OUTPUT"
@@ -134,7 +146,7 @@ jobs:
       matrix:
         firmware: [bios, uefi]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
