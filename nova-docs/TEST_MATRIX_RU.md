@@ -3,7 +3,7 @@
 Условные обозначения: ✅ выполнено и прошло · ⏳ автоматизировано, ждёт запуска в GitHub Actions ·
 🧪 ручная проверка, ещё не выполнялась · ❌ выполнено, есть ошибка.
 
-**Важно:** в среде, где готовилась 0.12, сборка ISO и запуск VM были невозможны (заблокированы зеркала Debian, нет KVM). Поэтому всё, что требует ISO, помечено ⏳ или 🧪 — это не выполненные, а подготовленные проверки.
+**Первый реальный прогон: GitHub Actions, run 40136886884 (24.10.2026).** ISO 2,92 ГБ собран за 17,5 мин; загрузка BIOS и UEFI в QEMU/KVM до рабочего стола Plasma прошла.
 
 ## 1. Исходники (выполнено)
 
@@ -28,22 +28,22 @@
 
 | Экран (доступная область) | Масштаб | Статус |
 |---|---|---|
-| 1366×768 (1366×720) | 100 % | ⏳ |
-| 1920×1080 (1920×1032) | 100 % | ⏳ |
-| 2560×1440 (2048×1104) | 125 % | ⏳ |
-| 3840×2160 (1920×1032) | 200 % HiDPI | ⏳ |
+| 1366×768 (1366×720) | 100 % | ✅ (после исправлений: прокрутка вместо обрезки, сетка кнопок Gaming) |
+| 1920×1080 (1920×1032) | 100 % | ✅ |
+| 2560×1440 (2048×1104) | 125 % | ✅ |
+| 3840×2160 (1920×1032) | 200 % HiDPI | ✅ |
 
 ## 3. ISO и загрузка (CI)
 
 | Проверка | Инструмент | Статус |
 |---|---|---|
-| Сборка ISO в контейнере Debian 13 | job `build-iso` | ⏳ |
-| Содержимое ISO (El Torito BIOS+UEFI, squashfs, Calamares, Plasma, NOVA, пул GRUB) | `verify-iso.sh` | ⏳ |
-| Загрузка BIOS/Legacy → Plasma, автологин live | `nova_qemu_smoke.py --firmware bios` | ⏳ |
-| Загрузка UEFI (OVMF) → Plasma | `nova_qemu_smoke.py --firmware uefi` | ⏳ |
-| Wayland-сеанс, SDDM, NetworkManager «connected», звуковой выход HDA, экраны | `nova-selftest --json` внутри VM | ⏳ |
-| Plasma на 1366×768, 1920×1080, 2560×1440@125 %, 3840×2160@200 % | `kscreen-doctor` + скриншоты QMP | ⏳ |
-| Нет упавших systemd-юнитов, журнал ошибок | `systemctl --failed`, `journalctl -p err` | ⏳ |
+| Сборка ISO в контейнере Debian 13 | job `build-iso` | ✅ 17 мин 37 с, 2 923 583 488 байт |
+| Содержимое ISO (El Torito BIOS+UEFI, squashfs, Calamares, Plasma, NOVA, пул GRUB) | `verify-iso.sh` | ✅ fail=0 warn=0 |
+| Загрузка BIOS/Legacy → Plasma, автологин live | `nova_qemu_smoke.py --firmware bios` | ✅ userspace 37 с, Plasma 70 с |
+| Загрузка UEFI (OVMF) → Plasma | `nova_qemu_smoke.py --firmware uefi` | ✅ userspace 37 с, Plasma 60 с |
+| Wayland-сеанс, SDDM, NetworkManager «connected», звуковой выход HDA, экраны | `nova-selftest --json` внутри VM | ✅ 13 pass, 0 warn, 0 fail (BIOS и UEFI) |
+| Plasma на 1366×768, 1920×1080, 2560×1440@125 %, 3840×2160@200 % | `kscreen-doctor` + скриншоты QMP | ✅ 1920×1080 и 3840×2160@200 %; 1366×768 и 2560×1440 виртуальная видеокарта не предлагает |
+| Нет упавших systemd-юнитов, журнал ошибок | `systemctl --failed`, `journalctl -p err` | ✅ 0 упавших юнитов; в журнале только безобидные сообщения (группы adduser, obexd) |
 
 ## 4. Установщик (вручную в VM, только виртуальный диск)
 
@@ -74,3 +74,9 @@
 | Геймпады DualShock 4 / DualSense (USB, Bluetooth) | 🧪 |
 
 Результаты реальных прогонов вносить в эту таблицу с датой и моделью ноутбука.
+
+## Найдено при первом прогоне и исправлено
+
+- UI smoke: 4 окна не помещались (Android Hub, Performance — по высоте; Gaming — ряд кнопок 1161 px; Game Bar) → автоматическая прокрутка в `nova_ui`, сетка кнопок, новый размер Game Bar.
+- Скриншот рабочего стола: поверх появлялся KDE «Помощник первого запуска» про Debian (`plasma-welcome` из Recommends) → удаляется хуком; значок «Install Debian» → «Установить NOVA OS».
+- Меню GRUB пока со стандартным оформлением Debian live-build (не мешает загрузке).

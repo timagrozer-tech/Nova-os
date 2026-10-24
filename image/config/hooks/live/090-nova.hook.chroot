@@ -83,11 +83,20 @@ else
 	log "Calamares Debian branding not found; skipping NOVA branding"
 fi
 
-# Calamares launcher name in the live menu (keeps Debian's install-debian helper).
-if [ -f /usr/share/applications/install-debian.desktop ]; then
-	sed -i -e 's/^Name=.*/Name=Установить NOVA OS/' \
-	       -e 's/^Name\[ru\]=.*/Name[ru]=Установить NOVA OS/' \
-	       /usr/share/applications/install-debian.desktop || true
+# Calamares launcher name (menu AND the desktop icon live-config copies to ~/Desktop).
+# Found in the 0.12 CI boot screenshot: the icon still said "Install Debian".
+for f in /usr/share/applications/*.desktop /etc/skel/Desktop/*.desktop /usr/share/live/config/*/*.desktop; do
+	[ -f "$f" ] || continue
+	grep -q '^Exec=.*\(install-debian\|calamares\)' "$f" || continue
+	sed -i -e 's/^Name=.*/Name=Установить NOVA OS/' -e '/^Name\[[a-zA-Z_@]*\]=/d' \
+	       -e 's/^Comment=.*/Comment=Установка NOVA OS на диск (Calamares)/' "$f" || true
+	log "installer launcher renamed: $f"
+done
+
+# NOVA has its own first-run assistant; KDE's "Welcome to Debian/KDE" wizard
+# (plasma-welcome, pulled in as a Recommends) popped up over the live desktop.
+if dpkg-query -W -f='${Status}' plasma-welcome 2>/dev/null | grep -q 'install ok installed'; then
+	DEBIAN_FRONTEND=noninteractive apt-get purge -y plasma-welcome && log "plasma-welcome removed" || log "could not remove plasma-welcome"
 fi
 
 # --- Plasma defaults --------------------------------------------------------

@@ -11,13 +11,13 @@
 - [x] Контраст текста ≥ 4.5:1 для светлой/тёмной темы и 8 акцентов
 - [x] Нет команд изменения разделов/дисков в инструментах NOVA и скриптах сборки
 
-## GitHub Actions (подготовлено, первый запуск не выполнялся)
-- [ ] Задание `ui-smoke`: 21 окна × 4 экрана × 2 темы без ❌
-- [ ] Задание `build-iso`: ISO собран, `verify-iso.sh` SUMMARY fail=0
-- [ ] `boot-test bios`: Plasma запущена, `nova-selftest` без ошибок
-- [ ] `boot-test uefi`: Plasma запущена, `nova-selftest` без ошибок
+## GitHub Actions (первый прогон 24.10.2026, run 40136886884)
+- [x] Задание `ui-smoke`: 21 окно × 4 экрана × 2 темы, 0 ❌ (предупреждения исправлены)
+- [x] Задание `build-iso`: ISO собран, `verify-iso.sh` SUMMARY fail=0
+- [x] `boot-test bios`: Plasma запущена, `nova-selftest` без ошибок
+- [x] `boot-test uefi`: Plasma запущена, `nova-selftest` без ошибок
 - [ ] Скриншоты Plasma 1366×768, 1920×1080, 2560×1440@125 %, 3840×2160@200 % просмотрены
-- [ ] Размер ISO записан в `TEST_MATRIX_RU.md`
+- [x] Размер ISO записан в `TEST_MATRIX_RU.md`
 
 ## VM вручную (только виртуальные диски)
 - [ ] Calamares: установка на пустой диск BIOS и UEFI
