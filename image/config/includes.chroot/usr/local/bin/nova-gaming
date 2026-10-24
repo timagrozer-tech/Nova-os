@@ -7,7 +7,7 @@ import subprocess
 import sys
 from pathlib import Path
 from PyQt6.QtCore import QTimer
-from PyQt6.QtWidgets import (QApplication,QWidget,QMainWindow,QVBoxLayout,QHBoxLayout,
+from PyQt6.QtWidgets import (QGridLayout,QApplication,QWidget,QMainWindow,QVBoxLayout,QHBoxLayout,
     QLabel,QPushButton,QTextEdit,QMessageBox,QCheckBox)
 from nova_theme import load_nova_stylesheet
 import nova_ui as ui
@@ -35,13 +35,15 @@ class Gaming(QMainWindow):
         self.button(row,'Магазин / установка Steam',lambda:self.start('plasma-discover'))
         v.addWidget(QLabel('Контроллеры USB и Bluetooth'))
         self.controller=QLabel('Поиск контроллеров…');v.addWidget(self.controller)
-        row=QHBoxLayout();v.addLayout(row)
-        self.button(row,'Обновить контроллеры',self.refresh)
-        self.button(row,'Настроить Bluetooth',lambda:self.start('systemsettings'))
-        self.button(row,'Настройки геймпада в Steam',self.steam)
-        self.button(row,'Правила Steam Input',self.install_gamepad)
-        self.button(row,'Тест кнопок и стиков',lambda:self.start('nova-gamepad-test'))
-        self.button(row,'Центр производительности',lambda:self.start('nova-performance'))
+        # 0.12: actions in a 3-column grid (one row was 1161 px wide and clipped on 1366×768).
+        grid=QGridLayout();v.addLayout(grid)
+        for i,(text,callback) in enumerate([('Обновить контроллеры',self.refresh),
+                ('Настроить Bluetooth',lambda:self.start('systemsettings')),
+                ('Настройки геймпада в Steam',self.steam),('Правила Steam Input',self.install_gamepad),
+                ('Тест кнопок и стиков',lambda:self.start('nova-gamepad-test')),
+                ('Центр производительности',lambda:self.start('nova-performance')),
+                ('NOVA Game Bar (Win+G)',lambda:self.start('nova-game-bar'))]):
+            b=QPushButton(text);b.clicked.connect(callback);grid.addWidget(b,i//3,i%3)
         v.addWidget(QLabel('Профиль ноутбука'))
         row=QHBoxLayout();v.addLayout(row)
         for name,profile in [('Энергосбережение','power-saver'),('Сбалансированный','balanced'),

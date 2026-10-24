@@ -322,8 +322,28 @@ def setup_window(window, title: str | None = None, size: tuple[int, int] = (1000
     close = QtGui.QShortcut(QtGui.QKeySequence('Ctrl+Q'), window)
     close.activated.connect(window.close)
     window._nova_shortcuts = [close]  # keep a reference
+    QtCore.QTimer.singleShot(0, lambda: fit_content(window))
     _install_smoke_hook(window, app_id)
     return w, h
+
+
+def fit_content(window) -> bool:
+    """If the central widget needs more room than the window has (small screens,
+    large fonts, 200 % scale), put it into a scroll area instead of clipping it."""
+    _, _, QtWidgets = _qt()
+    central = window.centralWidget() if hasattr(window, 'centralWidget') else None
+    if central is None or isinstance(central, QtWidgets.QScrollArea):
+        return False
+    hint = central.minimumSizeHint()
+    if hint.width() <= window.width() and hint.height() <= window.height():
+        return False
+    scroll = QtWidgets.QScrollArea()
+    scroll.setWidgetResizable(True)
+    scroll.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
+    window.takeCentralWidget()
+    scroll.setWidget(central)
+    window.setCentralWidget(scroll)
+    return True
 
 
 def _install_smoke_hook(window, app_id):

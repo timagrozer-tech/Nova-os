@@ -64,7 +64,7 @@ def volume_percent():
 class GameBar(QMainWindow):
     def __init__(self):
         super().__init__()
-        ui.setup_window(self, 'NOVA Game Bar', size=(560, 470), minimum=(360, 380), app_id='nova-game-bar')
+        ui.setup_window(self, 'NOVA Game Bar', size=(600, 640), minimum=(380, 420), app_id='nova-game-bar')
         self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, True)
         root = QWidget()
         v = QVBoxLayout(root)
@@ -80,6 +80,8 @@ class GameBar(QMainWindow):
             label.setObjectName('description')
             value = QLabel('—')
             value.setObjectName('heading')
+            value.setMinimumHeight(28)
+            label.setMinimumHeight(20)
             grid.addWidget(label, (i // 2) * 2, i % 2)
             grid.addWidget(value, (i // 2) * 2 + 1, i % 2)
             self.values[key] = value
