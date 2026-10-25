@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=NEON//SYS next live wallpaper
+Name[ru]=NEON//SYS — следующие живые обои
+Exec=nova-neon wallpaper next
+Icon=preferences-desktop-wallpaper
+Terminal=false
+NoDisplay=true
+X-KDE-Shortcuts=Meta+Alt+W

@@ -125,6 +125,9 @@ class Control(QMainWindow):
                               'акцентный цвет, плотность и анимации. Перед изменением панели создаётся резервная копия.')
         v = self.card(lay, 'NOVA Персонализация', 'Мастер оформления: тема, акцент, режим панели, плотность, анимации, сброс к KDE.')
         self.button(v, 'Открыть персонализацию', lambda: self.open('nova-personalize'), 'primary')
+        v = self.card(lay, 'NEON//SYS — киберпанк', 'Встроенное неоновое оформление: HUD-панель, док, живые QML-обои, '
+                      'виджеты, звуки и режимы WORK/GAME/NIGHT/FOCUS. Без сторонних программ, прежний вид возвращается.')
+        self.button(v, 'Центр NEON//SYS (Win+Alt+N)', lambda: self.open('nova-neon-center'))
         out = None
         v = self.card(lay, 'Быстрое переключение режима', 'Текущая раскладка сохраняется в ~/.local/share/nova/layout-backups.')
         out = self.log(v, 80)
@@ -154,6 +157,7 @@ class Control(QMainWindow):
         v = self.card(lay, 'Панель быстрых действий', 'Один клик для основных инструментов без терминала.')
         for text, command in [
             ('NOVA Персонализация', 'nova-personalize'),
+            ('NEON//SYS — киберпанк-оформление', 'nova-neon-center'),
             ('NOVA — дисплеи и частота', 'nova-display'),
             ('NOVA — горячие клавиши', 'nova-hotkeys'),
             ('NOVA Game Bar', 'nova-game-bar'),

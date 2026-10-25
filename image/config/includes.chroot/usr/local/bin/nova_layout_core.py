@@ -34,7 +34,8 @@ LAUNCHERS = (
 )
 WALLPAPER = 'file:///usr/share/wallpapers/NOVA/'
 LAYOUT_FILES = ('plasma-org.kde.plasma.desktop-appletsrc', 'plasmashellrc')
-LNF = {'light': 'org.nova.air.light.desktop', 'dark': 'org.nova.air.dark.desktop'}
+LNF = {'light': 'org.nova.air.light.desktop', 'dark': 'org.nova.air.dark.desktop',
+       'neon': 'org.nova.neon.desktop'}   # NEON//SYS: see nova_neon_core
 KDE_DEFAULT_LNF = 'org.kde.breeze.desktop'
 
 # Accent palette: (name, light-theme hex, dark-theme hex). Light values keep
@@ -268,7 +269,7 @@ def lookandfeel_command(variant: str, reset_layout: bool = False) -> list[str]:
     elif variant in LNF:
         package = LNF[variant]
     else:
-        raise ValueError('variant must be light, dark or kde-default')
+        raise ValueError('variant must be light, dark, neon or kde-default')
     argv = ['plasma-apply-lookandfeel', '--apply', package]
     if reset_layout:
         argv.append('--resetLayout')

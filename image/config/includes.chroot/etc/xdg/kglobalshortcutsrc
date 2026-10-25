@@ -50,3 +50,23 @@ _launch=Launch Mail
 
 [services][nova-key-tools.desktop]
 _launch=Tools
+
+# NEON//SYS (nova-neon): mode keys do nothing until NEON//SYS is switched on.
+
+[services][nova-neon-center.desktop]
+_launch=Meta+Alt+N
+
+[services][nova-neon-work.desktop]
+_launch=Ctrl+Meta+Alt+1
+
+[services][nova-neon-game.desktop]
+_launch=Ctrl+Meta+Alt+2
+
+[services][nova-neon-night.desktop]
+_launch=Ctrl+Meta+Alt+3
+
+[services][nova-neon-focus.desktop]
+_launch=Ctrl+Meta+Alt+4
+
+[services][nova-neon-wallpaper.desktop]
+_launch=Meta+Alt+W

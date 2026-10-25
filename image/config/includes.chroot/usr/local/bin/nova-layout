@@ -6,7 +6,7 @@ current Plasma layout is backed up to ~/.local/share/nova/layout-backups/.
 
   nova-layout status
   nova-layout apply windows|dock|hybrid [--density compact|standard|touch]
-  nova-layout theme light|dark|auto
+  nova-layout theme light|dark|neon|auto     (neon = NEON//SYS look, see nova-neon)
   nova-layout accent '#1f6feb'
   nova-layout animations off|fast|standard
   nova-layout icons breeze|breeze-dark|Papirus|Papirus-Dark
@@ -109,6 +109,14 @@ def cmd_apply(args):
 
 
 def cmd_theme(args):
+    import nova_neon_core as neon
+    if args.variant == 'neon':
+        # Full NEON look (colours, sounds, Konsole, live wallpaper) without touching panels.
+        run(['nova-neon', '--dry-run', 'apply', '--look-only'] if DRY else ['nova-neon', 'apply', '--look-only'])
+        print('Тема NOVA: neon (NEON//SYS). Панель, виджеты и режимы — в центре NEON//SYS (Win+Alt+N).')
+        return
+    if neon.is_active() and not DRY:
+        run(['nova-neon', 'revert'])      # leave NEON cleanly before another theme
     if args.variant in ('light', 'dark'):
         run(core.lookandfeel_command(args.variant, reset_layout=False))
     if not DRY:

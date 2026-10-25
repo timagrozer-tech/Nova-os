@@ -1,0 +1,8 @@
+[Sound Theme]
+Name=NEON//SYS
+Comment=Оригинальные sci-fi звуки NEON//SYS
+Inherits=freedesktop
+Directories=stereo
+
+[stereo]
+OutputProfile=stereo

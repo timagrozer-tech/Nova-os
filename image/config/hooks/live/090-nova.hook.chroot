@@ -106,6 +106,10 @@ if [ -d /usr/share/plasma/look-and-feel/org.nova.air.light.desktop ]; then
 fi
 # Icon cache for the NOVA logo.
 gtk-update-icon-cache -q -f /usr/share/icons/hicolor 2>/dev/null || true
+# NEON//SYS: bundled OFL fonts (Orbitron, Share Tech Mono) for the NEON look, wallpaper and splash.
+if [ -d /usr/share/fonts/truetype/nova-neon ]; then
+	fc-cache -f /usr/share/fonts/truetype/nova-neon >/dev/null 2>&1 && log "NEON//SYS fonts cached" || log "fc-cache failed (fonts load on first use)"
+fi
 
 # Byte-compile NOVA Python modules so first start is faster (optional).
 python3 -m compileall -q /usr/local/bin >/dev/null 2>&1 || true

@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import re
 
+from nova_neon_core import SHORTCUTS as NEON_SHORTCUTS  # (desktop, key, description) — NEON//SYS group
+
 # (component, action id, NOVA keys, KDE default keys, friendly name, description)
 # Empty NOVA keys = release the key for a Windows-style action.
 COMPONENT_SHORTCUTS = (
@@ -91,6 +93,9 @@ def system_file() -> str:
         out += [f'[services][{desktop}]', f'_launch={_keys(keys)}', '']
     for desktop, key, *_rest in MEDIA_LAUNCHERS:
         out += [f'[services][{desktop}]', f'_launch={_keys((key,))}', '']
+    out += ['# NEON//SYS (nova-neon): mode keys do nothing until NEON//SYS is switched on.', '']
+    for desktop, key, _desc in NEON_SHORTCUTS:
+        out += [f'[services][{desktop}]', f'_launch={_keys((key,))}', '']
     return '\n'.join(out)
 
 
@@ -102,7 +107,7 @@ def apply_commands() -> list[list[str]]:
     for desktop, keys, _d in SERVICE_SHORTCUTS:
         cmds.append(['kwriteconfig6', '--file', 'kglobalshortcutsrc', '--group', 'services', '--group', desktop,
                      '--key', '_launch', _keys(keys)])
-    for desktop, key, *_r in MEDIA_LAUNCHERS:
+    for desktop, key, *_r in MEDIA_LAUNCHERS + NEON_SHORTCUTS:
         cmds.append(['kwriteconfig6', '--file', 'kglobalshortcutsrc', '--group', 'services', '--group', desktop,
                      '--key', '_launch', _keys((key,))])
     return cmds
@@ -114,7 +119,7 @@ def reset_commands() -> list[list[str]]:
     for comp, action, _nova, default, friendly, _d in COMPONENT_SHORTCUTS:  # noqa: B007
         cmds.append(['kwriteconfig6', '--file', 'kglobalshortcutsrc', '--group', comp, '--key', action,
                      component_value(default, default, friendly)])
-    for desktop, *_r in SERVICE_SHORTCUTS + tuple((d, None, None) for d, *_x in MEDIA_LAUNCHERS):
+    for desktop, *_r in SERVICE_SHORTCUTS + tuple((d, None, None) for d, *_x in MEDIA_LAUNCHERS + NEON_SHORTCUTS):
         keys = ('Alt+Space', 'Alt+F2', 'Search') if desktop == 'org.kde.krunner.desktop' else ()
         cmds.append(['kwriteconfig6', '--file', 'kglobalshortcutsrc', '--group', 'services', '--group', desktop,
                      '--key', '_launch', _keys(keys)])
@@ -132,6 +137,7 @@ def cheat_sheet() -> list[tuple[str, str, str]]:
     rows = [('Как в Windows (NOVA)', d.split(' — ')[0], d.split(' — ')[1])
             for *_x, d in COMPONENT_SHORTCUTS if d]
     rows += [('Как в Windows (NOVA)', d.split(' — ')[0], d.split(' — ')[1]) for _x, _k, d in SERVICE_SHORTCUTS]
+    rows += [('NEON//SYS', d.split(' — ')[0], d.split(' — ')[1]) for _x, _k, d in NEON_SHORTCUTS]
     rows += [('Уже есть в KDE Plasma', k, v) for k, v in BUILTIN]
     rows += [('Мультимедийные клавиши', k, v) for k, v in MEDIA_BUILTIN]
     rows += [('Мультимедийные клавиши', title, f'открывает: {label}') for _d, _k, label, _e, title in MEDIA_LAUNCHERS]

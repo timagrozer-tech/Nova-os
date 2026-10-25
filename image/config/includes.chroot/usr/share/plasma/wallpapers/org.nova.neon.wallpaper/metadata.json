@@ -1,0 +1,19 @@
+{
+    "KPackageStructure": "Plasma/Wallpaper",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "NOVA OS community project"
+            }
+        ],
+        "Description": "Animated cyberpunk wallpaper written in QML (no extra software)",
+        "Description[ru]": "Живые киберпанк-обои на QML: синтвейв, ночной город, цифровой дождь, плата",
+        "Icon": "preferences-desktop-wallpaper",
+        "Id": "org.nova.neon.wallpaper",
+        "License": "GPL-2.0-or-later",
+        "Name": "NEON//SYS Live",
+        "Name[ru]": "NEON//SYS — живые обои",
+        "Version": "0.12"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0"
+}

@@ -24,7 +24,7 @@ UI_APPS = (
     'nova-defender', 'nova-uninstaller', 'nova-update-center', 'nova-driver-center',
     'nova-dualboot', 'nova-migration', 'nova-android-hub', 'nova-sound-studio', 'nova-gaming',
     'nova-gamepad-test', 'nova-phone-hub', 'nova-performance', 'nova-preflight',
-    'nova-display', 'nova-hotkeys', 'nova-game-bar',
+    'nova-display', 'nova-hotkeys', 'nova-game-bar', 'nova-neon-center',
 )
 
 

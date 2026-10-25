@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=NEON//SYS
+Name[ru]=NEON//SYS — центр управления
+Comment=Cyberpunk look for NOVA OS: live wallpapers, widgets, modes
+Comment[ru]=Киберпанк-оформление NOVA OS: живые обои, виджеты, режимы WORK/GAME/NIGHT/FOCUS
+Exec=nova-neon-center
+Icon=preferences-desktop-theme
+Terminal=false
+Categories=Settings;DesktopSettings;
+Keywords=neon;cyberpunk;theme;wallpaper;widgets;неон;киберпанк;тема;обои;виджеты;
+X-KDE-Shortcuts=Meta+Alt+N

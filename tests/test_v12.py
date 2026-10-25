@@ -198,11 +198,15 @@ class VerifyIsoScript(unittest.TestCase):
              '/usr/share/plasma/look-and-feel/org.nova.air.light.desktop/metadata.json',
              '/usr/share/plasma/look-and-feel/org.nova.air.dark.desktop/metadata.json',
              '/usr/share/color-schemes/NovaAirLight.colors', '/usr/local/bin/nova_ui.py', '/etc/nova-release',
+             '/usr/share/plasma/look-and-feel/org.nova.neon.desktop/metadata.json',
+             '/usr/share/plasma/wallpapers/org.nova.neon.wallpaper/contents/ui/main.qml',
+             '/usr/share/color-schemes/NovaNeon.colors',
              '/usr/sbin/qemu-ga', '/etc/xdg/kglobalshortcutsrc', '/usr/bin/kscreen-doctor', '/usr/bin/ddcutil',
              ] + [f'/usr/local/bin/{a}' for a in (
                  'nova-display', 'nova-hotkeys', 'nova-game-bar', 'nova-key', 'nova-control', 'nova-personalize', 'nova-layout', 'nova-selftest', 'nova-first-run', 'nova-defender',
                  'nova-task-manager', 'nova-update-center', 'nova-driver-center', 'nova-android-hub', 'nova-dualboot',
-                 'nova-migration', 'nova-sound-studio', 'nova-gaming', 'nova-phone-hub', 'nova-health', 'nova-performance')]
+                 'nova-migration', 'nova-sound-studio', 'nova-gaming', 'nova-phone-hub', 'nova-health', 'nova-performance',
+                 'nova-neon', 'nova-neon-center')]
 
     def _stubs(self, tmp, uefi=True, files=None):
         stub = Path(tmp) / 'stub'
@@ -286,7 +290,7 @@ class UiKit(unittest.TestCase):
                 ui.save_choice('dark', home)
                 self.assertEqual(ui.read_choice(home), 'dark')
                 with self.assertRaises(ValueError):
-                    ui.save_choice('neon', home)
+                    ui.save_choice('sepia', home)
                 cfg = Path(home) / '.config/kdeglobals'
                 cfg.write_text('[Colors:Window]\nBackgroundNormal=32,35,38\n')
                 self.assertEqual(ui.detect_plasma_variant(home, system_file='/nonexistent'), 'dark')
@@ -424,7 +428,7 @@ panels:st.panels.map(p=>({loc:p.location,h:p.height,len:p.lengthMode,fl:p.floati
         self.assertNotIn('--resetLayout', layout.lookandfeel_command('dark'))
         self.assertEqual(layout.animation_command('off')[-1], '0')
         with self.assertRaises(ValueError):
-            layout.lookandfeel_command('neon')
+            layout.lookandfeel_command('sepia')
 
     def test_cli_dry_run(self):
         with tempfile.TemporaryDirectory() as home:

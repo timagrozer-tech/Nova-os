@@ -16,7 +16,7 @@ from PyQt6.QtWidgets import (QApplication, QButtonGroup, QHBoxLayout, QLabel, QM
                              QPushButton, QRadioButton, QTextEdit, QVBoxLayout, QWidget,
                              QListWidget)
 
-THEMES = (('light', 'Светлая'), ('dark', 'Тёмная'), ('auto', 'Как в KDE Plasma'))
+THEMES = (('light', 'Светлая'), ('dark', 'Тёмная'), ('neon', 'NEON//SYS — киберпанк'), ('auto', 'Как в KDE Plasma'))
 DENSITY = (('compact', 'Компактная'), ('standard', 'Стандартная'), ('touch', 'Сенсорная'))
 ANIMATIONS = (('off', 'Выключены'), ('fast', 'Быстрые'), ('standard', 'Стандартные'))
 
@@ -38,7 +38,7 @@ class Personalize(QMainWindow):
         ui.add_to_page(lay, grid)
 
         # Theme
-        frame, box = ui.card('Тема оформления', 'Светлая или тёмная NOVA Air для Plasma и приложений NOVA.')
+        frame, box = ui.card('Тема оформления', 'Светлая или тёмная NOVA Air или неоновая NEON//SYS — для Plasma и приложений NOVA.')
         self.theme_group = QButtonGroup(self)
         current = ui.read_choice()
         for key, label in THEMES:
@@ -47,6 +47,8 @@ class Personalize(QMainWindow):
             radio.toggled.connect(lambda on, k=key: on and self.cli(['theme', k]))
             self.theme_group.addButton(radio)
             box.addWidget(radio)
+        box.addWidget(ui.make_button('NEON//SYS: живые обои, виджеты, режимы…',
+                                     lambda: subprocess.Popen(['nova-neon-center'], start_new_session=True)))
         grid.add(frame)
 
         # Accent

@@ -98,10 +98,14 @@ if xorriso -osirrox on -indev "$ISO" -extract /live/filesystem.squashfs "$tmp/fs
   have '/usr/share/plasma/look-and-feel/org\.nova\.air\.light\.desktop/metadata\.json' "NOVA Air light look-and-feel"
   have '/usr/share/plasma/look-and-feel/org\.nova\.air\.dark\.desktop/metadata\.json'  "NOVA Air dark look-and-feel"
   have '/usr/share/color-schemes/NovaAirLight\.colors' "NOVA Air light colour scheme"
+  have '/usr/share/plasma/look-and-feel/org\.nova\.neon\.desktop/metadata\.json' "NEON//SYS look-and-feel"
+  have '/usr/share/plasma/wallpapers/org\.nova\.neon\.wallpaper/contents/ui/main\.qml' "NEON//SYS live wallpaper (QML)"
+  have '/usr/share/color-schemes/NovaNeon\.colors'  "NEON//SYS colour scheme"
+  maybe '/usr/share/fonts/truetype/nova-neon/Orbitron-Variable\.ttf' "NEON//SYS fonts (Orbitron, Share Tech Mono)"
   for app in nova-control nova-personalize nova-layout nova-selftest nova-first-run nova-defender \
              nova-task-manager nova-update-center nova-driver-center nova-android-hub nova-dualboot \
              nova-migration nova-sound-studio nova-gaming nova-phone-hub nova-health nova-performance \
-             nova-display nova-hotkeys nova-game-bar nova-key; do
+             nova-display nova-hotkeys nova-game-bar nova-key nova-neon nova-neon-center; do
     have "/usr/local/bin/$app" "$app"
   done
   have '/usr/local/bin/nova_ui\.py'                 "NOVA UI kit"

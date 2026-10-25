@@ -1,0 +1,12 @@
+{
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "NOVA OS community project"
+            }
+        ],
+        "Id": "NOVA-NEON",
+        "License": "NOVA OS project artwork",
+        "Name": "NEON//SYS"
+    }
+}

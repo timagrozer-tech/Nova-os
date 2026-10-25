@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=NEON//SYS mode NIGHT
+Name[ru]=NEON//SYS — режим NIGHT
+Comment[ru]=Режим NIGHT: вечер, тёплый экран
+Exec=nova-neon mode night
+Icon=preferences-desktop-theme
+Terminal=false
+NoDisplay=true
+X-KDE-Shortcuts=Ctrl+Meta+Alt+3

@@ -1,3 +1,22 @@
+# NEON//SYS для NOVA OS (готовится к 0.13)
+
+- **Оформление NEON//SYS** без сторонних программ: Look-and-Feel `org.nova.neon.desktop`, цветовая схема `NovaNeon`
+  (из токенов `nova_ui`, контраст ≥ 4.5:1), заставка загрузки KSplash, значки Papirus-Dark, экран блокировки.
+- **Живые обои** — QML-плагин Plasma `org.nova.neon.wallpaper`: Synth Grid, Night City, Data Rain, Circuit и режим
+  «по времени суток»; один таймер, 5–60 кадров/с, пауза на батарее и в режиме GAME, действия в меню рабочего стола.
+- **Рабочий стол NEON:** HUD-панель сверху, плавающий док снизу, стандартные виджеты Plasma (часы, CPU, память, сеть,
+  погода, музыка, заметки, таймер) с учётом размера экрана; повторное включение не дублирует виджеты и не трогает ваши.
+- **`nova-neon`** (apply / revert / wallpaper / widgets / mode / status) и **центр NEON//SYS** (`nova-neon-center`, Win+Alt+N).
+  Режимы WORK/GAME/NIGHT/FOCUS: профиль питания, «Не беспокоить», ночной режим — с возвратом ваших значений.
+- Тема `neon` для всех окон NOVA (`/usr/share/nova/themes/neon.qss`), профиль Konsole `NEON`, звуковая тема `nova-neon`,
+  шрифты Orbitron и Share Tech Mono (OFL 1.1).
+- Интеграция: первый запуск, Персонализация, NOVA Control, `nova-layout theme neon`, сочетания клавиш NEON в общей
+  таблице `nova_hotkeys_core` (без конфликтов с KDE и «как в Windows»).
+- Проверки: `tests/test_v13_neon.py` (23 теста, скрипты Plasma в Node), `verify-iso.sh` проверяет файлы NEON,
+  CI рендерит окна NOVA в теме `neon` и каждую сцену обоев в PyQt6 (`tools/neon_qml_smoke.py`).
+- В двух старых тестах слово `neon` служило примером *недопустимой* темы; теперь это настоящая тема, пример заменён на `sepia`.
+- NOVA Air остаётся оформлением по умолчанию для новых пользователей.
+
 # Изменения NOVA OS 0.12 — System Experience & ISO Readiness
 
 ## Сборка ISO (P0)

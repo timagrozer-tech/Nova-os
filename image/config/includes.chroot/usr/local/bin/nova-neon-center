@@ -1,0 +1,154 @@
+#!/usr/bin/env python3
+"""NEON//SYS control centre (Win+Alt+N): switch the cyberpunk look on/off,
+modes, live wallpapers, widgets and the hot-key cheat sheet.
+
+Every action goes through `nova-neon` (user level, no root). Switching NEON
+on backs up the Plasma layout first; «Вернуть прежнее оформление» restores it.
+"""
+import shutil
+import subprocess
+import sys
+
+import nova_neon_core as core
+import nova_ui as ui
+from PyQt6.QtGui import QKeySequence, QShortcut
+from PyQt6.QtWidgets import (QApplication, QGridLayout, QHBoxLayout, QLabel, QMainWindow, QTextEdit,
+                             QVBoxLayout, QWidget)
+
+MODE_COLORS = {'work': 'neon_cyan', 'game': 'neon_magenta', 'night': 'neon_violet', 'focus': 'neon_yellow'}
+
+
+class NeonCenter(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        ui.setup_window(self, 'NEON//SYS — центр управления', size=(1100, 780), app_id='nova-neon-center')
+        self.setStyleSheet(ui.build_stylesheet('neon'))   # this window is always NEON
+        t = ui.TOKENS['neon']
+        root = QWidget()
+        outer = QVBoxLayout(root)
+        outer.setContentsMargins(20, 16, 20, 12)
+        outer.addWidget(ui.header('NEON//SYS',
+            'Киберпанк-оформление NOVA OS: HUD-панель, плавающий док, живые обои, виджеты, режимы и звуки. '
+            'Всё сделано средствами KDE Plasma — без сторонних программ. Прежний вид возвращается одной кнопкой.'))
+        page, lay = ui.scroll_page()
+        outer.addWidget(page, 1)
+        grid = ui.responsive_grid(min_column=330, maximum=2)
+        ui.add_to_page(lay, grid)
+
+        # --- On / off
+        frame, box = ui.card('Оформление', '')
+        self.status = QLabel()
+        self.status.setWordWrap(True)
+        box.addWidget(self.status)
+        box.addWidget(ui.make_button('Включить NEON//SYS полностью', self.apply_full, 'primary',
+                                     'HUD-панель сверху, док снизу, живые обои и виджеты. Прежняя панель сохраняется.'))
+        box.addWidget(ui.make_button('Только цвета, звуки и обои (панели не трогать)',
+                                     lambda: self.cli(['apply', '--look-only'])))
+        box.addWidget(ui.make_button('Вернуть прежнее оформление', self.revert, 'danger'))
+        grid.add(frame)
+
+        # --- Modes
+        frame, box = ui.card('Режимы', 'Ctrl+Win+Alt+1…4. WORK возвращает ваши настройки питания, уведомлений и экрана.')
+        for i, mode in enumerate(core.MODE_ORDER, start=1):
+            b = ui.make_button(f'{i}  {core.MODES[mode]["title"]}', lambda _c=False, m=mode: self.cli(['mode', m]))
+            b.setStyleSheet(f'QPushButton {{ border-left: 4px solid {t[MODE_COLORS[mode]]}; }}')
+            box.addWidget(b)
+        grid.add(frame)
+
+        # --- Wallpapers
+        frame, box = ui.card('Живые обои', 'QML-обои Plasma. Win+Alt+W — следующие; на батарее анимация замирает сама.')
+        scenes = QGridLayout()
+        scenes.setHorizontalSpacing(8)
+        scenes.setVerticalSpacing(8)
+        for n, (key, title) in enumerate(core.SCENES.items()):
+            label = title.split(' — ')[0] if key != 'auto' else 'По времени суток'
+            b = ui.make_button(label, lambda _c=False, k=key: self.cli(['wallpaper', k]), tooltip=title)
+            scenes.addWidget(b, n // 2, n % 2)
+        box.addLayout(scenes)
+        row = QHBoxLayout()
+        row.addWidget(ui.make_button('Пауза', lambda: self.cli(['wallpaper', 'pause'])))
+        row.addWidget(ui.make_button('Продолжить', lambda: self.cli(['wallpaper', 'resume'])))
+        box.addLayout(row)
+        grid.add(frame)
+
+        # --- Widgets
+        frame, box = ui.card('Виджеты рабочего стола',
+                             'Часы, процессор, память, сеть, погода, музыка, заметки (список дел) и таймер (помидор). '
+                             'Город погоды задаётся в самом виджете: правый щелчок → «Настроить».')
+        box.addWidget(ui.make_button('Вернуть виджеты NEON', lambda: self.cli(['widgets'])))
+        box.addWidget(ui.make_button('Терминал NEON (Konsole)', self.terminal))
+        grid.add(frame)
+
+        # --- Shortcuts
+        frame, box = ui.card('Горячие клавиши', 'Не пересекаются с сочетаниями KDE и NOVA.')
+        for _desktop, _key, desc in core.SHORTCUTS:
+            keys, meaning = desc.split(' — ', 1)
+            line = QLabel(f'<b style="color:{t["neon_cyan"]}">{keys}</b> — {meaning}')
+            box.addWidget(line)
+        grid.add(frame)
+
+        # --- Log
+        frame, box = ui.card('Журнал', '')
+        status = QHBoxLayout()
+        self.busy = ui.busy_indicator()
+        status.addWidget(self.busy)
+        self.state = QLabel('Готово.')
+        self.state.setObjectName('description')
+        status.addWidget(self.state, 1)
+        box.addLayout(status)
+        self.log = QTextEdit()
+        self.log.setReadOnly(True)
+        self.log.setMinimumHeight(90)
+        box.addWidget(self.log)
+        ui.add_to_page(lay, frame)
+        self.runner = ui.process_runner(self, self.log, self.busy)
+        self.setCentralWidget(root)
+        QShortcut(QKeySequence('Ctrl+R'), self, activated=self.refresh)
+        self.refresh()
+
+    def refresh(self):
+        st = core.load_state()
+        if st.get('active'):
+            self.status.setText(f'<b>Включён.</b> Режим: {st.get("mode", "work").upper()}, '
+                                f'обои: {core.SCENES[st.get("scene", "auto")].split(" — ")[0]}.')
+        else:
+            self.status.setText('<b>Выключен.</b> Включите NEON//SYS — ваша текущая панель сохранится в резервной копии.')
+
+    def cli(self, args):
+        if not shutil.which('nova-neon'):
+            ui.error(self, 'NEON//SYS', 'Команда nova-neon не найдена.')
+            return
+        self.state.setText('Выполняется: nova-neon ' + ' '.join(args))
+        self.runner(['nova-neon', *args], on_finished=lambda code: (self.state.setText(
+            'Готово.' if code == 0 else f'Ошибка (код {code}). Подробности в журнале.'), self.refresh()))
+
+    def apply_full(self):
+        if ui.confirm(self, 'Включить NEON//SYS?',
+                      'Панели Plasma заменятся на HUD-панель и док, появятся живые обои и виджеты.\n'
+                      'Текущая раскладка сохранится, вернуть её можно кнопкой «Вернуть прежнее оформление».'):
+            self.cli(['apply'])
+
+    def revert(self):
+        if ui.confirm(self, 'Вернуть прежнее оформление?',
+                      'Вернутся прежние тема, панель, обои, звуки и профиль терминала. Plasma перезапустится, '
+                      'открытые окна не закроются.', danger=True, yes='Вернуть'):
+            self.cli(['revert'])
+
+    def terminal(self):
+        try:
+            subprocess.Popen(['konsole', '--profile', 'NEON'], start_new_session=True)
+        except OSError as exc:
+            ui.error(self, 'NEON//SYS', str(exc))
+
+
+def main():
+    app = QApplication(sys.argv)
+    app.setApplicationName('NEON//SYS')
+    app.setDesktopFileName('nova-neon-center')
+    window = NeonCenter()
+    window.show()
+    return app.exec()
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

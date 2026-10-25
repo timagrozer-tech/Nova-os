@@ -48,12 +48,12 @@ jobs:
           tail -n 30 validate.log | sed 's/^/::warning title=validate-tail::/'
 
   ui-smoke:
-    name: UI smoke (all NOVA windows, 4 screen sizes, light + dark)
+    name: UI smoke (all NOVA windows, 4 screen sizes, light + dark + NEON; NEON QML)
     needs: validate
     runs-on: ubuntu-24.04
     permissions:
       contents: write
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
       - name: Install PyQt6 and fonts
@@ -66,11 +66,16 @@ jobs:
       - name: Render every NOVA window offscreen
         run: |
           set +e
-          python3 image/config/includes.chroot/usr/local/bin/nova-selftest --ui-smoke output/ui-smoke --themes light,dark > output-ui.txt
+          python3 image/config/includes.chroot/usr/local/bin/nova-selftest --ui-smoke output/ui-smoke --themes light,dark,neon > output-ui.txt
           code=$?
           set -e
           python3 tools/ui_smoke_summary.py output/ui-smoke/ui-report.json >> "$GITHUB_STEP_SUMMARY"
           exit $code
+      - name: Render NEON//SYS live wallpaper scenes and boot splash (QML)
+        env:
+          QT_QPA_PLATFORM: offscreen
+          QT_QUICK_BACKEND: software
+        run: python3 tools/neon_qml_smoke.py output/ui-smoke/neon-qml
       - name: Publish contact sheets to branch ci/ui-smoke
         if: always() && github.event_name != 'pull_request'
         env:

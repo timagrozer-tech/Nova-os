@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=NEON//SYS mode WORK
+Name[ru]=NEON//SYS — режим WORK
+Comment[ru]=Режим WORK: обычная работа
+Exec=nova-neon mode work
+Icon=preferences-desktop-theme
+Terminal=false
+NoDisplay=true
+X-KDE-Shortcuts=Ctrl+Meta+Alt+1

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=NEON//SYS mode GAME
+Name[ru]=NEON//SYS — режим GAME
+Comment[ru]=Режим GAME: игры, без уведомлений
+Exec=nova-neon mode game
+Icon=preferences-desktop-theme
+Terminal=false
+NoDisplay=true
+X-KDE-Shortcuts=Ctrl+Meta+Alt+2
