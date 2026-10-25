@@ -311,6 +311,15 @@ def main(argv=None) -> int:
                 break
             time.sleep(10)
         results['checks']['plasmashell'] = plasma
+        if not plasma:      # collect what the display stack said, so a failure can be diagnosed from CI
+            for fname, argv in (('sddm-journal.txt', ['/bin/journalctl', '-b', '-u', 'sddm', '--no-pager', '-q']),
+                                ('session-journal.txt', ['/bin/journalctl', '-b', '--no-pager', '-q', '-n', '400',
+                                                         '_COMM=kwin_wayland', '+', '_COMM=startplasma-wayland',
+                                                         '+', '_COMM=sddm-helper', '+', '_COMM=plasmashell']),
+                                ('drm.txt', ['/bin/sh', '-c', 'ls -l /dev/dri; cat /sys/class/drm/*/status; '
+                                             'loginctl list-sessions; ps -eo pid,user,comm | grep -Ei "kwin|plasma|sddm|Xorg"'])):
+                code, text = qga.exec(argv, timeout=60)
+                (out / fname).write_text(text)
         results['seconds_to_plasma'] = round(time.time() - started)
         time.sleep(25)
         shot(qmp, out, '03-desktop', results)
