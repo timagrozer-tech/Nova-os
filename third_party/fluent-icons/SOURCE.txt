@@ -1,0 +1,4 @@
+project=Fluent-icon-theme
+url=https://github.com/vinceliuice/Fluent-icon-theme.git
+commit=c8a244f571ef8fb47812bdc9dbce76546cedce69
+date=2026-08-31T01:18:28+08:00

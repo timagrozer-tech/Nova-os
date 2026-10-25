@@ -1,0 +1,4 @@
+project=Fluent-kde
+url=https://github.com/vinceliuice/Fluent-kde.git
+commit=44794f29c89de994b0179aebabd2f5776c90d236
+date=2025-11-10T18:00:08+08:00
