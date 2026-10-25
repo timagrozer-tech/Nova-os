@@ -84,6 +84,8 @@ jobs:
           mkdir -p output/pr-ui
           python3 tools/ui_contact_sheet.py output/ui-smoke output/pr-ui || true
           cp -r output/neon-qml output/pr-ui/ 2>/dev/null || true
+          mkdir -p output/pr-ui/styles-app
+          for f in output/ui-smoke/*1920x1080*/nova-styles.png; do [ -f "$f" ] && cp "$f" "output/pr-ui/styles-app/$(basename "$(dirname "$f")").png"; done || true
           cp output-ui.txt output/pr-ui/ 2>/dev/null || true
           bash tools/ci_publish.sh pr-ui output/pr-ui
       - name: Publish contact sheets to branch ci/ui-smoke
@@ -92,6 +94,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           python3 tools/ui_contact_sheet.py output/ui-smoke output/ui-sheets || true
+          cp -r output/neon-qml output/ui-sheets/ 2>/dev/null || true
+          mkdir -p output/ui-sheets/styles-app
+          for f in output/ui-smoke/*1920x1080*/nova-styles.png; do [ -f "$f" ] && cp "$f" "output/ui-sheets/styles-app/$(basename "$(dirname "$f")").png"; done || true
           cp output-ui.txt output/ui-sheets/ 2>/dev/null || true
           bash tools/ci_publish.sh ui-smoke output/ui-sheets
       - name: Upload screenshots
