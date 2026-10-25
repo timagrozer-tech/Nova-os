@@ -115,4 +115,4 @@ novaTry(function () { dock.floating = true; });
 novaTry(function () { dock.hiding = "dodgewindows"; });
 novaTasks(dock, ["applications:org.kde.dolphin.desktop", "applications:firefox-esr.desktop", "applications:nova-control.desktop", "applications:org.kde.discover.desktop", "applications:org.kde.konsole.desktop", "applications:nova-neon-center.desktop"]);
 neonWallpaper("auto", false);
-neonWidgets([["org.kde.plasma.digitalclock", "left", 150], ["org.kde.plasma.systemmonitor.cpu", "left", 170], ["org.kde.plasma.systemmonitor.memory", "left", 170], ["org.kde.plasma.systemmonitor.net", "left", 170], ["org.kde.plasma.calendar", "right", 230], ["org.kde.plasma.mediacontroller", "right", 170], ["org.kde.plasma.notes", "right", 190], ["org.kde.plasma.timer", "right", 150]], 300, 14, 54, 88);
+neonWidgets([["org.kde.plasma.digitalclock", "left", 150], ["org.nova.neon.stats", "left", 330], ["org.kde.plasma.calendar", "right", 230], ["org.kde.plasma.mediacontroller", "right", 170], ["org.kde.plasma.notes", "right", 190], ["org.kde.plasma.timer", "right", 150]], 300, 14, 54, 88);

@@ -416,8 +416,46 @@ class BootMenu(unittest.TestCase):
 
     def test_background_asset(self):
         from PIL import Image
-        img = Image.open(ROOT / 'image/config/includes.binary/boot/grub/nova/splash.png')
-        self.assertEqual(img.size, (1920, 1080))
+        with Image.open(ROOT / 'image/config/includes.binary/boot/grub/nova/splash.png') as img:
+            self.assertEqual(img.size, (1920, 1080))
+
+
+class NeonStats(unittest.TestCase):
+    PKG = O / 'usr/share/plasma/plasmoids/org.nova.neon.stats'
+
+    def test_package(self):
+        meta = json.loads((self.PKG / 'metadata.json').read_text())
+        self.assertEqual(meta['KPlugin']['Id'], 'org.nova.neon.stats')
+        self.assertEqual(meta['KPackageStructure'], 'Plasma/Applet')
+        main = (self.PKG / 'contents/ui/main.qml').read_text()
+        self.assertIn('PlasmoidItem', main)
+        self.assertIn('engine: "executable"', main)
+        self.assertNotRegex(main, r'https?://')
+        import nova_neon_core as neon
+        self.assertIn('org.nova.neon.stats', [p for p, _c, _h in neon.WIDGETS])
+        self.assertFalse(any(p.startswith('org.kde.plasma.systemmonitor') for p, _c, _h in neon.WIDGETS))
+
+    def test_parsers_in_node(self):
+        src = (self.PKG / 'contents/ui/stats.js').read_text().replace('.pragma library', '')
+        snap1 = ('cpu  100 0 100 800 0 0 0 0 0 0\ncpu0 1 2 3 4\n--mem--\nMemTotal:       16000000 kB\n'
+                 'MemFree:  1 kB\nMemAvailable:   12000000 kB\n--net--\nInter-|   Receive\n face |bytes\n'
+                 '    lo: 999 1 0 0 0 0 0 0 999 1 0 0 0 0 0 0\n  eth0: 1000 10 0 0 0 0 0 0 500 5 0 0 0 0 0 0\n')
+        snap2 = snap1.replace('cpu  100 0 100 800', 'cpu  150 0 150 900').replace('eth0: 1000', 'eth0: 3048')
+        js = src + f"""
+const a=parseSnapshot({json.dumps(snap1)}), b=parseSnapshot({json.dumps(snap2)});
+console.log(JSON.stringify({{cpu: cpuPercent(a.cpu,b.cpu), mem: b.mem, rx: rate(a.net.rx,b.net.rx,2), tx: b.net.tx,
+  human: [human(512), human(1536), human(12*1024*1024*1024)], hist: pushHistory([1,2,3],4,3), bad: parseSnapshot('x')}}));"""
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / 's.js').write_text(js)
+            r = json.loads(subprocess.run(['node', str(Path(tmp) / 's.js')], capture_output=True, text=True,
+                                          check=True).stdout)
+        self.assertAlmostEqual(r['cpu'], 50.0)                    # 100 busy of 200 jiffies
+        self.assertEqual(r['mem'], {'total': 16000000 * 1024, 'used': 4000000 * 1024})
+        self.assertEqual(r['rx'], 1024)                           # lo is ignored
+        self.assertEqual(r['tx'], 500)
+        self.assertEqual(r['human'], ['512 Б', '1,5 КБ', '12 ГБ'])
+        self.assertEqual(r['hist'], [2, 3, 4])
+        self.assertIsNone(r['bad'])
 
 
 if __name__ == '__main__':

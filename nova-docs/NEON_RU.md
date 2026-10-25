@@ -26,7 +26,7 @@ NOVA Air остаётся оформлением по умолчанию для 
 | Глобальная тема | Look-and-Feel `org.nova.neon.desktop`: схема, значки Papirus-Dark, Breeze-рамки, заставка загрузки NEON | `/usr/share/plasma/look-and-feel/org.nova.neon.desktop` |
 | Рабочий стол | тонкая HUD-панель сверху (меню, рабочие столы, часы, трей) + плавающий док снизу | скрипт `nova_neon_core.plasma_script` |
 | Живые обои | QML-плагин Plasma: Synth Grid, Night City, Data Rain, Circuit, «по времени суток» | `/usr/share/plasma/wallpapers/org.nova.neon.wallpaper` |
-| Виджеты | стандартные: часы, процессор, память, сеть, календарь, музыка, заметки (список дел), таймер (помидор) | только из `plasma-workspace` и `plasma-widgets-addons` |
+| Виджеты | монитор NEON Stats (процессор, память, сеть из /proc, свой виджет NOVA) и стандартные: часы, календарь, музыка, заметки (список дел), таймер (помидор) | только из `plasma-workspace` и `plasma-widgets-addons` |
 | Приложения NOVA | тема `neon` в `nova_ui` (все 22 окна) | `/usr/share/nova/themes/neon.qss` |
 | Терминал | профиль Konsole `NEON` и схема `NovaNeon` | `/usr/share/konsole` |
 | Звуки | тема `nova-neon` (19 событий freedesktop, Ogg Vorbis) | `/usr/share/sounds/nova-neon` |

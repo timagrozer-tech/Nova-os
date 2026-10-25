@@ -202,6 +202,7 @@ class VerifyIsoScript(unittest.TestCase):
              '/usr/share/plasma/wallpapers/org.nova.neon.wallpaper/contents/ui/main.qml',
              '/usr/share/color-schemes/NovaNeon.colors',
              '/usr/share/plasma/wallpapers/org.nova.live.wallpaper/contents/ui/main.qml',
+             '/usr/share/plasma/plasmoids/org.nova.neon.stats/contents/ui/main.qml',
              '/usr/sbin/qemu-ga', '/etc/xdg/kglobalshortcutsrc', '/usr/bin/kscreen-doctor', '/usr/bin/ddcutil',
              ] + [f'/usr/local/bin/{a}' for a in (
                  'nova-display', 'nova-hotkeys', 'nova-game-bar', 'nova-key', 'nova-control', 'nova-personalize', 'nova-layout', 'nova-selftest', 'nova-first-run', 'nova-defender',

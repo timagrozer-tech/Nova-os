@@ -286,6 +286,7 @@ def neon_outputs() -> dict[str, str]:
         f'{base}/contents/defaults': neon.lnf_defaults(),
         f'{base}/contents/layouts/org.kde.plasma.desktop-layout.js': neon.lnf_layout_script(),
         f'{wp}/metadata.json': neon.wallpaper_metadata(VERSION),
+        f'usr/share/plasma/plasmoids/{neon.STATS_PLASMOID}/metadata.json': neon.stats_metadata(VERSION),
         f'{wp}/contents/config/main.xml': neon.wallpaper_kcfg(),
         'usr/share/konsole/NovaNeon.colorscheme': neon.konsole_colorscheme(t),
         f'usr/share/konsole/{neon.KONSOLE_PROFILE}': neon.konsole_profile(),

@@ -22,6 +22,7 @@ OVERLAY = ROOT / 'image/config/includes.chroot'
 WALLPAPER = OVERLAY / 'usr/share/plasma/wallpapers/org.nova.neon.wallpaper/contents/ui/main.qml'
 SPLASH = OVERLAY / 'usr/share/plasma/look-and-feel/org.nova.neon.desktop/contents/splash/Splash.qml'
 SLIDES = OVERLAY / 'usr/share/nova/calamares/show.qml'
+STATS = OVERLAY / 'usr/share/plasma/plasmoids/org.nova.neon.stats/contents/ui/StatsView.qml'
 LIVE = OVERLAY / 'usr/share/plasma/wallpapers/org.nova.live.wallpaper/contents/ui'
 # Living Sky over Moscow on 25 Oct 2026 (UTC ms): midnight, dawn, noon, sunset
 SKY_TIMES = {'night': 1792962000000, 'dawn': 1792901100000, 'day': 1792918800000, 'sunset': 1792936800000}
@@ -110,6 +111,7 @@ def main(argv):
     report = {}
     jobs = [(f'wallpaper-{s}', WALLPAPER, {'neonTestScene': s}) for s in SCENES]
     jobs.append(('splash', SPLASH, {'neonTestScene': 'auto'}))
+    jobs.append(('neon-stats', STATS, {'neonTestScene': 'auto', '_stats': True}))
     jobs += [(f'live-{s}', LIVE / 'main.qml', {'neonTestScene': s}) for s in ('aurora', 'sakura', 'ocean', 'sky')]
     jobs += [(f'sky-{name}', LIVE / 'SkyScene.qml', {'neonTestScene': 'sky', '_now': ms}) for name, ms in SKY_TIMES.items()]
     # The slides reference /usr/share/nova/...: point a temporary copy at the repository overlay.
@@ -130,7 +132,12 @@ def main(argv):
         errors = [e.toString() for e in view.errors()]
         if view.rootObject() is not None and name == 'splash':
             view.rootObject().setProperty('stage', 4)
-        if view.rootObject() is not None and '_now' in context:
+        if view.rootObject() is not None and '_stats' in context:      # sample values, not live data
+            root = view.rootObject()
+            for key, value in (('cpu', 37.0), ('memUsed', 6.2 * 2**30), ('memTotal', 15.6 * 2**30),
+                               ('rxRate', 1.4 * 2**20), ('txRate', 96 * 2**10), ('ready', True)):
+                root.setProperty(key, value)
+            root.setProperty('cpuHistory', [12, 18, 25, 22, 40, 55, 48, 30, 26, 33, 61, 72, 50, 37, 29, 35, 44, 38, 31, 37])
             view.rootObject().setProperty('now', float(context['_now']))
             view.rootObject().setProperty('latitude', 55.7558)
             view.rootObject().setProperty('longitude', 37.6176)

@@ -97,6 +97,7 @@ if xorriso -osirrox on -indev "$ISO" -extract /live/filesystem.squashfs "$tmp/fs
   have '/usr/lib/live/config/0030-user-setup|/usr/lib/live/config/0030-live-debconfig_passwd|/usr/lib/live/config/.*user-setup.*' "live-config user setup"
   have '/etc/calamares/settings\.conf'              "Calamares settings"
   maybe '/etc/calamares/branding/nova/branding\.desc' "NOVA Calamares branding"
+  have '/usr/share/plasma/plasmoids/org\.nova\.neon\.stats/contents/ui/main\.qml' "NEON Stats widget"
   have '/usr/share/plasma/look-and-feel/org\.nova\.air\.light\.desktop/metadata\.json' "NOVA Air light look-and-feel"
   have '/usr/share/plasma/look-and-feel/org\.nova\.air\.dark\.desktop/metadata\.json'  "NOVA Air dark look-and-feel"
   have '/usr/share/color-schemes/NovaAirLight\.colors' "NOVA Air light colour scheme"

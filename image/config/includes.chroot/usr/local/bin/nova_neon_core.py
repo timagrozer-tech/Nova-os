@@ -72,9 +72,7 @@ LAUNCHERS = layout.LAUNCHERS + ('applications:nova-neon-center.desktop',)
 # skipped by the script (knownWidgetTypes), never shown as broken.
 WIDGETS = (
     ('org.kde.plasma.digitalclock', 'left', 150),
-    ('org.kde.plasma.systemmonitor.cpu', 'left', 170),
-    ('org.kde.plasma.systemmonitor.memory', 'left', 170),
-    ('org.kde.plasma.systemmonitor.net', 'left', 170),
+    ('org.nova.neon.stats', 'left', 330),           # NOVA's own: CPU, memory, network from /proc
     ('org.kde.plasma.calendar', 'right', 230),
     ('org.kde.plasma.mediacontroller', 'right', 170),
     ('org.kde.plasma.notes', 'right', 190),
@@ -481,6 +479,29 @@ theme=Breeze
 [KSplash]
 Theme={LNF}
 """
+
+
+STATS_PLASMOID = 'org.nova.neon.stats'
+
+
+def stats_metadata(version: str) -> str:
+    data = {
+        'KPackageStructure': 'Plasma/Applet',
+        'KPlugin': {
+            'Authors': [{'Name': 'NOVA OS community project'}],
+            'Category': 'System Information',
+            'Description': 'CPU, memory and network at a glance (NEON//SYS HUD)',
+            'Description[ru]': 'Процессор, память и сеть одним взглядом (HUD NEON//SYS)',
+            'Icon': 'utilities-system-monitor',
+            'Id': STATS_PLASMOID,
+            'License': 'GPL-2.0-or-later',
+            'Name': 'NEON Stats',
+            'Name[ru]': 'NEON — монитор системы',
+            'Version': version,
+        },
+        'X-Plasma-API-Minimum-Version': '6.0',
+    }
+    return json.dumps(data, ensure_ascii=False, indent=4) + '\n'
 
 
 def wallpaper_metadata(version: str) -> str:

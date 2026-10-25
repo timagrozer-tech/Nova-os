@@ -1,0 +1,20 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "NOVA OS community project"
+            }
+        ],
+        "Category": "System Information",
+        "Description": "CPU, memory and network at a glance (NEON//SYS HUD)",
+        "Description[ru]": "Процессор, память и сеть одним взглядом (HUD NEON//SYS)",
+        "Icon": "utilities-system-monitor",
+        "Id": "org.nova.neon.stats",
+        "License": "GPL-2.0-or-later",
+        "Name": "NEON Stats",
+        "Name[ru]": "NEON — монитор системы",
+        "Version": "0.12"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0"
+}
