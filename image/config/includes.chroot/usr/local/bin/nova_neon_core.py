@@ -72,7 +72,7 @@ LAUNCHERS = layout.LAUNCHERS + ('applications:nova-neon-center.desktop',)
 # skipped by the script (knownWidgetTypes), never shown as broken.
 WIDGETS = (
     ('org.kde.plasma.digitalclock', 'left', 150),
-    ('org.nova.neon.stats', 'left', 330),           # NOVA's own: CPU, memory, network from /proc
+    ('org.nova.neon.stats', 'left', 270),           # NOVA's own: CPU, memory, network from /proc
     ('org.kde.plasma.calendar', 'right', 230),
     ('org.kde.plasma.mediacontroller', 'right', 170),
     ('org.kde.plasma.notes', 'right', 190),

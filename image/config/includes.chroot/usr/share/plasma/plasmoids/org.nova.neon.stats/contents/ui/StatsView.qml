@@ -22,7 +22,7 @@ Rectangle {
     readonly property string display: "Orbitron"
 
     implicitWidth: 300
-    implicitHeight: 330
+    implicitHeight: 270
     radius: 10
     color: "#d90b0714"
     border.color: Qt.rgba(0, 0.9, 0.95, 0.45)
