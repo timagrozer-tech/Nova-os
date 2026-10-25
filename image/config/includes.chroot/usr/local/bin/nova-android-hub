@@ -37,7 +37,7 @@ class AndroidHub(QMainWindow):
         root = QWidget()
         overall = QVBoxLayout(root)
         overall.setContentsMargins(22, 20, 22, 20)
-        name = QLabel('NOVA  /  ANDROID HUB')
+        name = QLabel('Android-приложения')
         name.setObjectName('brand')
         overall.addWidget(name)
         subtitle = QLabel('Android-приложения рядом с Linux — без ручной настройки сложных команд')

@@ -22,7 +22,7 @@ class Uninstaller(QMainWindow):
         super().__init__(); self.setWindowTitle('NOVA Uninstaller'); ui.setup_window(self, size=(850, 710), app_id='nova-uninstaller')
         self.entries = []; self.running = None
         w = QWidget(); lay = QVBoxLayout(w)
-        lay.addWidget(QLabel('NOVA UNINSTALLER  |  Контроль удаления программ'))
+        lay.addWidget(ui.header('Удаление программ', 'Контроль удаления: системные компоненты и чужие данные защищены'))
         desc = QLabel('Только выбранная программа. Просмотр изменений перед удалением. Системные компоненты и чужие данные защищены.')
         desc.setWordWrap(True); lay.addWidget(desc)
         top = QHBoxLayout(); lay.addLayout(top)

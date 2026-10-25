@@ -163,3 +163,9 @@ dkms
 # on real laptops. The guest agent lets CI run nova-selftest inside the VM.
 qemu-guest-agent
 spice-vdagent
+
+# NOVA 0.13: graphical boot splash (theme "nova" built from the stock spinner theme)
+# and swap in compressed RAM. All three have been in Debian for many releases.
+plymouth
+plymouth-themes
+zram-tools

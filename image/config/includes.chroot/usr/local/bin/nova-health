@@ -13,7 +13,7 @@ class Health(QMainWindow):
         super().__init__();self.setWindowTitle('NOVA Health — проверка ноутбука')
         ui.setup_window(self, size=(920, 660), app_id='nova-health')
         w=QWidget();v=QVBoxLayout(w);v.setContentsMargins(24,20,24,20)
-        t=QLabel('NOVA  /  HEALTH');t.setObjectName('brand');v.addWidget(t)
+        t=QLabel('Состояние системы');t.setObjectName('brand');v.addWidget(t)
         message=QLabel('Проверка подключённых компонентов без изменений системы. Драйвер может быть обнаружен, но не работать — тестируйте оборудование лично.')
         message.setWordWrap(True);v.addWidget(message)
         self.report=QTextEdit();self.report.setReadOnly(True);v.addWidget(self.report,1)

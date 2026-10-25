@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# NOVA OS: kernel settings for swap in compressed RAM (zram), as used by Fedora/Pop!_OS.
+# Applied ONLY when every active swap device is zram: with a disk swap partition a high
+# swappiness would push memory to the disk, so then the kernel defaults stay untouched.
+set -u
+swaps=$(tail -n +2 "${NOVA_PROC_SWAPS:-/proc/swaps}" 2>/dev/null) || exit 0
+[[ -n "$swaps" ]] || exit 0
+if grep -qv '^/dev/zram' <<<"$swaps"; then
+	echo "NOVA zram: disk swap also active, keeping kernel defaults"
+	exit 0
+fi
+sysctl -q -w vm.swappiness=150 vm.page-cluster=0 vm.watermark_boost_factor=0 || true
+echo "NOVA zram: swappiness=150 page-cluster=0"
+exit 0

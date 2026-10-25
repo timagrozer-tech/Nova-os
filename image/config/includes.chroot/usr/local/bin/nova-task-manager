@@ -15,7 +15,7 @@ class Manager(QMainWindow):
         super().__init__(); self.setWindowTitle('NOVA Task Manager'); ui.setup_window(self, size=(990, 740), app_id='nova-task-manager')
         self.procs = {}; self.current_filter = ''
         panel = QWidget(); lay = QVBoxLayout(panel)
-        lay.addWidget(QLabel('NOVA TASK MANAGER  |  Процессы и ресурсы'))
+        lay.addWidget(ui.header('Диспетчер задач', 'Процессы и ресурсы'))
         self.stats = QLabel('Загрузка…'); lay.addWidget(self.stats)
         toolbar = QHBoxLayout(); lay.addLayout(toolbar)
         self.query = QLineEdit(); self.query.setPlaceholderText('Поиск процесса по имени или PID…');

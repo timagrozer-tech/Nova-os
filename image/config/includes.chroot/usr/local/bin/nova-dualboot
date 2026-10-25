@@ -68,7 +68,7 @@ class DualBoot(QMainWindow):
         root = QWidget()
         layout = QVBoxLayout(root)
         layout.setContentsMargins(22, 18, 22, 18)
-        title = QLabel('NOVA / DUAL BOOT')
+        title = QLabel('Установка рядом с Windows')
         title.setObjectName('brand')
         layout.addWidget(title)
         desc = QLabel('Windows и NOVA OS на одном ноутбуке. Этот мастер ничего не меняет на диске; '

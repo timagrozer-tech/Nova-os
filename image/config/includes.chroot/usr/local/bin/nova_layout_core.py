@@ -144,7 +144,7 @@ def plasma_script(mode: str, density: str = 'standard', *, remove_existing: bool
             'var p = new Panel;',
             'novaTry(function () { p.location = "bottom"; });',
             f'novaTry(function () {{ p.height = {h}; }});',
-            'novaTry(function () { p.floating = false; });',
+            'novaTry(function () { p.floating = true; });',      # Plasma 6 style: floats until a window touches it
             'novaTry(function () { p.lengthMode = "fill"; });',
             'novaTry(function () { p.hiding = "none"; });',
             'novaSpacer(p);',

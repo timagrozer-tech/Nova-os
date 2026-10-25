@@ -21,7 +21,7 @@ class Studio(QMainWindow):
         self.settings=load_settings()
         self.pending=None
         w=QWidget(); whole=QVBoxLayout(w); self.setCentralWidget(w)
-        title=QLabel('♫  NOVA Sound Studio'); title.setObjectName('brand'); whole.addWidget(title)
+        title=QLabel('Звуки NOVA'); title.setObjectName('brand'); whole.addWidget(title)
         whole.addWidget(QLabel('Собственные звуки для событий NOVA · настройки действуют только для вашей учётной записи'))
         top=QHBoxLayout(); whole.addLayout(top)
         self.enabled=QCheckBox('Включить звуки NOVA'); self.enabled.setChecked(self.settings['enabled'])

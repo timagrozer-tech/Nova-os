@@ -187,7 +187,7 @@ QWidget {{ background: {t['bg']}; color: {t['text']}; font-family: {FONT_STACK};
 QMainWindow, QDialog {{ background: {t['bg']}; }}
 QToolTip {{ background: {t['surface']}; color: {t['text']}; border: 1px solid {t['border_strong']}; border-radius: {r['s']}px; padding: 6px 8px; }}
 QLabel {{ background: transparent; }}
-QLabel#brand {{ font-size: 24px; font-weight: 700; color: {t['brand']}; padding: 2px 0; }}
+QLabel#brand {{ font-size: 26px; font-weight: 700; color: {t['text']}; padding: 2px 0; letter-spacing: -0.3px; }}
 QLabel#heading {{ font-size: 17px; font-weight: 650; color: {t['text']}; }}
 QLabel#description, QLabel[muted="true"] {{ color: {t['text_muted']}; }}
 QLabel#status-ok {{ color: {t['success']}; font-weight: 600; }}
@@ -198,10 +198,11 @@ QListWidget, QTableWidget, QTreeWidget, QTextEdit, QPlainTextEdit {{ background:
 QListWidget::item {{ padding: 9px 11px; border-radius: {r['s']}px; min-height: 20px; }}
 QListWidget::item:hover {{ background: {t['surface_alt']}; }}
 QListWidget::item:selected, QTableWidget::item:selected, QTreeWidget::item:selected {{ background: {t['accent_soft']}; color: {t['accent_soft_text']}; }}
+QListWidget::item:selected {{ border-left: 3px solid {t['accent']}; font-weight: 600; }}
 QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox {{ background: {t['surface']}; color: {t['text']}; border: 1px solid {t['border_strong']}; border-radius: {r['m']}px; padding: 6px 10px; min-height: {h - 14}px; selection-background-color: {t['selection']}; selection-color: {t['text']}; }}
 QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus {{ border: 2px solid {t['accent']}; }}
 QComboBox QAbstractItemView {{ background: {t['surface']}; color: {t['text']}; border: 1px solid {t['border_strong']}; selection-background-color: {t['accent_soft']}; selection-color: {t['accent_soft_text']}; }}
-QPushButton {{ background: {t['surface']}; color: {t['text']}; border: 1px solid {t['border_strong']}; border-radius: {r['m']}px; padding: 7px 14px; min-height: {h - 16}px; font-weight: 600; text-align: left; }}
+QPushButton {{ background: {t['surface']}; color: {t['text']}; border: 1px solid {t['border_strong']}; border-radius: {r['m']}px; padding: 7px 16px; min-height: {h - 16}px; font-weight: 600; text-align: center; }}
 QPushButton:hover {{ background: {t['surface_alt']}; border-color: {t['accent']}; }}
 QPushButton:pressed {{ background: {t['accent_soft']}; }}
 QPushButton:focus {{ border: 2px solid {t['accent']}; }}
@@ -211,7 +212,20 @@ QPushButton[variant="primary"]:hover {{ background: {t['accent_hover']}; }}
 QPushButton[variant="danger"] {{ background: {t['surface']}; color: {t['danger']}; border: 1px solid {t['danger']}; }}
 QPushButton[variant="danger"]:hover {{ background: {t['danger']}; color: {t['danger_text']}; }}
 QPushButton[variant="nav"] {{ text-align: center; }}
-QCheckBox, QRadioButton {{ spacing: 8px; background: transparent; min-height: 24px; }}
+QCheckBox, QRadioButton {{ spacing: 10px; background: transparent; min-height: 26px; }}
+QCheckBox::indicator, QRadioButton::indicator {{ width: 16px; height: 16px; background: {t['surface']}; border: 2px solid {t['border_strong']}; }}
+QRadioButton::indicator {{ border-radius: 10px; }}
+QCheckBox::indicator {{ border-radius: 5px; }}
+QCheckBox::indicator:hover, QRadioButton::indicator:hover {{ border-color: {t['accent']}; }}
+QRadioButton::indicator:checked {{ background: {t['surface']}; border: 6px solid {t['accent']}; width: 8px; height: 8px; }}
+QCheckBox::indicator:checked {{ background: {t['accent']}; border-color: {t['accent']}; }}
+QCheckBox::indicator:disabled, QRadioButton::indicator:disabled {{ border-color: {t['border']}; background: {t['surface_alt']}; }}
+QCheckBox:focus, QRadioButton:focus {{ color: {t['accent_soft_text']}; }}
+QSlider::groove:horizontal {{ height: 6px; background: {t['surface_alt']}; border: 1px solid {t['border']}; border-radius: 3px; }}
+QSlider::sub-page:horizontal {{ background: {t['accent']}; border-radius: 3px; }}
+QSlider::handle:horizontal {{ background: {t['surface']}; border: 2px solid {t['accent']}; width: 16px; height: 16px; margin: -7px 0; border-radius: 10px; }}
+QGroupBox {{ background: {t['surface']}; border: 1px solid {t['border']}; border-radius: {r['l']}px; margin-top: 18px; padding: 12px 10px 10px 10px; font-weight: 600; }}
+QGroupBox::title {{ subcontrol-origin: margin; left: 12px; padding: 0 4px; color: {t['text']}; }}
 QScrollArea {{ border: 0; background: transparent; }}
 QScrollArea > QWidget > QWidget {{ background: transparent; }}
 QScrollBar:vertical {{ background: transparent; width: 10px; margin: 2px; }}
@@ -435,10 +449,11 @@ def make_button(text: str, callback=None, variant: str = 'secondary', tooltip: s
 
 def card(title: str, description: str = ''):
     """Return (frame, layout) of a NOVA card."""
-    _, _, QtWidgets = _qt()
+    QtCore, _, QtWidgets = _qt()
     frame = QtWidgets.QFrame()
     frame.setObjectName('card')
     layout = QtWidgets.QVBoxLayout(frame)
+    layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)     # content starts at the top in stretched grid rows
     layout.setContentsMargins(SPACING['l'], SPACING['m'] + 2, SPACING['l'], SPACING['l'])
     layout.setSpacing(SPACING['s'])
     heading = QtWidgets.QLabel(title)

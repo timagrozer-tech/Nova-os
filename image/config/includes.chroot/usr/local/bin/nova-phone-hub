@@ -14,7 +14,7 @@ class Phone(QMainWindow):
     def __init__(self):
         super().__init__();self.setWindowTitle('NOVA Phone Hub — Android по USB и Wi-Fi');ui.setup_window(self, size=(880, 670), app_id='nova-phone-hub')
         w=QWidget();v=QVBoxLayout(w);self.setCentralWidget(w)
-        t=QLabel('NOVA  /  PHONE HUB');t.setObjectName('brand');v.addWidget(t)
+        t=QLabel('Телефон');t.setObjectName('brand');v.addWidget(t)
         v.addWidget(QLabel('Экран телефона, передача файлов, уведомления и подключение без облачных аккаунтов.'))
         v.addWidget(QLabel('USB: на телефоне вручную включите «Отладка по USB» и подтвердите ключ компьютера.'))
         self.devices=QComboBox();v.addWidget(self.devices)
