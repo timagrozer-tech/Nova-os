@@ -103,7 +103,7 @@ class Tokens(unittest.TestCase):
         self.assertIn('ColorScheme=NovaNeon', text)
         self.assertIn('BackgroundNormal=11,7,20', text)       # NEON bg #0b0714
         # NOVA Air stays the system default for new users
-        self.assertIn('ColorScheme=NovaAirLight', (O / 'etc/xdg/kdeglobals').read_text())
+        self.assertIn('ColorScheme=NovaAirDark', (O / 'etc/xdg/kdeglobals').read_text())   # default style
 
 
 class LookAndFeel(unittest.TestCase):
@@ -221,8 +221,12 @@ class PlasmaScripts(unittest.TestCase):
         r = run_node(neon.widgets_script(), screen=(1366, 768))
         for w in r['widgets']:
             self.assertLessEqual(w['g'][1] + w['g'][3], 768 - layout.PANEL_HEIGHT['standard'] - 40, w)
-        self.assertLess(len(r['widgets']), len(neon.WIDGETS))              # not everything fits: skipped
-        self.assertGreaterEqual(len(r['widgets']), 4)
+        self.assertEqual(len(r['widgets']), len(neon.WIDGETS))             # 0.12: clock + stats both fit
+        squeezed = run_node(neon.widgets_script(), screen=(1366, 420))
+        self.assertLess(len(squeezed['widgets']), len(neon.WIDGETS))      # too low: the rest is skipped
+        # broken-looking stock applets must never be placed on the desktop again
+        self.assertFalse({'org.kde.plasma.calendar', 'org.kde.plasma.mediacontroller', 'org.kde.plasma.notes',
+                          'org.kde.plasma.timer'} & {p for p, _c, _h in neon.WIDGETS})
         self.assertEqual(run_node(neon.widgets_script(), screen=(720, 1280))['widgets'], [])
 
     def test_missing_widget_types_are_skipped(self):

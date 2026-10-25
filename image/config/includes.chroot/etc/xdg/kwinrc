@@ -1,12 +1,17 @@
 # NOVA OS defaults
 [org.kde.kdecoration2]
-library=org.kde.breeze
-theme=Breeze
-BorderSize=Tiny
+library=org.kde.kwin.aurorae
+theme=__aurorae__svg__Fluent-round-dark
+BorderSize=Normal
 BorderSizeAuto=false
 
 [Plugins]
 blurEnabled=true
+contrastEnabled=true
+
+[Effect-blur]
+BlurStrength=10
+NoiseStrength=2
 
 # On-screen keyboard (Plasma 6 shows it only for touch input).
 [Wayland]

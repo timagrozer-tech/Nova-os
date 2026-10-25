@@ -70,13 +70,13 @@ LAUNCHERS = layout.LAUNCHERS + ('applications:nova-neon-center.desktop',)
 # Desktop widgets: (plugin, column, height in px at 100 %). Stock Plasma 6
 # applets only (plasma-workspace / plasma-widgets-addons). Missing ones are
 # skipped by the script (knownWidgetTypes), never shown as broken.
+# 0.12 fix (seen in the CI boot screenshots): stock calendar / media player /
+# notes / timer applets render as a huge icon, a white "stop" disc, an empty
+# yellow note and "00:00:00" when placed on the desktop — they looked broken.
+# Only widgets that look intentional on a desktop are placed now.
 WIDGETS = (
     ('org.kde.plasma.digitalclock', 'left', 150),
     ('org.nova.neon.stats', 'left', 270),           # NOVA's own: CPU, memory, network from /proc
-    ('org.kde.plasma.calendar', 'right', 230),
-    ('org.kde.plasma.mediacontroller', 'right', 170),
-    ('org.kde.plasma.notes', 'right', 190),
-    ('org.kde.plasma.timer', 'right', 150),
 )
 WIDGET_WIDTH = 300
 WIDGET_GAP = 14

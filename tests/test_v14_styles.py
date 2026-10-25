@@ -44,7 +44,7 @@ def contrast(a, b):
 
 class Catalogue(unittest.TestCase):
     def test_seven_styles_complete(self):
-        self.assertEqual(core.STYLE_ORDER, ('air-light', 'air-dark', 'neon', 'aurora', 'sakura', 'ocean', 'horizon'))
+        self.assertEqual(core.STYLE_ORDER, ('air-light', 'air-dark', 'neon', 'signal', 'aurora', 'sakura', 'ocean', 'horizon'))
         for sid, st in core.STYLES.items():
             for key in ('title', 'note', 'scheme', 'variant', 'lnf', 'mode', 'wallpaper', 'palette', 'layout_title'):
                 self.assertIn(key, st, sid)
@@ -86,7 +86,9 @@ class Generated(unittest.TestCase):
             self.assertEqual(meta['KPlugin']['Id'], layout.LNF[sid])
             self.assertIn(f'ColorScheme={core.STYLES[sid]["scheme"]}', (pkg / 'contents/defaults').read_text())
             js = (pkg / 'contents/layouts/org.kde.plasma.desktop-layout.js').read_text()
-            self.assertIn(core.LIVE_PLUGIN, js)
+            kind, value = core.STYLES[sid]['wallpaper']
+            self.assertIn(core.LIVE_PLUGIN if kind == 'live' else f'/usr/share/wallpapers/{value}/', js)
+            self.assertIn('NOVA OS', (pkg / 'contents/splash/Splash.qml').read_text())
             self.assertIn('new Panel', js)
 
     def test_live_plugin_metadata_and_config(self):
@@ -134,7 +136,7 @@ class Generated(unittest.TestCase):
 
 class PlasmaScripts(unittest.TestCase):
     def test_live_styles_in_mock(self):
-        for sid in ('aurora', 'sakura', 'ocean', 'horizon'):
+        for sid in ('aurora', 'sakura', 'horizon'):          # 0.12: Ocean got a static Blue Silk wallpaper
             res = run_node(core.plasma_script(sid, *MSK), known=None)
             self.assertEqual(res['plugin'], core.LIVE_PLUGIN, sid)
             cfg = res['config']
@@ -148,7 +150,7 @@ class PlasmaScripts(unittest.TestCase):
         res = run_node(core.plasma_script('air-dark', *MSK))
         self.assertEqual(res['plugin'], 'org.kde.image')
         self.assertIn('NOVA', res['config']['Wallpaper/org.kde.image/General/Image'])
-        kept = run_node(core.plasma_script('ocean', *MSK, keep_layout=True))
+        kept = run_node(core.plasma_script('aurora', *MSK, keep_layout=True))
         self.assertEqual(kept['removed'], 0)                      # the user's panel is untouched
         self.assertEqual(kept['plugin'], core.LIVE_PLUGIN)
 
@@ -272,7 +274,7 @@ class Cli(unittest.TestCase):
         with tempfile.TemporaryDirectory() as home:
             out = self.cli('list', home=home)
             self.assertEqual(out.returncode, 0, out.stderr)
-            self.assertEqual(len(out.stdout.strip().splitlines()), 7)
+            self.assertEqual(len(out.stdout.strip().splitlines()), len(core.STYLE_ORDER))
             out = self.cli('--dry-run', 'apply', 'horizon', home=home)
             self.assertEqual(out.returncode, 0, out.stderr)
             self.assertIn('plasma-apply-lookandfeel', out.stdout)

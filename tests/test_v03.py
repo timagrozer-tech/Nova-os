@@ -35,7 +35,8 @@ class V03Test(unittest.TestCase):
             self.assertTrue('load_nova_stylesheet' in text or 'nova_ui' in text, x)
         # 0.12: system-wide Plasma defaults moved from /etc/skel to /etc/xdg (Breeze base + NOVA Air colours).
         kdeglobals=(O/'etc/xdg/kdeglobals').read_text()
-        self.assertIn('ColorScheme=NovaAirLight', kdeglobals)
+        # 0.12 premium pass: NOVA Air dark (Neon Rain) is the out-of-the-box style.
+        self.assertIn('ColorScheme=NovaAirDark', kdeglobals)
         self.assertIn('widgetStyle=Breeze', kdeglobals)
 
     def test_installer_preflight_has_no_disk_commands(self):

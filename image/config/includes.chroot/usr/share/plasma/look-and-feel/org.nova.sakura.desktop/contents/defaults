@@ -5,13 +5,13 @@ widgetStyle=Breeze
 ColorScheme=NovaSakura
 
 [kdeglobals][Icons]
-Theme=Papirus
+Theme=Fluent
 
 [plasmarc][Theme]
-name=default
+name=Fluent-round-light
 
 [kcminputrc][Mouse]
-cursorTheme=breeze_cursors
+cursorTheme=Bibata-Modern-Classic
 
 [kwinrc][WindowSwitcher]
 LayoutName=org.kde.breeze.desktop
@@ -20,8 +20,8 @@ LayoutName=org.kde.breeze.desktop
 LayoutName=org.kde.breeze.desktop
 
 [kwinrc][org.kde.kdecoration2]
-library=org.kde.breeze
-theme=Breeze
+library=org.kde.kwin.aurorae
+theme=__aurorae__svg__Fluent-round-light
 
 [KSplash]
-Theme=org.kde.breeze.desktop
+Theme=org.nova.sakura.desktop

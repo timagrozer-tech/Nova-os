@@ -111,7 +111,9 @@ if [ -d /usr/share/plasma/look-and-feel/org.nova.air.light.desktop ]; then
 	log "NOVA Air look-and-feel installed"
 fi
 # Icon cache for the NOVA logo.
-gtk-update-icon-cache -q -f /usr/share/icons/hicolor 2>/dev/null || true
+for theme in /usr/share/icons/hicolor /usr/share/icons/Fluent /usr/share/icons/Fluent-dark /usr/share/icons/Fluent-light; do
+	[ -d "$theme" ] && gtk-update-icon-cache -q -f "$theme" 2>/dev/null || true
+done
 # --- Performance: swap in compressed RAM (zram, zstd, up to 50 % of RAM) ----
 # Faster than any disk swap and saves SSD writes. nova-zram-tune (ExecStartPost)
 # raises swappiness only when zram is the only swap. Remove zram-tools to undo.

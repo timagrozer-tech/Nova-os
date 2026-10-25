@@ -21,42 +21,55 @@ SHARE = Path(__file__).resolve().parents[2] / 'share'      # /usr/share (or the 
 
 # id: (title, note, colour scheme, nova_ui variant, look-and-feel key, panel mode, wallpaper, icons, palette)
 # wallpaper: ('image', package dir) or ('live', scene)
+# Look (0.12 «premium» pass): Plasma desktop theme, window decoration (Aurorae) and
+# icons come from the vendored Fluent KDE project (GPL-3, third_party/), cursors
+# from Debian's bibata-cursor-theme. Wallpapers are NOVA's own artwork.
+DARK_LOOK = {'plasma': 'Fluent-round-dark', 'deco': 'Fluent-round-dark', 'icons': 'Fluent-dark',
+             'cursor': 'Bibata-Modern-Ice'}
+LIGHT_LOOK = {'plasma': 'Fluent-round-light', 'deco': 'Fluent-round-light', 'icons': 'Fluent',
+              'cursor': 'Bibata-Modern-Classic'}
 STYLES = {
     'air-light': {
-        'title': 'NOVA Air — светлая', 'note': 'Спокойная, светлая, для работы', 'scheme': 'NovaAirLight',
-        'variant': 'light', 'lnf': 'light', 'mode': 'windows', 'wallpaper': ('image', 'NOVA'), 'icons': 'breeze',
+        'title': 'NOVA Air — светлая', 'note': 'Светлая бумага и синяя лента, для работы', 'scheme': 'NovaAirLight',
+        'variant': 'light', 'lnf': 'light', 'mode': 'windows', 'wallpaper': ('image', 'NOVA-Paper'), **LIGHT_LOOK,
         'palette': ('#f4f6fa', '#1f6feb', '#162033'), 'layout_title': 'Панель снизу'},
     'air-dark': {
-        'title': 'NOVA Air — тёмная', 'note': 'Та же NOVA Air для вечера', 'scheme': 'NovaAirDark',
-        'variant': 'dark', 'lnf': 'dark', 'mode': 'windows', 'wallpaper': ('image', 'NOVA'), 'icons': 'breeze-dark',
+        'title': 'NOVA Air — тёмная', 'note': 'Ночной город под дождём, неон', 'scheme': 'NovaAirDark',
+        'variant': 'dark', 'lnf': 'dark', 'mode': 'windows', 'wallpaper': ('image', 'NOVA-NeonRain'), **DARK_LOOK,
         'palette': ('#11161f', '#4c93ff', '#e8eef7'), 'layout_title': 'Панель снизу'},
     'neon': {
         'title': 'NEON//SYS', 'note': 'Киберпанк: HUD, док, режимы', 'scheme': 'NovaNeon',
-        'variant': 'neon', 'lnf': 'neon', 'mode': 'neon', 'wallpaper': ('neon', 'auto'), 'icons': 'Papirus-Dark',
+        'variant': 'neon', 'lnf': 'neon', 'mode': 'neon', 'wallpaper': ('neon', 'auto'), **DARK_LOOK,
+        'icons': 'Papirus-Dark',
         'palette': ('#0b0714', '#00e5f2', '#ff2a6d'), 'layout_title': 'HUD-панель и док'},
+    'signal': {
+        'title': 'Signal', 'note': 'Чёрный, бирюза и красный — линейная графика', 'scheme': 'NovaNeon',
+        'variant': 'neon', 'lnf': 'signal', 'mode': 'hybrid', 'wallpaper': ('image', 'NOVA-Signal'), **DARK_LOOK,
+        'palette': ('#050607', '#33e6e6', '#ff2a3d'), 'layout_title': 'Плавающая панель'},
     'aurora': {
         'title': 'Aurora', 'note': 'Северное сияние, мятные тона', 'scheme': 'NovaAurora',
-        'variant': 'aurora', 'lnf': 'aurora', 'mode': 'hybrid', 'wallpaper': ('live', 'aurora'), 'icons': 'Papirus-Dark',
+        'variant': 'aurora', 'lnf': 'aurora', 'mode': 'hybrid', 'wallpaper': ('live', 'aurora'), **DARK_LOOK,
         'palette': ('#071417', '#3ee6b0', '#8af5d2'), 'layout_title': 'Плавающая панель'},
     'sakura': {
         'title': 'Sakura', 'note': 'Светлая и мягкая, как macOS', 'scheme': 'NovaSakura',
-        'variant': 'sakura', 'lnf': 'sakura', 'mode': 'dock', 'wallpaper': ('live', 'sakura'), 'icons': 'Papirus',
+        'variant': 'sakura', 'lnf': 'sakura', 'mode': 'dock', 'wallpaper': ('live', 'sakura'), **LIGHT_LOOK,
         'palette': ('#fbf6f7', '#c2185b', '#fadbe7'), 'layout_title': 'Строка сверху и док'},
     'ocean': {
-        'title': 'Ocean', 'note': 'Строгий синий, как Windows 11', 'scheme': 'NovaOcean',
-        'variant': 'ocean', 'lnf': 'ocean', 'mode': 'windows', 'wallpaper': ('live', 'ocean'), 'icons': 'Papirus-Dark',
+        'title': 'Ocean', 'note': 'Синий шёлк, строгий, как Windows 11', 'scheme': 'NovaOcean',
+        'variant': 'ocean', 'lnf': 'ocean', 'mode': 'windows', 'wallpaper': ('image', 'NOVA-BlueSilk'), **DARK_LOOK,
         'palette': ('#06101f', '#38bdf8', '#7dd3fc'), 'layout_title': 'Панель снизу'},
     'horizon': {
         'title': 'Horizon', 'note': 'Светлая днём, тёмная ночью, живое небо', 'scheme': 'NovaAirLight',
-        'variant': 'auto', 'lnf': 'light', 'mode': 'windows', 'wallpaper': ('live', 'sky'), 'icons': 'breeze',
+        'variant': 'auto', 'lnf': 'light', 'mode': 'windows', 'wallpaper': ('live', 'sky'), **LIGHT_LOOK,
         'palette': ('#f4f6fa', '#71b4ff', '#11161f'), 'layout_title': 'Панель снизу'},
 }
 STYLE_ORDER = tuple(STYLES)
-NEW_LNF = ('aurora', 'sakura', 'ocean')          # look-and-feel packages added by NOVA styles
+NEW_LNF = ('aurora', 'sakura', 'ocean', 'signal')   # look-and-feel packages added by NOVA styles
+AIR_LNF = ('air-light', 'air-dark')                 # NOVA Air packages (also generated from STYLES)
 
 # Thumbnails for the style catalogue (static wallpaper packages)
-THUMBS = {'air-light': 'NOVA', 'air-dark': 'NOVA', 'neon': 'NOVA-NEON', 'aurora': 'NOVA-Aurora',
-          'sakura': 'NOVA-Sakura', 'ocean': 'NOVA-Ocean', 'horizon': 'NOVA-Horizon'}
+THUMBS = {'air-light': 'NOVA-Paper', 'air-dark': 'NOVA-NeonRain', 'neon': 'NOVA-NEON', 'signal': 'NOVA-Signal',
+          'aurora': 'NOVA-Aurora', 'sakura': 'NOVA-Sakura', 'ocean': 'NOVA-BlueSilk', 'horizon': 'NOVA-Horizon'}
 
 # Desktop features (KWin built-ins; cube from kwin-addons). (title, description, writes when ON)
 FEATURES = {
@@ -296,10 +309,10 @@ ColorScheme={st['scheme']}
 Theme={st['icons']}
 
 [plasmarc][Theme]
-name=default
+name={st['plasma']}
 
 [kcminputrc][Mouse]
-cursorTheme=breeze_cursors
+cursorTheme={st['cursor']}
 
 [kwinrc][WindowSwitcher]
 LayoutName=org.kde.breeze.desktop
@@ -308,11 +321,68 @@ LayoutName=org.kde.breeze.desktop
 LayoutName=org.kde.breeze.desktop
 
 [kwinrc][org.kde.kdecoration2]
-library=org.kde.breeze
-theme=Breeze
+library=org.kde.kwin.aurorae
+theme=__aurorae__svg__{st['deco']}
 
 [KSplash]
-Theme=org.kde.breeze.desktop
+Theme={layout.LNF[st['lnf']]}
+"""
+
+
+def splash_qml(style: str) -> str:
+    """KSplash screen: blurred style wallpaper, glowing NOVA mark, thin progress line."""
+    st = STYLES[validate_style(style)]
+    bg, accent, fg = st['palette']
+    kind, value = st['wallpaper']
+    image = f'file:///usr/share/wallpapers/{value}/contents/images/1920x1080.jpg' if kind == 'image' else ''
+    return f"""// NOVA splash screen ({st['title']}) — generated by tools/gen-plasma-theme.py
+import QtQuick
+import Qt5Compat.GraphicalEffects
+
+Rectangle {{
+    id: root
+    color: "{bg}"
+    property int stage
+    Image {{
+        id: wall
+        anchors.fill: parent
+        source: "{image}"
+        fillMode: Image.PreserveAspectCrop
+        visible: false
+        asynchronous: false
+    }}
+    FastBlur {{ anchors.fill: parent; source: wall; radius: 64; visible: wall.status === Image.Ready }}
+    Rectangle {{ anchors.fill: parent; color: "{bg}"; opacity: 0.55 }}
+    Item {{
+        id: mark
+        width: Math.round(Math.min(root.width, root.height) * 0.13); height: width
+        anchors.centerIn: parent
+        anchors.verticalCenterOffset: -height * 0.25
+        opacity: 0
+        Rectangle {{ anchors.fill: parent; radius: width * 0.24; color: "#142439"; border.color: "{accent}"; border.width: 2 }}
+        Image {{ anchors.fill: parent; anchors.margins: parent.width * 0.06; source: "file:///usr/share/icons/hicolor/256x256/apps/nova.png"; smooth: true }}
+        layer.enabled: true
+        layer.effect: Glow {{ radius: 24; samples: 33; color: "{accent}"; spread: 0.15 }}
+        NumberAnimation on opacity {{ from: 0; to: 1; duration: 700; easing.type: Easing.OutCubic }}
+    }}
+    Text {{
+        anchors.top: mark.bottom; anchors.topMargin: mark.height * 0.35; anchors.horizontalCenter: parent.horizontalCenter
+        text: "NOVA OS"; color: "{fg}"; font.pixelSize: Math.round(mark.height * 0.30); font.weight: Font.DemiBold
+        font.letterSpacing: font.pixelSize * 0.25
+    }}
+    Rectangle {{
+        id: track
+        width: mark.width * 2.2; height: 3; radius: 2
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.top: mark.bottom; anchors.topMargin: mark.height * 0.95
+        color: Qt.rgba(1, 1, 1, 0.15)
+        Rectangle {{
+            height: parent.height; radius: 2; color: "{accent}"
+            width: parent.width * Math.min(1, root.stage / 6)
+            Behavior on width {{ NumberAnimation {{ duration: 400; easing.type: Easing.OutCubic }} }}
+        }}
+    }}
+}}
 """
 
 

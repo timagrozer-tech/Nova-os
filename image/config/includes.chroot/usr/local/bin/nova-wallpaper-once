@@ -4,8 +4,13 @@ set -euo pipefail
 command -v plasma-apply-wallpaperimage >/dev/null || exit 0
 state="${XDG_STATE_HOME:-$HOME/.local/state}/nova"
 [[ -e "$state/wallpaper-initialized" ]] && exit 0
-wall='/usr/share/wallpapers/NOVA/contents/images/1920x1080.png'
+# 0.12: the look-and-feel layout already sets the style's wallpaper on first
+# login; this helper only fills in when that did not happen (legacy sessions).
+wall='/usr/share/wallpapers/NOVA-NeonRain/contents/images/3840x2160.jpg'
 [[ -r "$wall" ]] || exit 0
+if grep -qs 'Image=' "$HOME/.config/plasma-org.kde.plasma.desktop-appletsrc"; then
+  mkdir -p "$state"; touch "$state/wallpaper-initialized"; exit 0
+fi
 # Do not overwrite a wallpaper on later sessions.
 if plasma-apply-wallpaperimage "$wall"; then
   mkdir -p "$state"

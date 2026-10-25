@@ -459,7 +459,7 @@ class PlasmaAssets(unittest.TestCase):
             self.assertEqual(meta['KPackageStructure'], 'Plasma/LookAndFeel')
             self.assertIn('new Panel', (base / 'contents/layouts/org.kde.plasma.desktop-layout.js').read_text())
             self.assertTrue((base / 'contents/previews/preview.png').is_file())
-        self.assertIn(f'LookAndFeelPackage={layout.LNF["light"]}', kdeglobals)
+        self.assertIn(f'LookAndFeelPackage={layout.LNF["dark"]}', kdeglobals)  # default style: NOVA Air dark
         for scheme in ('NovaAirLight', 'NovaAirDark'):
             text = (O / f'usr/share/color-schemes/{scheme}.colors').read_text()
             for group in ('Window', 'View', 'Button', 'Selection', 'Tooltip', 'Complementary', 'Header'):

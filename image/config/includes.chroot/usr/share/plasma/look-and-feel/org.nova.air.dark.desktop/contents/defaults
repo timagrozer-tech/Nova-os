@@ -5,16 +5,13 @@ widgetStyle=Breeze
 ColorScheme=NovaAirDark
 
 [kdeglobals][Icons]
-Theme=breeze-dark
+Theme=Fluent-dark
 
 [plasmarc][Theme]
-name=breeze-dark
-
-[Wallpaper]
-Image=NOVA
+name=Fluent-round-dark
 
 [kcminputrc][Mouse]
-cursorTheme=breeze_cursors
+cursorTheme=Bibata-Modern-Ice
 
 [kwinrc][WindowSwitcher]
 LayoutName=org.kde.breeze.desktop
@@ -23,8 +20,8 @@ LayoutName=org.kde.breeze.desktop
 LayoutName=org.kde.breeze.desktop
 
 [kwinrc][org.kde.kdecoration2]
-library=org.kde.breeze
-theme=Breeze
+library=org.kde.kwin.aurorae
+theme=__aurorae__svg__Fluent-round-dark
 
 [KSplash]
-Theme=org.kde.breeze.desktop
+Theme=org.nova.air.dark.desktop

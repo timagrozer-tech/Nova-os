@@ -231,7 +231,7 @@ def qemu_command(iso: Path, out: Path, firmware: str, memory: int, cpus: int, bl
     return argv
 
 
-STYLES = ('air-dark', 'aurora', 'sakura', 'ocean', 'horizon', 'neon', 'air-light')
+STYLES = ('air-dark', 'signal', 'ocean', 'aurora', 'sakura', 'horizon', 'neon', 'air-light')
 
 
 def shot(qmp: QMP, out: Path, name: str, results: dict) -> None:

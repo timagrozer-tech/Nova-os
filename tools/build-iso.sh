@@ -73,6 +73,8 @@ lb config \
 
 # Overlay only customization files; do not alter generated live-build settings.
 cp -a "$ROOT/image/config/." "$WORK/config/"
+# Vendored third-party themes (Fluent KDE + icons, GPL-3; see third_party/INVENTORY.txt).
+bash "$ROOT/tools/install-third-party.sh" "$WORK/config/includes.chroot"
 # Single source of truth for the version inside the image.
 printf 'NOVA_OS_VERSION=%s\nNOVA_OS_CODENAME=%s\n' "$VERSION" \
   "$(sed -n 's/^NOVA_OS_CODENAME=//p' "$ROOT/image/config/includes.chroot/etc/nova-release")" \

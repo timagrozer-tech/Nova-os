@@ -13,7 +13,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 ROOT = Path(__file__).resolve().parents[1]
 O = ROOT / 'image/config/includes.chroot'
 OUT = ROOT / 'image/config/includes.binary/boot/grub/nova/splash.png'
-SKY = O / 'usr/share/plasma/wallpapers/org.nova.live.wallpaper/contents/images/sky-night.jpg'
+SKY = O / 'usr/share/wallpapers/NOVA-NeonRain/contents/images/1920x1080.jpg'   # default style artwork
 LOGO = O / 'usr/share/nova/branding/logo.png'
 VERSION = (ROOT / 'VERSION').read_text().strip()
 
@@ -29,11 +29,13 @@ def font(size, bold=False):
 def main():
     W, H = 1920, 1080
     img = Image.open(SKY).convert('RGB').resize((W, H))
+    from PIL import ImageEnhance
+    img = ImageEnhance.Brightness(img).enhance(0.62)          # calmer behind the menu text
     # darken the left side where GRUB draws the menu, and the bottom hint line
     shade = Image.new('L', (W, H), 0)
     d = ImageDraw.Draw(shade)
     for x in range(W):
-        v = int(max(0, 170 * (1 - x / (W * 0.62))))
+        v = int(max(0, 235 * (1 - x / (W * 0.70))))
         d.line([(x, 0), (x, H)], fill=v)
     d.rectangle([0, int(H * 0.86), W, H], fill=150)
     shade = shade.filter(ImageFilter.GaussianBlur(40))

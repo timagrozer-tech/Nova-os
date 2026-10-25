@@ -117,6 +117,16 @@ if xorriso -osirrox on -indev "$ISO" -extract /live/filesystem.squashfs "$tmp/fs
   done
   have '/usr/local/bin/nova_ui\.py'                 "NOVA UI kit"
   have '/etc/nova-release'                          "nova-release"
+  have '/usr/share/plasma/desktoptheme/Fluent-round-dark/metadata.desktop' "Fluent Plasma theme (vendored, GPL-3)"
+  have '/usr/share/aurorae/themes/Fluent-round-dark/metadata.desktop|/usr/share/aurorae/themes/Fluent-round-dark/.*' "Fluent window decorations"
+  have '/usr/share/icons/Fluent-dark/index.theme'   "Fluent icons"
+  have '/usr/share/sddm/themes/Fluent/Main.qml'     "Fluent login screen (SDDM)"
+  have '/usr/share/doc/nova-third-party/fluent-kde/LICENSE' "third-party licences shipped"
+  for wp in NOVA-NeonRain NOVA-BlueSilk NOVA-Signal NOVA-Paper; do
+    have "/usr/share/wallpapers/$wp/contents/images/3840x2160.jpg" "wallpaper $wp (4K)"
+  done
+  maybe '/usr/share/icons/Bibata-Modern-Ice/index.theme' "Bibata cursors"
+  maybe '/usr/share/Kvantum/Fluent-round/Fluent-round.kvconfig' "Kvantum Fluent theme"
   have '/etc/xdg/kglobalshortcutsrc'                "Windows-like shortcuts defaults"
   have '/usr/bin/kscreen-doctor'                    "kscreen-doctor (refresh rate / monitors)"
   maybe '/usr/bin/ddcutil'                          "ddcutil (external monitor brightness)"

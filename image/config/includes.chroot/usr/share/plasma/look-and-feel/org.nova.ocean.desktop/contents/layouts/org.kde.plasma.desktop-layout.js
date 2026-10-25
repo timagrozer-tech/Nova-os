@@ -29,7 +29,7 @@ function novaWallpaper() {
     novaTry(function () {
       d.wallpaperPlugin = "org.kde.image";
       d.currentConfigGroup = ["Wallpaper", "org.kde.image", "General"];
-      d.writeConfig("Image", "file:///usr/share/wallpapers/NOVA/");
+      d.writeConfig("Image", "file:///usr/share/wallpapers/NOVA-NeonRain/");
     });
   }
 }
@@ -55,10 +55,6 @@ novaWidget(p, "org.kde.plasma.showdesktop");
 // NOVA style: ocean
 var ws = desktops();
 for (var i = 0; i < ws.length; i++) { var d = ws[i]; novaTry(function () {
-  d.wallpaperPlugin = "org.nova.live.wallpaper";
-  d.currentConfigGroup = ["Wallpaper", "org.nova.live.wallpaper", "General"];
-  d.writeConfig("Scene", "ocean");
-  d.writeConfig("Latitude", 55.7500);
-  d.writeConfig("Longitude", 37.6200);
-  d.writeConfig("Paused", false); });
-  novaTry(function () { d.reloadConfig(); }); }
+  d.wallpaperPlugin = "org.kde.image";
+  d.currentConfigGroup = ["Wallpaper", "org.kde.image", "General"];
+  d.writeConfig("Image", "file:///usr/share/wallpapers/NOVA-BlueSilk/"); }); }

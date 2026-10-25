@@ -29,7 +29,7 @@ function novaWallpaper() {
     novaTry(function () {
       d.wallpaperPlugin = "org.kde.image";
       d.currentConfigGroup = ["Wallpaper", "org.kde.image", "General"];
-      d.writeConfig("Image", "file:///usr/share/wallpapers/NOVA/");
+      d.writeConfig("Image", "file:///usr/share/wallpapers/NOVA-NeonRain/");
     });
   }
 }

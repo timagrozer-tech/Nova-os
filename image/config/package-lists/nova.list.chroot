@@ -135,6 +135,9 @@ xdg-desktop-portal-kde
 breeze
 breeze-icon-theme
 papirus-icon-theme
+bibata-cursor-theme
+qt6-style-kvantum
+qml6-module-qt5compat-graphicaleffects
 kwin-addons
 plasma-widgets-addons
 plasma-pa
