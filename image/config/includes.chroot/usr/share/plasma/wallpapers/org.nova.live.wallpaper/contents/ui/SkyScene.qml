@@ -66,7 +66,30 @@ Item {
         }
     }
 
-    // Sky bodies are clipped above the mountains, so a low sun sets behind the ridge
+    // Sun glow is not clipped: near the horizon it spills over the ridge like real haze
+    Item {
+        id: sunGlow
+        visible: scene.sun.elevation > -6
+        opacity: Math.max(0, Math.min(1, (scene.sun.elevation + 6) / 6))
+        width: Math.max(40, scene.height * 0.075)
+        height: width
+        x: scene.width * Sky.screenX(scene.sun.azimuth, scene.latitude) - width / 2
+        y: Math.min(scene.skyY(scene.sun.elevation), scene.height * 0.57) - height / 2
+        Rectangle {
+            anchors.centerIn: parent
+            width: parent.width * 4.5; height: width; radius: width / 2
+            color: scene.sun.elevation < 8 ? "#ffb070" : "#fff3c9"
+            opacity: 0.12
+        }
+        Rectangle {
+            anchors.centerIn: parent
+            width: parent.width * 2; height: width; radius: width / 2
+            color: scene.sun.elevation < 8 ? "#ffca80" : "#ffefba"
+            opacity: 0.26
+        }
+    }
+
+    // The sun disc and the moon are clipped above the mountains, so a low sun sets behind the ridge
     Item {
         id: skyArea
         x: 0
@@ -81,18 +104,6 @@ Item {
             height: width
             x: scene.width * Sky.screenX(scene.sun.azimuth, scene.latitude) - width / 2
             y: scene.skyY(scene.sun.elevation) - height / 2
-            Rectangle {
-                anchors.centerIn: parent
-                width: parent.width * 4.5; height: width; radius: width / 2
-                color: scene.sun.elevation < 8 ? "#ffb070" : "#fff3c9"
-                opacity: 0.14
-            }
-            Rectangle {
-                anchors.centerIn: parent
-                width: parent.width * 2; height: width; radius: width / 2
-                color: scene.sun.elevation < 8 ? "#ffca80" : "#ffefba"
-                opacity: 0.3
-            }
             Rectangle {
                 anchors.fill: parent
                 radius: width / 2
@@ -139,20 +150,30 @@ Item {
         }
     }
 
-    // Reflection path on the lake under the sun (day/twilight) or the moon (night)
-    Rectangle {
+    // Reflection path on the lake under the sun (day/twilight) or the moon (night): broken glints, not a bar
+    Item {
         id: reflection
         readonly property bool useMoon: scene.night > 0.5
         readonly property var body: useMoon ? scene.moon : scene.sun
         visible: body.elevation > -2 && opacity > 0.01
-        width: scene.width * 0.05
-        height: scene.height - scene.horizon - scene.height * 0.01
-        x: scene.width * Sky.screenX(body.azimuth, scene.latitude) - width / 2
-        y: scene.horizon + scene.height * 0.01
-        opacity: useMoon ? 0.22 * scene.night : 0.28 * (1 - scene.night)
-        gradient: Gradient {
-            GradientStop { position: 0.0; color: reflection.useMoon ? "#e5e7ff" : "#fff3c9" }
-            GradientStop { position: 1.0; color: "#00ffffff" }
+        x: scene.width * Sky.screenX(body.azimuth, scene.latitude)
+        y: scene.horizon + scene.height * 0.012
+        width: 1
+        height: scene.height - y
+        opacity: useMoon ? 0.55 * scene.night : 0.6 * (1 - scene.night)
+        Repeater {
+            model: 16
+            Rectangle {
+                readonly property real d: index / 16                         // 0 at the shore … 1 at the bottom
+                readonly property real k: (index * 7919) % 100 / 100
+                width: scene.width * (0.012 + d * 0.05) * (0.6 + 0.8 * Math.abs(Math.sin(scene.t * 0.9 + index * 1.7)))
+                height: Math.max(1.5, 1.5 + d * 3)
+                radius: height / 2
+                x: -width / 2 + Math.sin(scene.t * 0.7 + index * 2.3) * scene.width * 0.004 * (1 + d * 4)
+                y: reflection.height * d * d * 0.95
+                color: reflection.useMoon ? "#e5e7ff" : "#fff3c9"
+                opacity: (0.35 + 0.65 * k) * (1 - d * 0.55)
+            }
         }
     }
 
