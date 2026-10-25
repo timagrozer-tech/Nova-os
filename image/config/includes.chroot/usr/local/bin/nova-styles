@@ -245,7 +245,7 @@ class Styles(QMainWindow):
         head = QLabel('Выберите стиль')
         head.setObjectName('heading')
         ui.add_to_page(self.lay, head)
-        grid = ui.responsive_grid(min_column=250, maximum=4)
+        grid = ui.responsive_grid(min_column=330, maximum=3)
         current = self.state.get('style')
         for sid in core.STYLE_ORDER:
             grid.add(StyleCard(sid, sid == current, self.apply, self.preview))
@@ -276,6 +276,9 @@ class Styles(QMainWindow):
             edit.setAccessibleName(name)
         mode_row.addWidget(self.mode_sun)
         mode_row.addWidget(self.mode_schedule)
+        mode_row.addStretch(1)
+        box.addLayout(mode_row)
+        mode_row = QHBoxLayout()
         mode_row.addWidget(QLabel('светлая с'))
         mode_row.addWidget(self.light_at)
         mode_row.addWidget(QLabel('тёмная с'))
