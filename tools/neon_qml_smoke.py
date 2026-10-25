@@ -27,17 +27,12 @@ SCENES = ('synth', 'city', 'rain', 'circuit')
 
 STUBS = {
     'org/kde/plasma/plasmoid/qmldir': 'module org.kde.plasma.plasmoid\nWallpaperItem 1.0 WallpaperItem.qml\n',
+    # Plasma's `configuration` is a KConfigPropertyMap with capitalised keys; a JS object behaves the same way here.
     'org/kde/plasma/plasmoid/WallpaperItem.qml': '''import QtQuick
 Item {
     property list<QtObject> contextualActions
-    property QtObject configuration: QtObject {
-        property string Scene: neonTestScene
-        property int Fps: 30
-        property real Speed: 1.0
-        property bool Paused: false
-        property bool PauseOnBattery: true
-        property bool ShowClock: true
-    }
+    property var configuration: ({ Scene: neonTestScene, Fps: 30, Speed: 1.0, Paused: false,
+                                   PauseOnBattery: true, ShowClock: true, Latitude: 55.75, Longitude: 37.62 })
 }
 ''',
     'org/kde/plasma/core/qmldir': 'module org.kde.plasma.core\nAction 1.0 Action.qml\nActionIcon 1.0 ActionIcon.qml\n',
