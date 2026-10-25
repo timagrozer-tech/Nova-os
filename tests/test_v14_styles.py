@@ -317,5 +317,73 @@ class Integration(unittest.TestCase):
         self.assertIn("app_id='nova-styles'", gui.replace('"', "'"))
 
 
+class AutopilotAndExtras(unittest.TestCase):
+    def test_schedule(self):
+        at = lambda h, m: datetime(2026, 10, 25, h, m)   # noqa: E731
+        self.assertTrue(core.schedule_is_day(at(12, 0), '07:00', '20:00'))
+        self.assertFalse(core.schedule_is_day(at(20, 0), '07:00', '20:00'))
+        self.assertFalse(core.schedule_is_day(at(6, 59), '07:00', '20:00'))
+        self.assertTrue(core.schedule_is_day(at(23, 0), '22:00', '06:00'))     # night-shift schedule wraps
+        self.assertFalse(core.schedule_is_day(at(12, 0), '22:00', '06:00'))
+        self.assertEqual(core.parse_hhmm('7:05'), '07:05')
+        for bad in ('24:00', '7', 'утро', '12:60'):
+            with self.assertRaises(ValueError):
+                core.parse_hhmm(bad)
+
+    def test_schedule_state_sanitised(self):
+        with tempfile.TemporaryDirectory() as home:
+            core.save_state({'autopilot_mode': 'schedule', 'schedule_light': '06:30'}, home)
+            self.assertEqual(core.load_state(home)['schedule_light'], '06:30')
+            data = json.loads(core.state_path(home).read_text())
+            data.update({'autopilot_mode': 'moon', 'schedule_dark': '$(rm)'})
+            core.state_path(home).write_text(json.dumps(data))
+            st = core.load_state(home)
+            self.assertNotIn('autopilot_mode', st)
+            self.assertNotIn('schedule_dark', st)
+
+    def test_cli_schedule(self):
+        with tempfile.TemporaryDirectory() as home:
+            out = Cli.cli(self, 'autopilot', 'schedule', '7:00', '21:30', home=home)
+            self.assertEqual(out.returncode, 0, out.stderr)
+            st = core.load_state(home)
+            self.assertEqual((st['autopilot_mode'], st['schedule_light'], st['schedule_dark']),
+                             ('schedule', '07:00', '21:30'))
+            core.save_state({'autopilot': True}, home)
+            self.assertIn('по графику 07:00–21:30', Cli.cli(self, 'status', home=home).stdout)
+            self.assertEqual(Cli.cli(self, 'autopilot', 'schedule', '25:00', '1:00', home=home).returncode, 2)
+
+    def test_revert_summary_lists_everything(self):
+        st = {'style': 'sakura', 'backup': 'b', 'autopilot': True,
+              'feature_backup': {'kwinrc/Plugins/cubeEnabled': None}}
+        text = ' '.join(core.revert_summary(st))
+        for word in ('Sakura', 'панели', 'куб', 'автопилот'):
+            self.assertIn(word, text)
+
+    def test_new_features(self):
+        for fid in ('translucency', 'fastanim', 'reducemotion', 'eco', 'chameleon', 'warmlight'):
+            self.assertIn(fid, core.FEATURES)
+        anim = core.feature_commands('reducemotion', True)[0]
+        self.assertIn('--notify', anim)                       # kdeglobals change applies live
+        warm = core.feature_commands('warmlight', True, None, 59.94, 30.31)
+        self.assertIn(['--key', 'LatitudeFixed', '59.9400'], [c[-3:] for c in warm])
+        with tempfile.TemporaryDirectory() as home:
+            cfg = Path(home) / '.config'
+            cfg.mkdir()
+            (cfg / 'kwinrc').write_text('[NightColor]\nActive=true\nMode=Location\nLatitudeFixed=1\nLongitudeFixed=2\n'
+                                        '[Plugins]\nblurEnabled=false\nwobblywindowsEnabled=false\n'
+                                        'translucencyEnabled=false\n')
+            (cfg / 'kdeglobals').write_text('[KDE]\nAnimationDurationFactor=0.5\n')
+            self.assertTrue(core.feature_enabled('warmlight', home))
+            self.assertTrue(core.feature_enabled('eco', home))
+            self.assertTrue(core.feature_enabled('fastanim', home))
+            self.assertFalse(core.feature_enabled('blur', home))
+            self.assertFalse(core.feature_enabled('reducemotion', home))
+
+    def test_gui_has_preview_and_schedule(self):
+        gui = (BIN / 'nova-styles').read_text()
+        for text in ('Предпросмотр', 'По графику', 'Вернётся', 'refresh_features', 'Ничего не изменится'):
+            self.assertIn(text, gui)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -75,6 +75,22 @@ FEATURES = {
                [('kwinrc', 'Plugins', 'wobblywindowsEnabled', 'true')]),
     'blur': ('Размытие под панелями', 'Полупрозрачные панели и меню с размытием фона.',
              [('kwinrc', 'Plugins', 'blurEnabled', 'true')]),
+    'chameleon': ('Хамелеон: цвет акцента из обоев', 'Кнопки и выделение подстраиваются под цвет ваших обоев.',
+                  [('kdeglobals', 'General', 'accentColorFromWallpaper', 'true')]),
+    'warmlight': ('Тёплый свет вечером', 'Экран теплеет после заката по вашему месту — глазам легче (без интернета).',
+                  [('kwinrc', 'NightColor', 'Active', 'true'), ('kwinrc', 'NightColor', 'Mode', 'Location'),
+                   ('kwinrc', 'NightColor', 'LatitudeFixed', '%LAT%'),
+                   ('kwinrc', 'NightColor', 'LongitudeFixed', '%LON%')]),
+    'translucency': ('Прозрачность при перемещении', 'Окно становится полупрозрачным, пока вы его двигаете.',
+                     [('kwinrc', 'Plugins', 'translucencyEnabled', 'true')]),
+    'fastanim': ('Быстрые анимации', 'Все анимации вдвое короче — система ощущается быстрее.',
+                 [('kdeglobals', 'KDE', 'AnimationDurationFactor', '0.5')]),
+    'reducemotion': ('Уменьшить движение', 'Без анимаций — для чувствительных к движению и слабых компьютеров.',
+                     [('kdeglobals', 'KDE', 'AnimationDurationFactor', '0')]),
+    'eco': ('Экономия энергии', 'Без размытия и «желе», короче анимации — дольше от батареи.',
+            [('kwinrc', 'Plugins', 'blurEnabled', 'false'), ('kwinrc', 'Plugins', 'wobblywindowsEnabled', 'false'),
+             ('kwinrc', 'Plugins', 'translucencyEnabled', 'false'),
+             ('kdeglobals', 'KDE', 'AnimationDurationFactor', '0.5')]),
 }
 FEATURE_ORDER = tuple(FEATURES)
 BUILTIN_FEATURES = (('Snap-раскладки окон', 'Win+T — выберите, как разложить окна по экрану.'),
@@ -105,7 +121,8 @@ def thumbnail(style: str) -> Path:
 # ---------------------------------------------------------------- state
 
 STATE_KEYS = {'style': str, 'backup': str, 'prev_lnf': str, 'prev_choice': str, 'autopilot': bool,
-              'feature_backup': dict}
+              'feature_backup': dict, 'autopilot_mode': str, 'schedule_light': str, 'schedule_dark': str}
+_HHMM = re.compile(r'^([01]\d|2[0-3]):[0-5]\d$')
 
 
 def state_path(home=None) -> Path:
@@ -124,6 +141,11 @@ def load_state(home=None) -> dict:
         clean.pop('style', None)
     if clean.get('prev_lnf') not in (None, 'light', 'dark', 'kde-default'):
         clean.pop('prev_lnf', None)
+    if clean.get('autopilot_mode') not in (None, 'sun', 'schedule'):
+        clean.pop('autopilot_mode', None)
+    for k in ('schedule_light', 'schedule_dark'):
+        if k in clean and not _HHMM.match(clean[k]):
+            clean.pop(k)
     fb = clean.get('feature_backup')
     if fb is not None:
         clean['feature_backup'] = {k: v for k, v in fb.items()
@@ -177,6 +199,10 @@ def feature_enabled(feature: str, home=None) -> bool:
         current = kde_value(home, file, group, key)
         if current is None:
             current = FEATURE_DEFAULTS.get((file, group, key))
+        if value.startswith('%'):          # location placeholder: any value counts
+            if current is None:
+                return False
+            continue
         if current != value:
             return False
     return True
@@ -185,7 +211,7 @@ def feature_enabled(feature: str, home=None) -> bool:
 
 
 def kwrite(file: str, group: str, key: str, value: str | None) -> list[str]:
-    argv = ['kwriteconfig6', '--file', file]
+    argv = ['kwriteconfig6', *(['--notify'] if file == 'kdeglobals' else []), '--file', file]
     for g in group.split('/'):
         argv += ['--group', g]
     argv += ['--key', key]
@@ -193,10 +219,12 @@ def kwrite(file: str, group: str, key: str, value: str | None) -> list[str]:
     return argv
 
 
-def feature_commands(feature: str, on: bool, backup: dict | None = None) -> list[list[str]]:
+def feature_commands(feature: str, on: bool, backup: dict | None = None,
+                     lat: float = 55.7558, lon: float = 37.6176) -> list[list[str]]:
     """ON writes the feature values; OFF restores what the user had (from `backup`) or KDE defaults."""
     cmds = []
     for file, group, key, value in FEATURES[validate_feature(feature)][2]:
+        value = value.replace('%LAT%', f'{lat:.4f}').replace('%LON%', f'{lon:.4f}')
         if on:
             cmds.append(kwrite(file, group, key, value))
         else:
@@ -365,3 +393,37 @@ def autopilot_decision(current_scheme: str | None, is_day: bool) -> str | None:
     """Colour scheme to switch to, or None when nothing has to change."""
     want = autopilot_scheme(is_day)
     return None if current_scheme == want else want
+
+
+def parse_hhmm(text: str) -> str:
+    text = (text or '').strip()
+    if re.fullmatch(r'\d:[0-5]\d', text):
+        text = '0' + text
+    if not _HHMM.match(text):
+        raise ValueError(f'Время в виде ЧЧ:ММ, например 07:30 (получено {text!r})')
+    return text
+
+
+def schedule_is_day(now_local, light: str, dark: str) -> bool:
+    """Fixed schedule: light theme from `light` until `dark` (both HH:MM, may wrap past midnight)."""
+    m = now_local.hour * 60 + now_local.minute
+    a = int(light[:2]) * 60 + int(light[3:])
+    b = int(dark[:2]) * 60 + int(dark[3:])
+    if a == b:
+        return True
+    return a <= m < b if a < b else (m >= a or m < b)
+
+
+def revert_summary(state: dict) -> list[str]:
+    """What «Вернуть как было» will bring back — shown before the user confirms."""
+    items = []
+    if state.get('style'):
+        items.append(f'оформление до стиля «{STYLES[state["style"]]["title"]}» (тема, цвета, значки)')
+    items.append('панели и виджеты из резервной копии' if state.get('backup') else 'обои NOVA (панели не менялись)')
+    names = sorted({FEATURES[f][0] for f in FEATURE_ORDER for (fl, g, k, _v) in FEATURES[f][2]
+                    if f'{fl}/{g}/{k}' in (state.get('feature_backup') or {})})
+    if names:
+        items.append('ваши прежние настройки эффектов: ' + ', '.join(n.lower() for n in names))
+    if state.get('autopilot'):
+        items.append('автопилот день/ночь будет выключен')
+    return items

@@ -11,18 +11,113 @@ from datetime import datetime
 import nova_sky_core as sky
 import nova_styles_core as core
 import nova_ui as ui
-from PyQt6.QtCore import QRectF, Qt
+from PyQt6.QtCore import QRectF, Qt, QTime
 from PyQt6.QtGui import QColor, QFont, QLinearGradient, QPainter, QPainterPath, QPixmap
-from PyQt6.QtWidgets import (QApplication, QCheckBox, QFrame, QHBoxLayout, QLabel, QLineEdit, QMainWindow,
-                             QSizePolicy, QTextEdit, QVBoxLayout, QWidget)
+from PyQt6.QtWidgets import (QApplication, QButtonGroup, QCheckBox, QDialog, QFrame, QHBoxLayout, QLabel,
+                             QLineEdit, QMainWindow, QRadioButton, QSizePolicy, QTextEdit, QTimeEdit, QVBoxLayout,
+                             QWidget)
+
+PANEL_SHAPES = {'windows': 'bottom', 'hybrid': 'floating', 'dock': 'topbar+dock', 'neon': 'hud+dock'}
+
+
+def paint_preview(pixmap, accent, mode, w, h, radius=10):
+    """Wallpaper + a miniature of the style's panel layout (bottom bar, floating, top bar + dock, HUD)."""
+    canvas = QPixmap(w, h)
+    canvas.fill(QColor(0, 0, 0, 0))
+    p = QPainter(canvas)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    clip = QPainterPath()
+    clip.addRoundedRect(QRectF(0, 0, w, h), radius, radius)
+    p.setClipPath(clip)
+    if not pixmap.isNull():
+        scaled = pixmap.scaled(w, h, Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                               Qt.TransformationMode.SmoothTransformation)
+        p.drawPixmap((w - scaled.width()) // 2, (h - scaled.height()) // 2, scaled)
+    else:
+        g = QLinearGradient(0, 0, 0, h)
+        g.setColorAt(0, QColor('#25336e'))
+        g.setColorAt(1, accent)
+        p.fillRect(0, 0, w, h, g)
+    k = max(1.0, h / 118)
+    shape = PANEL_SHAPES.get(mode, 'bottom')
+    p.setPen(Qt.PenStyle.NoPen)
+    bar = QColor(255, 255, 255, 190) if mode != 'neon' else QColor(10, 6, 22, 210)
+    if shape in ('topbar+dock', 'hud+dock'):
+        p.setBrush(bar)
+        p.drawRect(QRectF(0, 0, w, 7 * k))
+        if shape == 'hud+dock':
+            p.setBrush(accent)
+            p.drawRect(QRectF(0, 7 * k, w, 1 * k))
+    if shape == 'bottom':
+        p.setBrush(bar)
+        p.drawRect(QRectF(0, h - 14 * k, w, 14 * k))
+        icons, iw, x0, y0 = 6, 10 * k, (w - 6 * 14 * k) / 2, h - 11 * k
+    else:
+        dock_w, dock_h = 92 * k, 16 * k
+        p.setBrush(bar)
+        p.drawRoundedRect(QRectF((w - dock_w) / 2, h - dock_h - 7 * k, dock_w, dock_h), 8 * k, 8 * k)
+        icons, iw, x0, y0 = 5, 10 * k, (w - dock_w) / 2 + 8 * k, h - dock_h - 3 * k
+    for i in range(icons):
+        p.setBrush(accent if i == 1 else QColor(60, 70, 90, 170))
+        p.drawRoundedRect(QRectF(x0 + i * (iw + 6 * k), y0, iw, 8 * k), 3 * k, 3 * k)
+    p.end()
+    return canvas
+
+
+class PreviewDialog(QDialog):
+    """«Предпросмотр»: a large preview and what exactly the style changes, before applying anything."""
+
+    def __init__(self, parent, sid, active, on_apply):
+        super().__init__(parent)
+        st = core.STYLES[sid]
+        self.setWindowTitle(f'Предпросмотр — {st["title"]}')
+        self.setMinimumWidth(640)
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(20, 20, 20, 16)
+        lay.setSpacing(12)
+        image = QLabel()
+        image.setAccessibleName(f'Большое превью стиля {st["title"]}')
+        image.setPixmap(paint_preview(QPixmap(str(core.thumbnail(sid))), QColor(st['palette'][1]), st['mode'],
+                                      600, 338, 14))
+        lay.addWidget(image)
+        title = QLabel(st['title'])
+        title.setObjectName('title')
+        lay.addWidget(title)
+        kind, value = st['wallpaper']
+        wallpaper = {'image': 'картинка NOVA', 'neon': 'живые обои NEON', 'live': {
+            'sky': 'NOVA Live «Живое небо» — солнце и луна на своих местах', 'aurora': 'NOVA Live «Сияние»',
+            'sakura': 'NOVA Live «Сакура»', 'ocean': 'NOVA Live «Лунный океан»'}.get(value, 'NOVA Live')}[kind]
+        rows = [('Характер', st['note']), ('Панель', st['layout_title']), ('Обои', wallpaper),
+                ('Цвета', 'светлые днём, тёмные ночью (автопилот)' if st['variant'] == 'auto' else st['scheme']),
+                ('Значки', st['icons'])]
+        for label, value in rows:
+            row = QLabel(f'<b>{label}:</b> {value}')
+            row.setWordWrap(True)
+            lay.addWidget(row)
+        hint = QLabel('Ничего не изменится, пока вы не нажмёте «Применить». Прежний вид сохраняется — '
+                      'его можно вернуть кнопкой «Вернуть как было».')
+        hint.setObjectName('description')
+        hint.setWordWrap(True)
+        lay.addWidget(hint)
+        buttons = QHBoxLayout()
+        buttons.addStretch(1)
+        close = ui.make_button('Закрыть', self.reject)
+        close.setDefault(True)
+        buttons.addWidget(close)
+        apply = ui.make_button('Используется' if active else 'Применить',
+                               lambda: (self.accept(), on_apply(sid)), 'secondary' if active else 'primary')
+        apply.setEnabled(not active)
+        buttons.addWidget(apply)
+        lay.addLayout(buttons)
 
 
 class StyleCard(QFrame):
     """Wallpaper preview with a micro dock, title, note, palette dots and «Применить»."""
 
-    def __init__(self, sid, active, on_apply):
+    def __init__(self, sid, active, on_apply, on_preview=None):
         super().__init__()
         st = core.STYLES[sid]
+        self.mode = st['mode']
         self.setObjectName('card')
         self.setProperty('active', active)
         lay = QVBoxLayout(self)
@@ -59,7 +154,13 @@ class StyleCard(QFrame):
                                 'secondary' if active else 'primary',
                                 f'Применить стиль {st["title"]}. Прежний вид сохраняется.')
         button.setEnabled(not active)
-        row.addWidget(button, 0, Qt.AlignmentFlag.AlignBottom)
+        actions = QVBoxLayout()
+        actions.setSpacing(6)
+        if on_preview:
+            actions.addWidget(ui.make_button('Предпросмотр', lambda: on_preview(sid), 'secondary',
+                                             f'Посмотреть стиль {st["title"]} крупно, ничего не меняя'))
+        actions.addWidget(button)
+        row.addLayout(actions)
         lay.addLayout(row)
 
     def resizeEvent(self, event):  # noqa: N802 (Qt API)
@@ -67,32 +168,8 @@ class StyleCard(QFrame):
         super().resizeEvent(event)
 
     def render_preview(self):
-        w, h = max(80, self.preview.width()), 118
-        canvas = QPixmap(w, h)
-        canvas.fill(QColor(0, 0, 0, 0))
-        p = QPainter(canvas)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        clip = QPainterPath()
-        clip.addRoundedRect(QRectF(0, 0, w, h), 10, 10)
-        p.setClipPath(clip)
-        if not self.pixmap.isNull():
-            scaled = self.pixmap.scaled(w, h, Qt.AspectRatioMode.KeepAspectRatioByExpanding,
-                                        Qt.TransformationMode.SmoothTransformation)
-            p.drawPixmap((w - scaled.width()) // 2, (h - scaled.height()) // 2, scaled)
-        else:
-            g = QLinearGradient(0, 0, 0, h)
-            g.setColorAt(0, QColor('#25336e'))
-            g.setColorAt(1, self.accent)
-            p.fillRect(0, 0, w, h, g)
-        dock_w, dock_h = 92, 16            # micro dock, like the panel of the style
-        p.setBrush(QColor(255, 255, 255, 190))
-        p.setPen(Qt.PenStyle.NoPen)
-        p.drawRoundedRect(QRectF((w - dock_w) / 2, h - dock_h - 7, dock_w, dock_h), 8, 8)
-        for i in range(5):
-            p.setBrush(self.accent if i == 1 else QColor(60, 70, 90, 170))
-            p.drawRoundedRect(QRectF((w - dock_w) / 2 + 8 + i * 16, h - dock_h - 3, 10, 8), 3, 3)
-        p.end()
-        self.preview.setPixmap(canvas)
+        w = max(80, self.preview.width())
+        self.preview.setPixmap(paint_preview(self.pixmap, self.accent, self.mode, w, 118))
 
 
 class SunBar(QWidget):
@@ -171,7 +248,7 @@ class Styles(QMainWindow):
         grid = ui.responsive_grid(min_column=250, maximum=4)
         current = self.state.get('style')
         for sid in core.STYLE_ORDER:
-            grid.add(StyleCard(sid, sid == current, self.apply))
+            grid.add(StyleCard(sid, sid == current, self.apply, self.preview))
         ui.add_to_page(self.lay, grid)
 
         lower = ui.responsive_grid(min_column=360, maximum=2)
@@ -183,6 +260,32 @@ class Styles(QMainWindow):
         self.autopilot.setChecked(bool(self.state.get('autopilot')))
         self.autopilot.toggled.connect(lambda on: self.cli(['autopilot', 'on' if on else 'off']))
         box.addWidget(self.autopilot)
+        mode_row = QHBoxLayout()
+        self.mode_sun = QRadioButton('По солнцу')
+        self.mode_schedule = QRadioButton('По графику:')
+        group = QButtonGroup(self)
+        group.addButton(self.mode_sun)
+        group.addButton(self.mode_schedule)
+        schedule = self.state.get('autopilot_mode') == 'schedule'
+        (self.mode_schedule if schedule else self.mode_sun).setChecked(True)
+        self.light_at, self.dark_at = QTimeEdit(), QTimeEdit()
+        for edit, key, default, name in ((self.light_at, 'schedule_light', '07:00', 'Светлая тема с'),
+                                         (self.dark_at, 'schedule_dark', '20:00', 'Тёмная тема с')):
+            edit.setDisplayFormat('HH:mm')
+            edit.setTime(QTime.fromString(self.state.get(key, default), 'HH:mm'))
+            edit.setAccessibleName(name)
+        mode_row.addWidget(self.mode_sun)
+        mode_row.addWidget(self.mode_schedule)
+        mode_row.addWidget(QLabel('светлая с'))
+        mode_row.addWidget(self.light_at)
+        mode_row.addWidget(QLabel('тёмная с'))
+        mode_row.addWidget(self.dark_at)
+        mode_row.addStretch(1)
+        box.addLayout(mode_row)
+        self.mode_sun.toggled.connect(lambda on: on and self.cli(['autopilot', 'sun'], self.refresh_sun))
+        self.mode_schedule.toggled.connect(lambda on: on and self.save_schedule())
+        self.light_at.editingFinished.connect(lambda: self.mode_schedule.isChecked() and self.save_schedule())
+        self.dark_at.editingFinished.connect(lambda: self.mode_schedule.isChecked() and self.save_schedule())
         self.sunbar = SunBar()
         box.addWidget(self.sunbar)
         self.sun_text = QLabel()
@@ -201,12 +304,14 @@ class Styles(QMainWindow):
 
         # Features
         frame, box = ui.card('Функции рабочего стола', 'Лучшее из macOS и Windows 11 — включается одним касанием.')
+        self.feature_boxes = {}
         for fid in core.FEATURE_ORDER:
             title, desc, _w = core.FEATURES[fid]
             cb = QCheckBox(title)
+            self.feature_boxes[fid] = cb
             cb.setChecked(core.feature_enabled(fid))
             cb.setToolTip(desc)
-            cb.toggled.connect(lambda on, f=fid: self.cli(['feature', f, 'on' if on else 'off']))
+            cb.toggled.connect(lambda on, f=fid: self.cli(['feature', f, 'on' if on else 'off'], self.refresh_features))
             box.addWidget(cb)
             d = QLabel(desc)
             d.setObjectName('description')
@@ -237,6 +342,21 @@ class Styles(QMainWindow):
         self.runner = ui.process_runner(self, self.log, self.busy)
         self.refresh_sun()
 
+    def refresh_features(self, *_):
+        """Features share settings (e.g. «Экономия» switches blur off) — show what is really in effect."""
+        for fid, cb in self.feature_boxes.items():
+            cb.blockSignals(True)
+            cb.setChecked(core.feature_enabled(fid))
+            cb.blockSignals(False)
+
+    def save_schedule(self):
+        light = self.light_at.time().toString('HH:mm')
+        dark = self.dark_at.time().toString('HH:mm')
+        self.cli(['autopilot', 'schedule', light, dark], self.refresh_sun)
+
+    def preview(self, sid):
+        PreviewDialog(self, sid, sid == self.state.get('style'), self.apply).exec()
+
     def refresh_sun(self, *_):
         info = sky.location_info()
         now = datetime.now().astimezone()
@@ -248,6 +368,12 @@ class Styles(QMainWindow):
             'место приближённо по часовому поясу — для точности задайте координаты'
         fmt = lambda t: t.astimezone(now.tzinfo).strftime('%H:%M') if t else '—'   # noqa: E731
         nxt = ev['sunset'] if day else ev['sunrise']
+        st = core.load_state()
+        if st.get('autopilot_mode') == 'schedule':
+            light, dark = st.get('schedule_light', '07:00'), st.get('schedule_dark', '20:00')
+            self.sun_text.setText(f'По графику: светлая тема с {light}, тёмная с {dark}. '
+                                  f'Для справки: восход {fmt(ev["sunrise"])}, закат {fmt(ev["sunset"])}.')
+            return
         self.sun_text.setText(f'Сейчас {"день" if day else "ночь"}. Восход {fmt(ev["sunrise"])}, закат {fmt(ev["sunset"])}; '
                               f'следующая смена темы ≈ {fmt(nxt)}. {info["label"]}: {exact}.')
 
@@ -274,9 +400,10 @@ class Styles(QMainWindow):
         self.cli(['location', f'{lat}, {lon}'], self.refresh_sun)
 
     def revert(self):
-        if ui.confirm(self, 'Вернуть как было?',
-                      'Вернутся панель, тема, обои и эффекты, которые были до первого изменения. '
-                      'Plasma перезапустится, открытые окна не закроются.', yes='Вернуть'):
+        items = core.revert_summary(core.load_state())
+        text = 'Вернётся:\n' + '\n'.join(f'• {i}' for i in items) + \
+            '\n\nPlasma перезапустится, открытые окна не закроются.'
+        if ui.confirm(self, 'Вернуть как было?', text, yes='Вернуть'):
             self.cli(['revert'], after=self.reload)
 
     def reload(self):

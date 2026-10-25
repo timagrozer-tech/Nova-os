@@ -9,7 +9,7 @@ layout, theme, wallpaper, desktop effects and switches the autopilot off.
   nova-style apply air-light|air-dark|neon|aurora|sakura|ocean|horizon [--keep-layout] [--density D]
   nova-style revert
   nova-style feature list | feature ID on|off
-  nova-style autopilot on|off|tick|status
+  nova-style autopilot on|off|tick|status | autopilot sun | autopilot schedule 07:00 20:00
   nova-style location "55.75, 37.62" [--label Москва] | location clear | location show
 Add --dry-run to print what would be executed.
 """
@@ -111,7 +111,9 @@ def cmd_list(_args):
 def cmd_status(args):
     st = core.load_state()
     print('Стиль:', core.STYLES[st['style']]['title'] if st.get('style') else 'не выбран (оформление по умолчанию)')
-    print('Автопилот день/ночь:', 'включён' if st.get('autopilot') else 'выключен')
+    mode = (f'по графику {st.get("schedule_light", "07:00")}–{st.get("schedule_dark", "20:00")}'
+            if st.get('autopilot_mode') == 'schedule' else 'по солнцу')
+    print('Автопилот день/ночь:', f'включён, {mode}' if st.get('autopilot') else 'выключен')
     for fid in core.FEATURE_ORDER:
         print(f'  {"[x]" if core.feature_enabled(fid) else "[ ]"} {core.FEATURES[fid][0]}')
     cmd_location_show(args)
@@ -143,6 +145,7 @@ def cmd_apply(args):
 
 def cmd_revert(_args):
     st = core.load_state()
+    print('Вернётся:', '; '.join(core.revert_summary(st)))
     if neon.is_active():
         run(['nova-neon', 'revert'])
     set_autopilot(False)
@@ -176,9 +179,9 @@ def cmd_feature(args):
     if args.feature == 'list':
         for fid in core.FEATURE_ORDER:
             title, desc, _w = core.FEATURES[fid]
-            print(f'{"[x]" if core.feature_enabled(fid) else "[ ]"} {fid:10} {title} — {desc}')
+            print(f'{"[x]" if core.feature_enabled(fid) else "[ ]"} {fid:12} {title} — {desc}')
         for title, desc in core.BUILTIN_FEATURES:
-            print(f'[•] {"":10} {title} — {desc}')
+            print(f'[•] {"":12} {title} — {desc}')
         return
     fid = core.validate_feature(args.feature)
     if args.state not in ('on', 'off'):
@@ -192,7 +195,8 @@ def cmd_feature(args):
             backup[k] = core.kde_value(None, file, group, key)
     if not DRY:
         core.save_state({'feature_backup': {k: v for k, v in backup.items()}})
-    for argv in core.feature_commands(fid, on, backup):
+    info = sky.location_info()
+    for argv in core.feature_commands(fid, on, backup, info['lat'], info['lon']):
         run(argv)
     reconfigure_kwin()
     print(core.FEATURES[fid][0] + ':', 'включено' if on else 'выключено')
@@ -218,12 +222,19 @@ def set_autopilot(on: bool):
         autopilot_tick()
 
 
+def autopilot_is_day(st) -> bool:
+    if st.get('autopilot_mode') == 'schedule':
+        return core.schedule_is_day(datetime.now().astimezone(), st.get('schedule_light', '07:00'),
+                                    st.get('schedule_dark', '20:00'))
+    info = sky.location_info()
+    return sky.is_day(datetime.now(timezone.utc), info['lat'], info['lon'])
+
+
 def autopilot_tick():
     st = core.load_state()
     if not st.get('autopilot') and not DRY:
         return
-    info = sky.location_info()
-    day = sky.is_day(datetime.now(timezone.utc), info['lat'], info['lon'])
+    day = autopilot_is_day(st)
     current = core.kde_value(None, 'kdeglobals', 'General', 'ColorScheme')
     scheme = core.autopilot_decision(current, day)
     if scheme:
@@ -236,6 +247,19 @@ def cmd_autopilot(args):
         set_autopilot(args.action == 'on')
         print('Автопилот день/ночь:', 'включён' if args.action == 'on' else 'выключен')
     elif args.action == 'tick':
+        autopilot_tick()
+    elif args.action == 'sun':
+        if not DRY:
+            core.save_state({'autopilot_mode': 'sun'})
+        print('Автопилот: по восходу и закату.')
+        autopilot_tick()
+    elif args.action == 'schedule':
+        if len(args.times) != 2:
+            raise ValueError('Укажите два времени: когда светлая и когда тёмная, например 07:00 20:00')
+        light, dark = (core.parse_hhmm(t) for t in args.times)
+        if not DRY:
+            core.save_state({'autopilot_mode': 'schedule', 'schedule_light': light, 'schedule_dark': dark})
+        print(f'Автопилот по графику: светлая с {light}, тёмная с {dark}.')
         autopilot_tick()
     else:
         cmd_location_show(args)
@@ -287,7 +311,8 @@ def main(argv=None):
     p.add_argument('state', nargs='?', choices=('on', 'off'))
     p.set_defaults(func=cmd_feature)
     p = sub.add_parser('autopilot')
-    p.add_argument('action', choices=('on', 'off', 'tick', 'status'))
+    p.add_argument('action', choices=('on', 'off', 'tick', 'status', 'sun', 'schedule'))
+    p.add_argument('times', nargs='*', help='для schedule: ЧЧ:ММ светлой и ЧЧ:ММ тёмной темы')
     p.set_defaults(func=cmd_autopilot)
     p = sub.add_parser('location')
     p.add_argument('value', help='«широта, долгота», show или clear')
