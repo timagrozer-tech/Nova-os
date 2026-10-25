@@ -385,5 +385,40 @@ class AutopilotAndExtras(unittest.TestCase):
             self.assertIn(text, gui)
 
 
+class BootMenu(unittest.TestCase):
+    HOOK = ROOT / 'image/config/hooks/live/096-nova-bootmenu.hook.binary'
+
+    def test_hook_applies_branding(self):
+        with tempfile.TemporaryDirectory() as b:
+            grub = Path(b) / 'boot/grub'
+            (grub / 'nova').mkdir(parents=True)
+            (grub / 'live-theme').mkdir()
+            (grub / 'nova/splash.png').write_bytes(b'NOVA')
+            (grub / 'splash.png').write_bytes(b'DEBIAN')
+            (grub / 'live-theme/theme.txt').write_text('title-text: ""\ndesktop-image: "../splash.png"\n')
+            (grub / 'grub.cfg').write_text('menuentry "Live system (amd64)" --hotkey=l {\n linux /live/vmlinuz boot=live\n}\n')
+            for _ in range(2):                                         # idempotent
+                res = subprocess.run(['sh', str(self.HOOK)], cwd=b, capture_output=True, text=True)
+                self.assertEqual(res.returncode, 0, res.stderr)
+            self.assertEqual((grub / 'splash.png').read_bytes(), b'NOVA')
+            theme = (grub / 'live-theme/theme.txt').read_text()
+            self.assertEqual(theme.count('desktop-image-scale-method: "crop"'), 1)
+            cfg = (grub / 'grub.cfg').read_text()
+            self.assertIn('menuentry "NOVA OS Live (amd64)"', cfg)
+            self.assertIn('boot=live', cfg)
+            self.assertEqual((Path(b) / '.disk/nova-bootmenu').read_text().strip(), 'applied')
+
+    def test_hook_is_harmless_without_grub(self):
+        with tempfile.TemporaryDirectory() as b:
+            res = subprocess.run(['sh', str(self.HOOK)], cwd=b, capture_output=True, text=True)
+            self.assertEqual(res.returncode, 0)
+            self.assertEqual((Path(b) / '.disk/nova-bootmenu').read_text().strip(), 'skipped')
+
+    def test_background_asset(self):
+        from PIL import Image
+        img = Image.open(ROOT / 'image/config/includes.binary/boot/grub/nova/splash.png')
+        self.assertEqual(img.size, (1920, 1080))
+
+
 if __name__ == '__main__':
     unittest.main()

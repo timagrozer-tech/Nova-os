@@ -360,6 +360,9 @@ def main(argv=None) -> int:
                 code, text = qga.exec([*session, 'nova-style', 'apply', style], timeout=120)
                 time.sleep(14)
                 shot(qmp, out, f'05-style-{style}', results)
+                if style == 'neon':          # system-monitor widgets fill in after a while
+                    time.sleep(30)
+                    shot(qmp, out, '05-style-neon-later', results)
                 results['styles'][style] = 'ok' if code == 0 else f'exit {code}: {text[-300:]}'
             qga.exec([*session, 'nova-style', 'apply', 'horizon'], timeout=120)
             qga.exec([*session, 'sh', '-c', 'nova-styles >/dev/null 2>&1 &'], timeout=20)

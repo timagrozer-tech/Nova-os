@@ -78,6 +78,8 @@ grubcfg="$(iso_file /boot/grub/grub.cfg)"
 if grep -q 'boot=live' <<<"$grubcfg"; then ok "boot=live in GRUB menu"; else bad "GRUB menu lacks boot=live"; fi
 marker="$(iso_file /.disk/nova-offline-bootloader)"
 [[ -n "$marker" ]] && say "INFO  pool marker: $marker"
+bm="$(iso_file /.disk/nova-bootmenu)"
+if [[ "$bm" == applied* ]]; then ok "NOVA boot menu (branded background)"; else note "NOVA boot menu branding not applied (${bm:-no marker}); Debian default menu is used"; fi
 
 # 5. Root filesystem contents
 if xorriso -osirrox on -indev "$ISO" -extract /live/filesystem.squashfs "$tmp/fs.squashfs" >/dev/null 2>&1; then

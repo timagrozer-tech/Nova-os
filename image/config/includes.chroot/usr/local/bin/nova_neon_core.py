@@ -75,7 +75,7 @@ WIDGETS = (
     ('org.kde.plasma.systemmonitor.cpu', 'left', 170),
     ('org.kde.plasma.systemmonitor.memory', 'left', 170),
     ('org.kde.plasma.systemmonitor.net', 'left', 170),
-    ('org.kde.plasma.weather', 'right', 170),
+    ('org.kde.plasma.calendar', 'right', 230),
     ('org.kde.plasma.mediacontroller', 'right', 170),
     ('org.kde.plasma.notes', 'right', 190),
     ('org.kde.plasma.timer', 'right', 150),
