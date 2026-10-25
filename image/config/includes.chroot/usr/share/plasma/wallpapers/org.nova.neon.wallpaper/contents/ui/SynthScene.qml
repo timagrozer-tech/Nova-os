@@ -114,13 +114,13 @@ Item {
     Repeater {
         model: 18
         Rectangle {
-            readonly property real z: (index + (scene.t * 0.25) % 1) / 18
+            readonly property real depth: (index + (scene.t * 0.25) % 1) / 18
             x: 0
             width: scene.width
-            y: scene.hz + (scene.height - scene.hz) * z * z
-            height: Math.max(1, scene.height / 900 + z * 1.5)
+            y: scene.hz + (scene.height - scene.hz) * depth * depth
+            height: Math.max(1, scene.height / 900 + depth * 1.5)
             color: "#ff2a6d"
-            opacity: Math.min(1, z * 1.4)
+            opacity: Math.min(1, depth * 1.4)
         }
     }
 

@@ -5,7 +5,7 @@ Item {
     id: scene
     property real t: 0
     property var traces: []          // [{pts: [[x,y],...], seg: [cumulative lengths], total, color}]
-    readonly property var palette: ["#00f0ff", "#00f0ff", "#00f0ff", "#ff2a6d", "#fcee0a"]
+    readonly property var traceColours: ["#00f0ff", "#00f0ff", "#00f0ff", "#ff2a6d", "#fcee0a"]
 
     function rng(seed) {
         var s = seed % 2147483647;
@@ -56,7 +56,7 @@ Item {
                     seg.push(total);
                 }
             }
-            out.push({ pts: path, seg: seg, total: total, color: palette[Math.floor(r() * palette.length)] });
+            out.push({ pts: path, seg: seg, total: total, color: traceColours[Math.floor(r() * traceColours.length)] });
         }
         traces = out;
         board.requestPaint();
