@@ -43,66 +43,65 @@ BASE_FONT_PX = 13
 CONTROL_HEIGHT = 36          # >= 36 px: comfortable for touchpad and touch
 SPACING = {'xs': 4, 's': 8, 'm': 12, 'l': 16, 'xl': 24}
 RADIUS = {'s': 8, 'm': 10, 'l': 14}
+# Shape language per style (design tokens v1.0): small / medium / large radius
+RADII = {
+    'light': RADIUS, 'dark': RADIUS,
+    'neon': {'s': 4, 'm': 6, 'l': 8},
+    'aurora': {'s': 10, 'm': 14, 'l': 17},
+    'sakura': {'s': 12, 'm': 20, 'l': 24},
+    'ocean': {'s': 6, 'm': 8, 'l': 10},
+}
 BREAKPOINT_COMPACT = 820     # below this window width navigation collapses
 
 TOKENS = {
+    # NOVA Air light (design tokens v1.0 + border_strong at 3:1)
     'light': {
-        'bg': '#f4f6fa', 'surface': '#ffffff', 'surface_alt': '#eef2f8',
-        'border': '#dbe2ec', 'border_strong': '#c3cedd',
-        'text': '#162033', 'text_muted': '#4b5870', 'text_disabled': '#8b95a6',
-        'accent': '#1f6feb', 'accent_text': '#ffffff', 'accent_soft': '#dbe9ff',
-        'accent_soft_text': '#0f4fb8', 'accent_hover': '#1a5fd0',
-        'danger': '#c62f3c', 'danger_text': '#ffffff', 'success': '#1c7c4b',
-        'warning': '#8a5a00', 'selection': '#cfe2ff', 'brand': '#1159c9',
+        'bg': '#f4f6fa', 'surface': '#ffffff', 'surface_alt': '#eef2f8', 'border': '#dbe2ec',
+        'border_strong': '#818c9b', 'text': '#162033', 'text_muted': '#4b5870', 'text_disabled': '#8b95a6',
+        'accent': '#1f6feb', 'accent_text': '#ffffff', 'accent_soft': '#dbe9ff', 'accent_soft_text': '#163d7e',
+        'accent_hover': '#1a5fd0', 'danger': '#c62f3c', 'danger_text': '#ffffff', 'success': '#1c7c4b',
+        'warning': '#8a5a00', 'selection': '#dbe9ff', 'brand': '#1159c9', 'focus_ring': '#1f6feb',
     },
+    # NOVA Air dark
     'dark': {
-        'bg': '#11161f', 'surface': '#1a2230', 'surface_alt': '#212b3b',
-        'border': '#2e3a4d', 'border_strong': '#43536b',
-        'text': '#e8eef7', 'text_muted': '#a9b6ca', 'text_disabled': '#69768a',
-        'accent': '#4c93ff', 'accent_text': '#08111f', 'accent_soft': '#23395b',
-        'accent_soft_text': '#cfe2ff', 'accent_hover': '#6aa6ff',
-        'danger': '#ff6b77', 'danger_text': '#1a0508', 'success': '#5fd39a',
-        'warning': '#f2c46b', 'selection': '#2c4a78', 'brand': '#8bbcff',
+        'bg': '#11161f', 'surface': '#1a2230', 'surface_alt': '#212b3b', 'border': '#2e3a4d',
+        'border_strong': '#667c99', 'text': '#e8eef7', 'text_muted': '#a9b6ca', 'text_disabled': '#69768a',
+        'accent': '#4c93ff', 'accent_text': '#07172f', 'accent_soft': '#23395b', 'accent_soft_text': '#d9eaff',
+        'accent_hover': '#6aa6ff', 'danger': '#ff7281', 'danger_text': '#1a0508', 'success': '#5cdb96',
+        'warning': '#f5ca69', 'selection': '#23395b', 'brand': '#8bbcff', 'focus_ring': '#8bb6ff',
     },
     # NEON//SYS: dark violet base, cyan accent, magenta and yellow highlights.
-    # Same keys as NOVA Air (+ neon_* extras), same >= 4.5:1 contrast rules.
     'neon': {
-        'bg': '#0b0714', 'surface': '#140d24', 'surface_alt': '#1d1433',
-        'border': '#33255a', 'border_strong': '#55418f',
-        'text': '#eafcff', 'text_muted': '#b3a6d6', 'text_disabled': '#6f6296',
-        'accent': '#00e5f2', 'accent_text': '#05030b', 'accent_soft': '#0d3540',
-        'accent_soft_text': '#a6f8ff', 'accent_hover': '#5cf2fa',
-        'danger': '#ff4f8b', 'danger_text': '#0b0714', 'success': '#3dffa8',
-        'warning': '#fcee0a', 'selection': '#3b2366', 'brand': '#fcee0a',
+        'bg': '#0b0714', 'surface': '#140d24', 'surface_alt': '#1d1433', 'border': '#33255a',
+        'border_strong': '#8c6ab8', 'text': '#eafcff', 'text_muted': '#b3a6d6', 'text_disabled': '#6f6296',
+        'accent': '#00e5f2', 'accent_text': '#061721', 'accent_soft': '#183848', 'accent_soft_text': '#b8faff',
+        'accent_hover': '#5cf2fa', 'danger': '#ff638c', 'danger_text': '#0b0714', 'success': '#65e5ba',
+        'warning': '#fcee0a', 'selection': '#183848', 'brand': '#fcee0a', 'focus_ring': '#fcee0a',
         'neon_magenta': '#ff2a6d', 'neon_cyan': '#00f0ff', 'neon_yellow': '#fcee0a', 'neon_violet': '#b967ff',
     },
-    # NOVA styles (nova-style): Aurora — northern lights, Sakura — warm light, Ocean — deep blue.
+    # NOVA styles (nova-style): Aurora — northern lights
     'aurora': {
-        'bg': '#071417', 'surface': '#0d1f24', 'surface_alt': '#12292f',
-        'border': '#1f3d45', 'border_strong': '#2f5a64',
-        'text': '#e6fbf6', 'text_muted': '#9cc7bd', 'text_disabled': '#5d8078',
-        'accent': '#3ee6b0', 'accent_text': '#04130f', 'accent_soft': '#0f3a30',
-        'accent_soft_text': '#b8f7e3', 'accent_hover': '#6af0c4',
-        'danger': '#ff7a8a', 'danger_text': '#1a0508', 'success': '#5ee38f',
-        'warning': '#f6c56b', 'selection': '#1c4a52', 'brand': '#8af5d2',
+        'bg': '#071417', 'surface': '#0d1f24', 'surface_alt': '#153038', 'border': '#1f3d45',
+        'border_strong': '#5c9b9d', 'text': '#e6fbf6', 'text_muted': '#9cc7bd', 'text_disabled': '#5d8078',
+        'accent': '#3ee6b0', 'accent_text': '#062720', 'accent_soft': '#193b35', 'accent_soft_text': '#b6ffe3',
+        'accent_hover': '#6af0c4', 'danger': '#fa818a', 'danger_text': '#1a0508', 'success': '#52dca0',
+        'warning': '#f4c578', 'selection': '#193b35', 'brand': '#8af5d2', 'focus_ring': '#8af5d2',
     },
+    # Sakura — warm and soft, macOS-like (border_strong at 3:1)
     'sakura': {
-        'bg': '#fbf6f7', 'surface': '#ffffff', 'surface_alt': '#f6eaee',
-        'border': '#ecd9df', 'border_strong': '#dcbfc9',
-        'text': '#2a1d22', 'text_muted': '#6b5560', 'text_disabled': '#a3929a',
-        'accent': '#c2185b', 'accent_text': '#ffffff', 'accent_soft': '#fadbe7',
-        'accent_soft_text': '#8e1043', 'accent_hover': '#a3144c',
-        'danger': '#b3261e', 'danger_text': '#ffffff', 'success': '#1c7c4b',
-        'warning': '#8a5a00', 'selection': '#f7cddd', 'brand': '#a3144c',
+        'bg': '#fbf6f7', 'surface': '#ffffff', 'surface_alt': '#f6eaee', 'border': '#ecd9df',
+        'border_strong': '#a17e8c', 'text': '#2a1d22', 'text_muted': '#6b5560', 'text_disabled': '#a3929a',
+        'accent': '#c2185b', 'accent_text': '#ffffff', 'accent_soft': '#fadbe7', 'accent_soft_text': '#7c1541',
+        'accent_hover': '#a3144c', 'danger': '#bd2851', 'danger_text': '#ffffff', 'success': '#177f54',
+        'warning': '#845100', 'selection': '#fadbe7', 'brand': '#a3144c', 'focus_ring': '#c2185b',
     },
+    # Ocean — crisp deep blue, Windows 11-like
     'ocean': {
-        'bg': '#06101f', 'surface': '#0c1a30', 'surface_alt': '#12233d',
-        'border': '#1d3352', 'border_strong': '#2c4a72',
-        'text': '#e7f0ff', 'text_muted': '#9fb4d6', 'text_disabled': '#5f7396',
-        'accent': '#38bdf8', 'accent_text': '#03111f', 'accent_soft': '#0f2f4d',
-        'accent_soft_text': '#bfe6ff', 'accent_hover': '#67cdfa',
-        'danger': '#ff6b77', 'danger_text': '#1a0508', 'success': '#4ade80',
-        'warning': '#fbbf24', 'selection': '#1e3a5f', 'brand': '#7dd3fc',
+        'bg': '#06101f', 'surface': '#0c1a30', 'surface_alt': '#122744', 'border': '#1d3352',
+        'border_strong': '#5d789e', 'text': '#e7f0ff', 'text_muted': '#9fb4d6', 'text_disabled': '#5f7396',
+        'accent': '#38bdf8', 'accent_text': '#072237', 'accent_soft': '#173b55', 'accent_soft_text': '#cfedff',
+        'accent_hover': '#67cdfa', 'danger': '#f77c9b', 'danger_text': '#1a0508', 'success': '#4bdbb7',
+        'warning': '#fac870', 'selection': '#173b55', 'brand': '#7dd3fc', 'focus_ring': '#7dd3fc',
     },
 }
 
@@ -211,7 +210,8 @@ def build_stylesheet(variant: str = 'light') -> str:
     if variant not in TOKENS:
         variant = 'light'
     t = TOKENS[variant]
-    r, s, h = RADIUS, SPACING, CONTROL_HEIGHT
+    r, s, h = RADII.get(variant, RADIUS), SPACING, CONTROL_HEIGHT
+    f = t.get('focus_ring', t['accent'])
     title = {'neon': 'NEON//SYS'}.get(variant, f'NOVA Air {variant}' if variant in VARIANTS else f'NOVA {variant.title()}')
     return f"""/* {title} — generated by nova_ui.py (do not edit by hand) */
 QWidget {{ background: {t['bg']}; color: {t['text']}; font-family: {FONT_STACK}; font-size: {BASE_FONT_PX}px; }}
@@ -225,18 +225,19 @@ QLabel#status-ok {{ color: {t['success']}; font-weight: 600; }}
 QLabel#status-warn {{ color: {t['warning']}; font-weight: 600; }}
 QFrame#card {{ background: {t['surface']}; border: 1px solid {t['border']}; border-radius: {r['l']}px; }}
 QFrame#card QLabel, QFrame#card QCheckBox, QFrame#card QRadioButton {{ background: transparent; }}
+QFrame#card[active="true"] {{ border: 2px solid {t['accent']}; }}
 QListWidget, QTableWidget, QTreeWidget, QTextEdit, QPlainTextEdit {{ background: {t['surface']}; color: {t['text']}; border: 1px solid {t['border']}; border-radius: {r['m']}px; padding: {s['xs']}px; outline: 0; alternate-background-color: {t['surface_alt']}; selection-background-color: {t['selection']}; selection-color: {t['text']}; }}
 QListWidget::item {{ padding: 9px 11px; border-radius: {r['s']}px; min-height: 20px; }}
 QListWidget::item:hover {{ background: {t['surface_alt']}; }}
 QListWidget::item:selected, QTableWidget::item:selected, QTreeWidget::item:selected {{ background: {t['accent_soft']}; color: {t['accent_soft_text']}; }}
 QListWidget::item:selected {{ border-left: 3px solid {t['accent']}; font-weight: 600; }}
 QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox {{ background: {t['surface']}; color: {t['text']}; border: 1px solid {t['border_strong']}; border-radius: {r['m']}px; padding: 6px 10px; min-height: {h - 14}px; selection-background-color: {t['selection']}; selection-color: {t['text']}; }}
-QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus {{ border: 2px solid {t['accent']}; }}
+QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus {{ border: 2px solid {f}; }}
 QComboBox QAbstractItemView {{ background: {t['surface']}; color: {t['text']}; border: 1px solid {t['border_strong']}; selection-background-color: {t['accent_soft']}; selection-color: {t['accent_soft_text']}; }}
 QPushButton {{ background: {t['surface']}; color: {t['text']}; border: 1px solid {t['border_strong']}; border-radius: {r['m']}px; padding: 7px 16px; min-height: {h - 16}px; font-weight: 600; text-align: center; }}
 QPushButton:hover {{ background: {t['surface_alt']}; border-color: {t['accent']}; }}
 QPushButton:pressed {{ background: {t['accent_soft']}; }}
-QPushButton:focus {{ border: 2px solid {t['accent']}; }}
+QPushButton:focus {{ border: 2px solid {f}; }}
 QPushButton:disabled {{ color: {t['text_disabled']}; border-color: {t['border']}; background: {t['surface_alt']}; }}
 QPushButton[variant="primary"] {{ background: {t['accent']}; color: {t['accent_text']}; border: 1px solid {t['accent']}; text-align: center; }}
 QPushButton[variant="primary"]:hover {{ background: {t['accent_hover']}; }}

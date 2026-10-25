@@ -1,0 +1,20 @@
+{
+    "KPackageStructure": "Plasma/LookAndFeel",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "NOVA OS community project"
+            }
+        ],
+        "Category": "",
+        "Description": "NOVA style Aurora",
+        "Description[ru]": "Стиль NOVA: Северное сияние, мятные тона",
+        "Id": "org.nova.aurora.desktop",
+        "License": "GPL-2.0-or-later",
+        "Name": "NOVA Aurora",
+        "Name[ru]": "NOVA Aurora",
+        "Version": "0.12",
+        "Website": ""
+    },
+    "X-Plasma-APIVersion": "2"
+}

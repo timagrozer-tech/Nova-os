@@ -216,7 +216,7 @@ def look_commands() -> list[list[str]]:
 
 def restore_look_commands(state: dict) -> list[list[str]]:
     variant = state.get('prev_lnf', 'light')
-    if variant not in ('light', 'dark', 'kde-default'):
+    if variant == 'neon' or variant not in (*layout.LNF, 'kde-default'):
         variant = 'light'
     return [
         layout.lookandfeel_command(variant),

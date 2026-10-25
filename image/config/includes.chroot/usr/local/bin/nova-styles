@@ -1,0 +1,297 @@
+#!/usr/bin/env python3
+"""NOVA — «Стили и функции»: one-tap styles, the day/night autopilot and desktop effects.
+
+Every action goes through `nova-style` (user level). «Вернуть как было» restores
+the panel, theme, wallpaper and effects that were in place before the first change.
+"""
+import shutil
+import sys
+from datetime import datetime
+
+import nova_sky_core as sky
+import nova_styles_core as core
+import nova_ui as ui
+from PyQt6.QtCore import QRectF, Qt
+from PyQt6.QtGui import QColor, QFont, QLinearGradient, QPainter, QPainterPath, QPixmap
+from PyQt6.QtWidgets import (QApplication, QCheckBox, QFrame, QHBoxLayout, QLabel, QLineEdit, QMainWindow,
+                             QSizePolicy, QTextEdit, QVBoxLayout, QWidget)
+
+
+class StyleCard(QFrame):
+    """Wallpaper preview with a micro dock, title, note, palette dots and «Применить»."""
+
+    def __init__(self, sid, active, on_apply):
+        super().__init__()
+        st = core.STYLES[sid]
+        self.setObjectName('card')
+        self.setProperty('active', active)
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(10, 10, 10, 12)
+        lay.setSpacing(8)
+        self.preview = QLabel()
+        self.preview.setMinimumHeight(118)
+        self.preview.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.preview.setAccessibleName(f'Превью стиля {st["title"]}')
+        self.pixmap = QPixmap(str(core.thumbnail(sid)))
+        self.accent = QColor(st['palette'][1])
+        lay.addWidget(self.preview)
+        row = QHBoxLayout()
+        text = QVBoxLayout()
+        text.setSpacing(2)
+        title = QLabel(st['title'])
+        title.setObjectName('heading')
+        text.addWidget(title)
+        note = QLabel(f'{st["note"]} · {st["layout_title"]}')
+        note.setObjectName('description')
+        note.setWordWrap(True)
+        text.addWidget(note)
+        dots = QHBoxLayout()
+        dots.setSpacing(4)
+        for color in st['palette']:
+            d = QLabel()
+            d.setFixedSize(14, 14)
+            d.setStyleSheet(f'background:{color};border-radius:7px;border:1px solid rgba(127,127,127,0.5);')
+            dots.addWidget(d)
+        dots.addStretch(1)
+        text.addLayout(dots)
+        row.addLayout(text, 1)
+        button = ui.make_button('Используется' if active else 'Применить', lambda: on_apply(sid),
+                                'secondary' if active else 'primary',
+                                f'Применить стиль {st["title"]}. Прежний вид сохраняется.')
+        button.setEnabled(not active)
+        row.addWidget(button, 0, Qt.AlignmentFlag.AlignBottom)
+        lay.addLayout(row)
+
+    def resizeEvent(self, event):  # noqa: N802 (Qt API)
+        self.render_preview()
+        super().resizeEvent(event)
+
+    def render_preview(self):
+        w, h = max(80, self.preview.width()), 118
+        canvas = QPixmap(w, h)
+        canvas.fill(QColor(0, 0, 0, 0))
+        p = QPainter(canvas)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        clip = QPainterPath()
+        clip.addRoundedRect(QRectF(0, 0, w, h), 10, 10)
+        p.setClipPath(clip)
+        if not self.pixmap.isNull():
+            scaled = self.pixmap.scaled(w, h, Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                                        Qt.TransformationMode.SmoothTransformation)
+            p.drawPixmap((w - scaled.width()) // 2, (h - scaled.height()) // 2, scaled)
+        else:
+            g = QLinearGradient(0, 0, 0, h)
+            g.setColorAt(0, QColor('#25336e'))
+            g.setColorAt(1, self.accent)
+            p.fillRect(0, 0, w, h, g)
+        dock_w, dock_h = 92, 16            # micro dock, like the panel of the style
+        p.setBrush(QColor(255, 255, 255, 190))
+        p.setPen(Qt.PenStyle.NoPen)
+        p.drawRoundedRect(QRectF((w - dock_w) / 2, h - dock_h - 7, dock_w, dock_h), 8, 8)
+        for i in range(5):
+            p.setBrush(self.accent if i == 1 else QColor(60, 70, 90, 170))
+            p.drawRoundedRect(QRectF((w - dock_w) / 2 + 8 + i * 16, h - dock_h - 3, 10, 8), 3, 3)
+        p.end()
+        self.preview.setPixmap(canvas)
+
+
+class SunBar(QWidget):
+    """Night → sunrise → day → sunset → night, with today's times and the sun marker at «now»."""
+
+    def __init__(self):
+        super().__init__()
+        self.setMinimumHeight(44)
+        self.events = {'sunrise': None, 'sunset': None}
+        self.now = datetime.now().astimezone()
+
+    def set_events(self, events, now):
+        self.events, self.now = events, now
+        self.update()
+
+    def paintEvent(self, _event):  # noqa: N802 (Qt API)
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        w, h = self.width(), self.height()
+        frac = lambda t: (t.hour * 60 + t.minute) / 1440 if t else None   # noqa: E731
+        rise = frac(self.events['sunrise'].astimezone(self.now.tzinfo)) if self.events['sunrise'] else 0.3
+        sett = frac(self.events['sunset'].astimezone(self.now.tzinfo)) if self.events['sunset'] else 0.7
+        g = QLinearGradient(0, 0, w, 0)
+        g.setColorAt(0, QColor('#28345d'))
+        g.setColorAt(max(0.01, rise - 0.03), QColor('#3a3f78'))
+        g.setColorAt(rise, QColor('#fab17a'))
+        g.setColorAt(min(0.98, rise + 0.08), QColor('#91d9f0'))
+        g.setColorAt(max(0.02, sett - 0.06), QColor('#91d9f0'))
+        g.setColorAt(sett, QColor('#f08a6b'))
+        g.setColorAt(min(0.99, sett + 0.04), QColor('#3a3f78'))
+        g.setColorAt(1, QColor('#223463'))
+        path = QPainterPath()
+        path.addRoundedRect(QRectF(0, 0, w, h), 11, 11)
+        p.fillPath(path, g)
+        f = QFont(self.font())
+        f.setPixelSize(11)
+        f.setBold(True)
+        p.setFont(f)
+        p.setPen(QColor('#ffffff'))
+        for t, x in ((self.events['sunrise'], rise), (self.events['sunset'], sett)):
+            if t:
+                p.drawText(QRectF(x * w - 30, h - 18, 60, 14), Qt.AlignmentFlag.AlignCenter,
+                           t.astimezone(self.now.tzinfo).strftime('%H:%M'))
+        nx = frac(self.now) * w
+        p.setBrush(QColor('#ffefba'))
+        p.setPen(QColor(0, 0, 0, 60))
+        p.drawEllipse(QRectF(nx - 8, 6, 16, 16))
+        p.end()
+
+
+class Styles(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        ui.setup_window(self, 'NOVA — стили и функции', size=(1180, 800), app_id='nova-styles')
+        root = QWidget()
+        outer = QVBoxLayout(root)
+        outer.setContentsMargins(20, 16, 20, 12)
+        top = QHBoxLayout()
+        top.addWidget(ui.header('Стили и функции', 'Настройте характер системы: оформление, обои и полезные эффекты. '
+                                                   'Прежний вид всегда можно вернуть одной кнопкой.'), 1)
+        top.addWidget(ui.make_button('Вернуть как было', self.revert, 'secondary',
+                                     'Вернуть панель, тему, обои и эффекты, которые были до первого изменения'),
+                      0, Qt.AlignmentFlag.AlignTop)
+        outer.addLayout(top)
+        page, self.lay = ui.scroll_page()
+        outer.addWidget(page, 1)
+        self.state = core.load_state()
+        self.build()
+        self.setCentralWidget(root)
+
+    def build(self):
+        # Style catalogue
+        head = QLabel('Выберите стиль')
+        head.setObjectName('heading')
+        ui.add_to_page(self.lay, head)
+        grid = ui.responsive_grid(min_column=250, maximum=4)
+        current = self.state.get('style')
+        for sid in core.STYLE_ORDER:
+            grid.add(StyleCard(sid, sid == current, self.apply))
+        ui.add_to_page(self.lay, grid)
+
+        lower = ui.responsive_grid(min_column=360, maximum=2)
+        # Autopilot
+        frame, box = ui.card('Автопилот «День / ночь»',
+                             'Светлая тема днём и тёмная ночью — по настоящему восходу и закату. '
+                             'Солнце считается на этом компьютере, без интернета.')
+        self.autopilot = QCheckBox('Менять тему автоматически (стиль Horizon)')
+        self.autopilot.setChecked(bool(self.state.get('autopilot')))
+        self.autopilot.toggled.connect(lambda on: self.cli(['autopilot', 'on' if on else 'off']))
+        box.addWidget(self.autopilot)
+        self.sunbar = SunBar()
+        box.addWidget(self.sunbar)
+        self.sun_text = QLabel()
+        self.sun_text.setObjectName('description')
+        self.sun_text.setWordWrap(True)
+        box.addWidget(self.sun_text)
+        row = QHBoxLayout()
+        self.coords = QLineEdit()
+        self.coords.setPlaceholderText('Широта, долгота — например 55.75, 37.62')
+        self.coords.setAccessibleName('Координаты для расчёта солнца')
+        row.addWidget(self.coords, 1)
+        row.addWidget(ui.make_button('Задать место', self.set_location))
+        row.addWidget(ui.make_button('По часовому поясу', lambda: self.cli(['location', 'clear'], self.refresh_sun)))
+        box.addLayout(row)
+        lower.add(frame)
+
+        # Features
+        frame, box = ui.card('Функции рабочего стола', 'Лучшее из macOS и Windows 11 — включается одним касанием.')
+        for fid in core.FEATURE_ORDER:
+            title, desc, _w = core.FEATURES[fid]
+            cb = QCheckBox(title)
+            cb.setChecked(core.feature_enabled(fid))
+            cb.setToolTip(desc)
+            cb.toggled.connect(lambda on, f=fid: self.cli(['feature', f, 'on' if on else 'off']))
+            box.addWidget(cb)
+            d = QLabel(desc)
+            d.setObjectName('description')
+            d.setWordWrap(True)
+            d.setContentsMargins(28, 0, 0, 4)
+            box.addWidget(d)
+        for title, desc in core.BUILTIN_FEATURES:
+            d = QLabel(f'<b>{title}</b> — {desc}')
+            d.setWordWrap(True)
+            box.addWidget(d)
+        lower.add(frame)
+        ui.add_to_page(self.lay, lower)
+
+        # Log
+        frame, box = ui.card('Журнал', '')
+        status = QHBoxLayout()
+        self.busy = ui.busy_indicator()
+        status.addWidget(self.busy)
+        self.state_label = QLabel('Готово.')
+        self.state_label.setObjectName('description')
+        status.addWidget(self.state_label, 1)
+        box.addLayout(status)
+        self.log = QTextEdit()
+        self.log.setReadOnly(True)
+        self.log.setMinimumHeight(80)
+        box.addWidget(self.log)
+        ui.add_to_page(self.lay, frame)
+        self.runner = ui.process_runner(self, self.log, self.busy)
+        self.refresh_sun()
+
+    def refresh_sun(self, *_):
+        info = sky.location_info()
+        now = datetime.now().astimezone()
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        ev = sky.sun_events(start, info['lat'], info['lon'])
+        self.sunbar.set_events(ev, now)
+        day = sky.is_day(now, info['lat'], info['lon'])
+        exact = 'место задано вручную' if info['source'] == 'manual' else \
+            'место приближённо по часовому поясу — для точности задайте координаты'
+        fmt = lambda t: t.astimezone(now.tzinfo).strftime('%H:%M') if t else '—'   # noqa: E731
+        nxt = ev['sunset'] if day else ev['sunrise']
+        self.sun_text.setText(f'Сейчас {"день" if day else "ночь"}. Восход {fmt(ev["sunrise"])}, закат {fmt(ev["sunset"])}; '
+                              f'следующая смена темы ≈ {fmt(nxt)}. {info["label"]}: {exact}.')
+
+    def cli(self, args, after=None):
+        if not shutil.which('nova-style'):
+            ui.error(self, 'NOVA', 'Команда nova-style не найдена.')
+            return
+        self.state_label.setText('Применяется: nova-style ' + ' '.join(args))
+        self.runner(['nova-style', *args], on_finished=lambda code: (
+            self.state_label.setText('Готово.' if code == 0 else f'Ошибка (код {code}). Подробности в журнале.'),
+            after() if after else None))
+
+    def apply(self, sid):
+        st = core.STYLES[sid]
+        self.cli(['apply', sid], after=self.reload)
+        self.state_label.setText(f'Применяется стиль {st["title"]}… Прежний вид сохранён — «Вернуть как было».')
+
+    def set_location(self):
+        try:
+            lat, lon = sky.parse_latlon(self.coords.text())
+        except ValueError as exc:
+            ui.error(self, 'Место для неба', str(exc))
+            return
+        self.cli(['location', f'{lat}, {lon}'], self.refresh_sun)
+
+    def revert(self):
+        if ui.confirm(self, 'Вернуть как было?',
+                      'Вернутся панель, тема, обои и эффекты, которые были до первого изменения. '
+                      'Plasma перезапустится, открытые окна не закроются.', yes='Вернуть'):
+            self.cli(['revert'], after=self.reload)
+
+    def reload(self):
+        self.state = core.load_state()
+        self.setStyleSheet(ui.stylesheet())
+
+
+def main():
+    app = QApplication(sys.argv)
+    app.setApplicationName('NOVA Styles')
+    app.setDesktopFileName('nova-styles')
+    window = Styles()
+    window.show()
+    return app.exec()
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

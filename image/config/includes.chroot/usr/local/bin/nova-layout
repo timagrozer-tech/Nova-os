@@ -110,6 +110,9 @@ def cmd_apply(args):
 
 def cmd_theme(args):
     import nova_neon_core as neon
+    if args.variant in ('aurora', 'sakura', 'ocean'):
+        run(['nova-style', *(['--dry-run'] if DRY else []), 'apply', args.variant, '--keep-layout'])
+        return
     if args.variant == 'neon':
         # Full NEON look (colours, sounds, Konsole, live wallpaper) without touching panels.
         run(['nova-neon', '--dry-run', 'apply', '--look-only'] if DRY else ['nova-neon', 'apply', '--look-only'])

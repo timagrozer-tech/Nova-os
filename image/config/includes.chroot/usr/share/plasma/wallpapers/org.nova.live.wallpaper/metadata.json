@@ -1,0 +1,19 @@
+{
+    "KPackageStructure": "Plasma/Wallpaper",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "NOVA OS community project"
+            }
+        ],
+        "Description": "Living wallpapers: real sky, aurora, sakura, moonlit ocean (QML, no extra software)",
+        "Description[ru]": "Живые обои: настоящее небо, северное сияние, сакура, лунный океан",
+        "Icon": "preferences-desktop-wallpaper",
+        "Id": "org.nova.live.wallpaper",
+        "License": "GPL-2.0-or-later",
+        "Name": "NOVA Live",
+        "Name[ru]": "NOVA Live — живые обои",
+        "Version": "0.12"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0"
+}

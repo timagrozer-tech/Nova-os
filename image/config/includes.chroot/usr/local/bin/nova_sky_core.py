@@ -54,6 +54,54 @@ def current_timezone(etc: str | os.PathLike = '/etc') -> str | None:
         return None
 
 
+def override_path(home=None) -> Path:
+    return (Path(home) if home else Path.home()) / '.config/nova/location.json'
+
+
+def load_override(home=None) -> tuple[float, float, str] | None:
+    """Location the user entered by hand (city or coordinates) — more exact than the time zone."""
+    import json
+    try:
+        data = json.loads(override_path(home).read_text(encoding='utf-8'))
+        lat, lon = float(data['lat']), float(data['lon'])
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        return None
+    label = str(data.get('label', ''))[:60] or f'{lat:.2f}, {lon:.2f}'
+    return lat, lon, label
+
+
+def save_override(lat: float, lon: float, label: str = '', home=None) -> Path:
+    import json
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        raise ValueError('широта от -90 до 90, долгота от -180 до 180')
+    path = override_path(home)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({'lat': round(lat, 4), 'lon': round(lon, 4), 'label': label[:60]},
+                               ensure_ascii=False), encoding='utf-8')
+    return path
+
+
+def parse_latlon(text: str) -> tuple[float, float]:
+    m = re.fullmatch(r'\s*([+-]?\d{1,2}(?:[.,]\d+)?)\s*[,; ]\s*([+-]?\d{1,3}(?:[.,]\d+)?)\s*', text or '')
+    if not m:
+        raise ValueError('координаты в виде «55.75, 37.62»')
+    lat, lon = (float(g.replace(',', '.')) for g in m.groups())
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        raise ValueError('широта от -90 до 90, долгота от -180 до 180')
+    return lat, lon
+
+
+def location_info(home=None) -> dict:
+    """Where the sky is computed for, and how exact that is (shown honestly in the UI)."""
+    manual = load_override(home)
+    if manual:
+        return {'lat': manual[0], 'lon': manual[1], 'label': manual[2], 'source': 'manual'}
+    lat, lon, tz = location()
+    return {'lat': lat, 'lon': lon, 'label': tz, 'source': 'timezone'}
+
+
 def location(tz: str | None = None, table: str | os.PathLike = ZONE_TAB) -> tuple[float, float, str]:
     tz = tz or current_timezone()
     try:
@@ -97,13 +145,15 @@ def is_day(when: datetime | None = None, lat: float | None = None, lon: float | 
     """Daylight for the autopilot: sun above `threshold` degrees (a little after sunset → dark)."""
     when = when or datetime.now(timezone.utc)
     if lat is None or lon is None:
-        lat, lon, _tz = location()
+        info = location_info()
+        lat, lon = info['lat'], info['lon']
     return sun_position(when, lat, lon)['elevation'] > threshold
 
 
 def describe(when: datetime | None = None) -> str:
     when = when or datetime.now(timezone.utc)
-    lat, lon, tz = location()
+    info = location_info()
+    lat, lon, tz = info['lat'], info['lon'], info['label']
     sun = sun_position(when, lat, lon)
     phase = moon_phase(when)
     names = ((0.03, 'новолуние'), (0.22, 'растущий серп'), (0.28, 'первая четверть'), (0.47, 'растущая луна'),
@@ -112,3 +162,19 @@ def describe(when: datetime | None = None) -> str:
     moon = next(n for limit, n in names if phase < limit)
     return (f'{tz}: широта {lat:.2f}, долгота {lon:.2f}; Солнце {sun["elevation"]:+.1f}° над горизонтом, '
             f'азимут {sun["azimuth"]:.0f}°; Луна: {moon}')
+
+
+def sun_events(day_start: datetime, lat: float, lon: float, step_minutes: int = 2) -> dict:
+    """Sunrise/sunset (sun centre at -0.833°) within 24 h from `day_start` (aware datetime)."""
+    from datetime import timedelta
+    events = {'sunrise': None, 'sunset': None}
+    prev = sun_position(day_start, lat, lon)['elevation']
+    for i in range(1, 24 * 60 // step_minutes + 1):
+        t = day_start + timedelta(minutes=i * step_minutes)
+        e = sun_position(t, lat, lon)['elevation']
+        if prev < -0.833 <= e and events['sunrise'] is None:
+            events['sunrise'] = t
+        if prev >= -0.833 > e and events['sunset'] is None:
+            events['sunset'] = t
+        prev = e
+    return events

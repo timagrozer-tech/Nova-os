@@ -1,0 +1,7 @@
+[Unit]
+Description=NOVA day/night autopilot (light theme by day, dark at night)
+Documentation=file:///usr/share/doc/nova/NEON_RU.md
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/nova-style autopilot tick

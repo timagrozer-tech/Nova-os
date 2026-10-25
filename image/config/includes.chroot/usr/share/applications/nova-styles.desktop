@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=NOVA Styles
+Name[ru]=NOVA — стили и функции
+Comment=Styles, living wallpapers, day/night autopilot and desktop effects
+Comment[ru]=Стили оформления, живые обои, автопилот день/ночь и эффекты рабочего стола
+Exec=nova-styles
+Icon=preferences-desktop-theme-global
+Terminal=false
+Categories=Settings;DesktopSettings;
+Keywords=style;theme;wallpaper;aurora;sakura;ocean;horizon;neon;autopilot;стиль;тема;обои;автопилот;эффекты;

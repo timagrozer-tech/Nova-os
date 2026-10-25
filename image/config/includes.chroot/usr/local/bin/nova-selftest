@@ -265,7 +265,7 @@ def main(argv=None):
     parser.add_argument('--output', help='сохранить отчёт в файл (не перезаписывает существующий)')
     parser.add_argument('--ui-smoke', metavar='DIR')
     parser.add_argument('--apps', help='список приложений через запятую для --ui-smoke')
-    parser.add_argument('--themes', default='light', help='light,dark,neon для --ui-smoke')
+    parser.add_argument('--themes', default='light', help='light,dark,neon,aurora,sakura,ocean для --ui-smoke')
     parser.add_argument('--session-exec', nargs=argparse.REMAINDER)
     args = parser.parse_args(argv)
 
@@ -278,7 +278,7 @@ def main(argv=None):
 
     if args.ui_smoke:
         apps = [a for a in (args.apps or '').split(',') if a] or None
-        themes = tuple(t for t in args.themes.split(',') if t in ('light', 'dark', 'neon')) or ('light',)
+        themes = tuple(t for t in args.themes.split(',') if t in ('light', 'dark', 'neon', 'aurora', 'sakura', 'ocean')) or ('light',)
         report = ui_smoke(Path(args.ui_smoke), apps=apps, themes=themes)
     else:
         report = gather()

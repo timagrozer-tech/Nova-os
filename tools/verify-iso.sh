@@ -103,6 +103,8 @@ if xorriso -osirrox on -indev "$ISO" -extract /live/filesystem.squashfs "$tmp/fs
   have '/usr/share/color-schemes/NovaNeon\.colors'  "NEON//SYS colour scheme"
   maybe '/usr/share/fonts/truetype/nova-neon/Orbitron-Variable\.ttf' "NEON//SYS fonts (Orbitron, Share Tech Mono)"
   maybe '/usr/share/plymouth/themes/nova/nova\.plymouth' "NOVA boot splash (Plymouth)"
+  have '/usr/share/plasma/wallpapers/org\.nova\.live\.wallpaper/contents/ui/main\.qml' "NOVA Live wallpaper (QML)"
+  have '/usr/local/bin/nova-styles'                 "NOVA Styles and features"
   maybe '/usr/sbin/zramswap'                        "zram-tools (swap in compressed RAM)"
   for app in nova-control nova-personalize nova-layout nova-selftest nova-first-run nova-defender \
              nova-task-manager nova-update-center nova-driver-center nova-android-hub nova-dualboot \

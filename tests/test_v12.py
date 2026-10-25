@@ -201,12 +201,13 @@ class VerifyIsoScript(unittest.TestCase):
              '/usr/share/plasma/look-and-feel/org.nova.neon.desktop/metadata.json',
              '/usr/share/plasma/wallpapers/org.nova.neon.wallpaper/contents/ui/main.qml',
              '/usr/share/color-schemes/NovaNeon.colors',
+             '/usr/share/plasma/wallpapers/org.nova.live.wallpaper/contents/ui/main.qml',
              '/usr/sbin/qemu-ga', '/etc/xdg/kglobalshortcutsrc', '/usr/bin/kscreen-doctor', '/usr/bin/ddcutil',
              ] + [f'/usr/local/bin/{a}' for a in (
                  'nova-display', 'nova-hotkeys', 'nova-game-bar', 'nova-key', 'nova-control', 'nova-personalize', 'nova-layout', 'nova-selftest', 'nova-first-run', 'nova-defender',
                  'nova-task-manager', 'nova-update-center', 'nova-driver-center', 'nova-android-hub', 'nova-dualboot',
                  'nova-migration', 'nova-sound-studio', 'nova-gaming', 'nova-phone-hub', 'nova-health', 'nova-performance',
-                 'nova-neon', 'nova-neon-center')]
+                 'nova-neon', 'nova-neon-center', 'nova-styles')]
 
     def _stubs(self, tmp, uefi=True, files=None):
         stub = Path(tmp) / 'stub'

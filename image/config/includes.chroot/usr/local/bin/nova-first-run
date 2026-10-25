@@ -24,6 +24,7 @@ PAGES = (
      'Прежняя раскладка сохраняется, вернуть KDE по умолчанию можно в любой момент.',
      [('Персонализация NOVA','nova-personalize'),
       ('Светлая тема',('nova-layout','theme','light')),('Тёмная тема',('nova-layout','theme','dark')),
+      ('Стили и функции','nova-styles'),
       ('NEON//SYS — киберпанк',('nova-neon','apply')),('Центр NEON//SYS','nova-neon-center'),
       ('Режим Windows-like',('nova-layout','apply','windows')),('Режим Dock-like',('nova-layout','apply','dock')),
       ('Режим Hybrid',('nova-layout','apply','hybrid'))]),

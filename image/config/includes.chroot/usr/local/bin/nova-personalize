@@ -47,6 +47,8 @@ class Personalize(QMainWindow):
             radio.toggled.connect(lambda on, k=key: on and self.cli(['theme', k]))
             self.theme_group.addButton(radio)
             box.addWidget(radio)
+        box.addWidget(ui.make_button('Все стили, живые обои и эффекты…',
+                                     lambda: subprocess.Popen(['nova-styles'], start_new_session=True), 'primary'))
         box.addWidget(ui.make_button('NEON//SYS: живые обои, виджеты, режимы…',
                                      lambda: subprocess.Popen(['nova-neon-center'], start_new_session=True)))
         grid.add(frame)

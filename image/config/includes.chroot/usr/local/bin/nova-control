@@ -128,6 +128,9 @@ class Control(QMainWindow):
         v = self.card(lay, 'NEON//SYS — киберпанк', 'Встроенное неоновое оформление: HUD-панель, док, живые QML-обои, '
                       'виджеты, звуки и режимы WORK/GAME/NIGHT/FOCUS. Без сторонних программ, прежний вид возвращается.')
         self.button(v, 'Центр NEON//SYS (Win+Alt+N)', lambda: self.open('nova-neon-center'))
+        v = self.card(lay, 'Стили и функции', '7 стилей (NOVA Air, NEON//SYS, Aurora, Sakura, Ocean, Horizon), живые обои, '
+                      'автопилот день/ночь и эффекты как в macOS и Windows 11.')
+        self.button(v, 'Открыть «Стили и функции»', lambda: self.open('nova-styles'), 'primary')
         out = None
         v = self.card(lay, 'Быстрое переключение режима', 'Текущая раскладка сохраняется в ~/.local/share/nova/layout-backups.')
         out = self.log(v, 80)
@@ -157,6 +160,7 @@ class Control(QMainWindow):
         v = self.card(lay, 'Панель быстрых действий', 'Один клик для основных инструментов без терминала.')
         for text, command in [
             ('NOVA Персонализация', 'nova-personalize'),
+            ('Стили и функции', 'nova-styles'),
             ('NEON//SYS — киберпанк-оформление', 'nova-neon-center'),
             ('NOVA — дисплеи и частота', 'nova-display'),
             ('NOVA — горячие клавиши', 'nova-hotkeys'),

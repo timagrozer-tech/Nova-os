@@ -22,6 +22,9 @@ OVERLAY = ROOT / 'image/config/includes.chroot'
 WALLPAPER = OVERLAY / 'usr/share/plasma/wallpapers/org.nova.neon.wallpaper/contents/ui/main.qml'
 SPLASH = OVERLAY / 'usr/share/plasma/look-and-feel/org.nova.neon.desktop/contents/splash/Splash.qml'
 SLIDES = OVERLAY / 'usr/share/nova/calamares/show.qml'
+LIVE = OVERLAY / 'usr/share/plasma/wallpapers/org.nova.live.wallpaper/contents/ui'
+# Living Sky over Moscow on 25 Oct 2026 (UTC ms): midnight, dawn, noon, sunset
+SKY_TIMES = {'night': 1792962000000, 'dawn': 1792901100000, 'day': 1792918800000, 'sunset': 1792936800000}
 FONTS = OVERLAY / 'usr/share/fonts/truetype/nova-neon'
 SCENES = ('synth', 'city', 'rain', 'circuit')
 
@@ -107,6 +110,8 @@ def main(argv):
     report = {}
     jobs = [(f'wallpaper-{s}', WALLPAPER, {'neonTestScene': s}) for s in SCENES]
     jobs.append(('splash', SPLASH, {'neonTestScene': 'auto'}))
+    jobs += [(f'live-{s}', LIVE / 'main.qml', {'neonTestScene': s}) for s in ('aurora', 'sakura', 'ocean', 'sky')]
+    jobs += [(f'sky-{name}', LIVE / 'SkyScene.qml', {'neonTestScene': 'sky', '_now': ms}) for name, ms in SKY_TIMES.items()]
     # The slides reference /usr/share/nova/...: point a temporary copy at the repository overlay.
     slides = stubs / 'show.qml'
     slides.write_text(SLIDES.read_text(encoding='utf-8').replace('file:///usr/share/', f'file://{OVERLAY}/usr/share/'),
@@ -117,13 +122,18 @@ def main(argv):
         view = QQuickView()
         view.engine().addImportPath(str(stubs))
         for key, value in context.items():
-            view.rootContext().setContextProperty(key, value)
+            if not key.startswith('_'):
+                view.rootContext().setContextProperty(key, value)
         view.setResizeMode(QQuickView.ResizeMode.SizeRootObjectToView)
         view.resize(1280, 720)
         view.setSource(QUrl.fromLocalFile(str(qml)))
         errors = [e.toString() for e in view.errors()]
         if view.rootObject() is not None and name == 'splash':
             view.rootObject().setProperty('stage', 4)
+        if view.rootObject() is not None and '_now' in context:
+            view.rootObject().setProperty('now', float(context['_now']))
+            view.rootObject().setProperty('latitude', 55.7558)
+            view.rootObject().setProperty('longitude', 37.6176)
         view.show()
         wait(1500)          # let the scene's timer run ~45 frames
         image = view.grabWindow()
