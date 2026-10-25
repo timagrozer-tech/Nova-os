@@ -20,7 +20,7 @@ async function draw() {
     const t = i / N, x = -0.06 * W + t * 1.12 * W;
     const y = H * (y0 + amp * Math.sin(t * 4.6 + ph) + 0.03 * Math.sin(t * 11.0 + 1.0 + ph));
     const twist = Math.cos(t * Math.PI * twists + 0.7 + ph);             // -1..1: back/front
-    pts.push({ x, y, w: width * (0.55 + 0.45 * Math.abs(twist)) * S, side: twist >= 0 ? 1 : -1, k: Math.abs(twist) });
+    pts.push({ x, y, w: width * (0.1 + 0.9 * Math.abs(twist)) * S, tw: twist, side: twist >= 0 ? 1 : -1, k: Math.abs(twist) });
   }
   // shadow
   ctx.save(); ctx.filter = `blur(${Math.round(36 * S)}px)`; ctx.fillStyle = 'rgba(25,45,95,0.16)';
@@ -31,9 +31,11 @@ async function draw() {
     const a = pts[i], b = pts[i + 1];
     const nx = -(b.y - a.y), ny = b.x - a.x, l = Math.hypot(nx, ny) || 1;
     const ux = nx / l, uy = ny / l;
-    const light = 0.55 + 0.45 * a.k;
+    const light = 0.62 + 0.38 * Math.sqrt(a.k);
     const front = a.side > 0;
-    const base = front ? [24, 56, 150] : [86, 126, 222];
+    // smooth front/back blend across the twist (no hard colour seam)
+    const m = Math.min(1, Math.max(0, 0.5 + a.tw * 2.5)), sm = m * m * (3 - 2 * m);
+    const base = [86 + (24 - 86) * sm, 126 + (56 - 126) * sm, 222 + (150 - 222) * sm];
     ctx.fillStyle = `rgb(${Math.round(base[0] * light + 20 * a.k)},${Math.round(base[1] * light + 25 * a.k)},${Math.round(base[2] * light + 30 * a.k)})`;
     ctx.beginPath();
     ctx.moveTo(a.x + ux * a.w / 2, a.y + uy * a.w / 2); ctx.lineTo(b.x + ux * b.w / 2, b.y + uy * b.w / 2);
@@ -53,7 +55,5 @@ async function draw() {
   }
   ribbon(0.58, 0.07, 2.2, 46, 4.4, 0.55);
   ribbon(0.66, 0.09, 0.4, 130, 3.2, 1.0);
-  ctx.fillStyle = 'rgba(40,55,85,0.5)'; ctx.font = `300 ${Math.round(44 * S)}px "DejaVu Sans", sans-serif`;
-  ctx.textAlign = 'center'; ctx.fillText('N  O  V  A', W * 0.5, H * 0.95);
   grain(ctx, 0.03);
 }

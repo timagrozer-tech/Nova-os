@@ -9,7 +9,17 @@ name="$1"; src="$2"
 [[ -n "${GITHUB_TOKEN:-}" && -n "${GITHUB_REPOSITORY:-}" ]] || { echo 'not in GitHub Actions' >&2; exit 0; }
 tmp="$(mktemp -d)"
 cp -a "$src"/. "$tmp"/
-# keep the branch small: drop anything bigger than 4 MB
+# keep the branch small: big PNG screenshots become JPEG (half size), anything
+# else bigger than 4 MB is dropped
+find "$tmp" -type f -name '*.png' -size +4M -print0 | while IFS= read -r -d '' f; do
+  python3 - "$f" <<'EOF' && rm -f "$f" || true
+import sys
+from PIL import Image
+im = Image.open(sys.argv[1]).convert('RGB')
+im = im.resize((im.width // 2, im.height // 2), Image.LANCZOS)
+im.save(sys.argv[1][:-4] + '.jpg', quality=88)
+EOF
+done
 find "$tmp" -type f -size +4M -print -delete
 cd "$tmp"
 git init -q

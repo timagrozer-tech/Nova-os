@@ -75,8 +75,8 @@ LAUNCHERS = layout.LAUNCHERS + ('applications:nova-neon-center.desktop',)
 # yellow note and "00:00:00" when placed on the desktop — they looked broken.
 # Only widgets that look intentional on a desktop are placed now.
 WIDGETS = (
-    ('org.kde.plasma.digitalclock', 'left', 150),
-    ('org.nova.neon.stats', 'left', 270),           # NOVA's own: CPU, memory, network from /proc
+    ('org.kde.plasma.digitalclock', 'right', 150),
+    ('org.nova.neon.stats', 'right', 270),          # NOVA's own: CPU, memory, network from /proc
 )
 WIDGET_WIDTH = 300
 WIDGET_GAP = 14
