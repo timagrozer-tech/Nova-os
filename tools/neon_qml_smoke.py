@@ -120,38 +120,44 @@ def main(argv):
                       encoding='utf-8')
     jobs.append(('installer-slides', slides, {'neonTestScene': 'auto'}))
     for name, qml, context in jobs:
-        before = len(messages)
-        view = QQuickView()
-        view.engine().addImportPath(str(stubs))
-        for key, value in context.items():
-            if not key.startswith('_'):
-                view.rootContext().setContextProperty(key, value)
-        view.setResizeMode(QQuickView.ResizeMode.SizeRootObjectToView)
-        view.resize(1280, 720)
-        view.setSource(QUrl.fromLocalFile(str(qml)))
-        errors = [e.toString() for e in view.errors()]
-        if view.rootObject() is not None and name == 'splash':
-            view.rootObject().setProperty('stage', 4)
-        if view.rootObject() is not None and '_stats' in context:      # sample values, not live data
-            root = view.rootObject()
-            for key, value in (('cpu', 37.0), ('memUsed', 6.2 * 2**30), ('memTotal', 15.6 * 2**30),
-                               ('rxRate', 1.4 * 2**20), ('txRate', 96 * 2**10), ('ready', True)):
-                root.setProperty(key, value)
-            root.setProperty('cpuHistory', [12, 18, 25, 22, 40, 55, 48, 30, 26, 33, 61, 72, 50, 37, 29, 35, 44, 38, 31, 37])
-            view.rootObject().setProperty('now', float(context['_now']))
-            view.rootObject().setProperty('latitude', 55.7558)
-            view.rootObject().setProperty('longitude', 37.6176)
-        view.show()
-        wait(1500)          # let the scene's timer run ~45 frames
-        image = view.grabWindow()
-        image.save(str(out / f'{name}.png'))
-        # Only QML problems count (Qt platform notes and font fallbacks are not errors).
-        new = [m for m in messages[before:] if 'QFont' not in m
-               and ('.qml' in m or 'Error' in m or 'QML' in m or 'Cannot' in m)]
-        report[name] = {'errors': errors, 'messages': new, 'image': f'{name}.png',
-                        'size': [image.width(), image.height()]}
-        view.close()
-        view.deleteLater()
+        try:
+            before = len(messages)
+            view = QQuickView()
+            view.engine().addImportPath(str(stubs))
+            for key, value in context.items():
+                if not key.startswith('_'):
+                    view.rootContext().setContextProperty(key, value)
+            view.setResizeMode(QQuickView.ResizeMode.SizeRootObjectToView)
+            view.resize(1280, 720)
+            view.setSource(QUrl.fromLocalFile(str(qml)))
+            errors = [e.toString() for e in view.errors()]
+            if view.rootObject() is not None and name == 'splash':
+                view.rootObject().setProperty('stage', 4)
+            if view.rootObject() is not None and '_stats' in context:      # sample values, not live data
+                root = view.rootObject()
+                for key, value in (('cpu', 37.0), ('memUsed', 6.2 * 2**30), ('memTotal', 15.6 * 2**30),
+                                   ('rxRate', 1.4 * 2**20), ('txRate', 96 * 2**10), ('ready', True)):
+                    root.setProperty(key, value)
+                root.setProperty('cpuHistory', [12, 18, 25, 22, 40, 55, 48, 30, 26, 33, 61, 72, 50, 37, 29, 35, 44, 38, 31, 37])
+            if view.rootObject() is not None and '_now' in context:
+                view.rootObject().setProperty('now', float(context['_now']))
+                view.rootObject().setProperty('latitude', 55.7558)
+                view.rootObject().setProperty('longitude', 37.6176)
+            view.show()
+            wait(1500)          # let the scene's timer run ~45 frames
+            image = view.grabWindow()
+            image.save(str(out / f'{name}.png'))
+            # Only QML problems count (Qt platform notes and font fallbacks are not errors).
+            new = [m for m in messages[before:] if 'QFont' not in m
+                   and ('.qml' in m or 'Error' in m or 'QML' in m or 'Cannot' in m)]
+            report[name] = {'errors': errors, 'messages': new, 'image': f'{name}.png',
+                            'size': [image.width(), image.height()]}
+            view.close()
+            view.deleteLater()
+        except Exception as exc:  # noqa: BLE001 — report the job, keep rendering the others
+            import traceback
+            report[name] = {'errors': [f'{type(exc).__name__}: {exc}', traceback.format_exc()[-600:]],
+                            'messages': [], 'image': None, 'size': None}
     (out / 'neon-qml-report.json').write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding='utf-8')
     failed = {k: v for k, v in report.items() if v['errors'] or v['messages']}
     for k, v in report.items():
