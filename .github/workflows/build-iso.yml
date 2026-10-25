@@ -75,7 +75,17 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
           QT_QUICK_BACKEND: software
-        run: python3 tools/neon_qml_smoke.py output/ui-smoke/neon-qml
+        run: python3 tools/neon_qml_smoke.py output/neon-qml
+      - name: Publish PR results to branch ci/pr-ui (same-repository pull requests)
+        if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p output/pr-ui
+          python3 tools/ui_contact_sheet.py output/ui-smoke output/pr-ui || true
+          cp -r output/neon-qml output/pr-ui/ 2>/dev/null || true
+          cp output-ui.txt output/pr-ui/ 2>/dev/null || true
+          bash tools/ci_publish.sh pr-ui output/pr-ui
       - name: Publish contact sheets to branch ci/ui-smoke
         if: always() && github.event_name != 'pull_request'
         env:

@@ -40,11 +40,12 @@ Item {
     }
 }
 ''',
-    'org/kde/plasma/core/qmldir': 'module org.kde.plasma.core\nAction 1.0 Action.qml\n',
+    'org/kde/plasma/core/qmldir': 'module org.kde.plasma.core\nAction 1.0 Action.qml\nActionIcon 1.0 ActionIcon.qml\n',
+    'org/kde/plasma/core/ActionIcon.qml': 'import QtQuick\nQtObject { property string name }\n',
     'org/kde/plasma/core/Action.qml': '''import QtQuick
 QtObject {
     property string text
-    property QtObject icon: QtObject { property string name }
+    property ActionIcon icon: ActionIcon {}
     signal triggered()
 }
 ''',
@@ -111,7 +112,11 @@ def main(argv):
     report = {}
     jobs = [(f'wallpaper-{s}', WALLPAPER, {'neonTestScene': s}) for s in SCENES]
     jobs.append(('splash', SPLASH, {'neonTestScene': 'auto'}))
-    jobs.append(('installer-slides', SLIDES, {'neonTestScene': 'auto'}))
+    # The slides reference /usr/share/nova/...: point a temporary copy at the repository overlay.
+    slides = stubs / 'show.qml'
+    slides.write_text(SLIDES.read_text(encoding='utf-8').replace('file:///usr/share/', f'file://{OVERLAY}/usr/share/'),
+                      encoding='utf-8')
+    jobs.append(('installer-slides', slides, {'neonTestScene': 'auto'}))
     for name, qml, context in jobs:
         before = len(messages)
         view = QQuickView()
@@ -128,7 +133,9 @@ def main(argv):
         wait(1500)          # let the scene's timer run ~45 frames
         image = view.grabWindow()
         image.save(str(out / f'{name}.png'))
-        new = [m for m in messages[before:] if 'QFont' not in m]   # font fallback notes are not errors
+        # Only QML problems count (Qt platform notes and font fallbacks are not errors).
+        new = [m for m in messages[before:] if 'QFont' not in m
+               and ('.qml' in m or 'Error' in m or 'QML' in m or 'Cannot' in m)]
         report[name] = {'errors': errors, 'messages': new, 'image': f'{name}.png',
                         'size': [image.width(), image.height()]}
         view.close()
@@ -137,6 +144,9 @@ def main(argv):
     failed = {k: v for k, v in report.items() if v['errors'] or v['messages']}
     for k, v in report.items():
         print(('FAIL ' if k in failed else 'OK   ') + k, *(v['errors'] + v['messages'])[:6], sep='\n    ')
+        if k in failed and os.environ.get('GITHUB_ACTIONS'):
+            for line in (v['errors'] + v['messages'])[:8]:   # visible as run annotations
+                print(f'::error title=QML {k}::' + line.replace('\n', ' ')[:400])
     del app
     return 1 if failed else 0
 
