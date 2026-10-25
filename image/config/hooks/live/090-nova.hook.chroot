@@ -72,6 +72,12 @@ if [ -f "$BR_SRC/branding.desc" ] && [ -f /etc/calamares/settings.conf ] && [ -f
 			cp "$ART/logo.png" "$BR_DST/$img"
 		fi
 	done
+	# NOVA slides: only when Debian's slideshow uses the same API (calamares.slideshow 1.0).
+	if [ -f /usr/share/nova/calamares/show.qml ] && [ -f "$BR_DST/show.qml" ] \
+	   && grep -q 'import calamares.slideshow 1.0' "$BR_DST/show.qml"; then
+		cp /usr/share/nova/calamares/show.qml "$BR_DST/show.qml"
+		log "Calamares slideshow: NOVA slides"
+	fi
 	if grep -q '^[[:space:]]*componentName:[[:space:]]*nova' "$desc" && grep -q 'NOVA OS' "$desc"; then
 		sed -i 's/^\([[:space:]]*branding:[[:space:]]*\).*/\1nova/' /etc/calamares/settings.conf
 		log "Calamares branding switched to NOVA"

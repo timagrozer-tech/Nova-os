@@ -137,6 +137,36 @@ class Zram(unittest.TestCase):
         self.assertIn('ExecStartPost=-/usr/local/lib/nova/nova-zram-tune', dropin)   # '-': never fails the unit
 
 
+class InstallerSlides(unittest.TestCase):
+    def _run(self, debian_show: str):
+        text = HOOK.read_text()
+        start = text.index('# NOVA slides')
+        end = text.index("if grep -q '^[[:space:]]*componentName:[[:space:]]*nova'")
+        with tempfile.TemporaryDirectory() as tmp:
+            t = Path(tmp)
+            (t / 'br').mkdir()
+            (t / 'br/show.qml').write_text(debian_show)
+            (t / 'usr/share/nova/calamares').mkdir(parents=True)
+            (t / 'usr/share/nova/calamares/show.qml').write_text('NOVA SLIDES')
+            block = text[start:end].replace('/usr/share/nova', f'{t}/usr/share/nova')
+            script = f'set -eu\nlog() {{ echo "LOG: $*"; }}\nBR_DST={t}/br\n' + block
+            res = subprocess.run(['sh', '-c', script], capture_output=True, text=True, check=False)
+            return res, (t / 'br/show.qml').read_text()
+
+    def test_slides_replace_only_same_api(self):
+        res, out = self._run('import QtQuick 2.0;\nimport calamares.slideshow 1.0;\nPresentation {}')
+        self.assertEqual((res.returncode, out), (0, 'NOVA SLIDES'), res.stderr)
+        res, out = self._run('import calamares.slideshow 2.0\n// API 2')
+        self.assertEqual((res.returncode, out), (0, 'import calamares.slideshow 2.0\n// API 2'))
+
+    def test_slides_source(self):
+        qml = (O / 'usr/share/nova/calamares/show.qml').read_text()
+        self.assertIn('import calamares.slideshow 1.0', qml)
+        self.assertGreaterEqual(qml.count('Slide {'), 4)
+        code = re.sub(r'//[^\n]*|/\*.*?\*/', '', re.sub(r'"(?:\\.|[^"\\])*"', '""', qml), flags=re.S)
+        self.assertEqual(code.count('{'), code.count('}'))
+
+
 class ModernUi(unittest.TestCase):
     def test_indicators_and_controls_are_styled(self):
         for variant in ui.ALL_VARIANTS:

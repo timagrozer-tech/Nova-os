@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render the NEON//SYS QML (live wallpaper scenes + KSplash) offscreen with PyQt6.
+"""Render NOVA/NEON QML (live wallpaper scenes, KSplash, installer slides) offscreen with PyQt6.
 
 Plasma's own QML modules are not available on CI runners, so tiny stand-ins
 for org.kde.plasma.plasmoid (WallpaperItem), org.kde.plasma.core (Action) and
@@ -21,6 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 OVERLAY = ROOT / 'image/config/includes.chroot'
 WALLPAPER = OVERLAY / 'usr/share/plasma/wallpapers/org.nova.neon.wallpaper/contents/ui/main.qml'
 SPLASH = OVERLAY / 'usr/share/plasma/look-and-feel/org.nova.neon.desktop/contents/splash/Splash.qml'
+SLIDES = OVERLAY / 'usr/share/nova/calamares/show.qml'
 FONTS = OVERLAY / 'usr/share/fonts/truetype/nova-neon'
 SCENES = ('synth', 'city', 'rain', 'circuit')
 
@@ -47,6 +48,25 @@ QtObject {
     signal triggered()
 }
 ''',
+    'calamares/slideshow/qmldir': 'module calamares.slideshow\nPresentation 1.0 Presentation.qml\nSlide 1.0 Slide.qml\n',
+    'calamares/slideshow/Presentation.qml': '''import QtQuick
+Item {
+    default property alias content: holder.data
+    property int currentSlide: 0
+    property var slides: []
+    property bool activatedInCalamares: true
+    function goToNextSlide() { currentSlide = currentSlide + 1 }
+    Item { id: holder; anchors.fill: parent }
+    Component.onCompleted: {
+        var list = [];
+        for (var i = 0; i < holder.children.length; i++)
+            if (holder.children[i].isSlide === true) list.push(holder.children[i]);
+        slides = list;
+        for (var j = 0; j < list.length; j++) list[j].visible = (j === 0);
+    }
+}
+''',
+    'calamares/slideshow/Slide.qml': 'import QtQuick\nItem { property bool isSlide: true; anchors.fill: parent }\n',
     'org/kde/plasma/plasma5support/qmldir': 'module org.kde.plasma.plasma5support\nDataSource 1.0 DataSource.qml\n',
     'org/kde/plasma/plasma5support/DataSource.qml': '''import QtQuick
 QtObject {
@@ -91,6 +111,7 @@ def main(argv):
     report = {}
     jobs = [(f'wallpaper-{s}', WALLPAPER, {'neonTestScene': s}) for s in SCENES]
     jobs.append(('splash', SPLASH, {'neonTestScene': 'auto'}))
+    jobs.append(('installer-slides', SLIDES, {'neonTestScene': 'auto'}))
     for name, qml, context in jobs:
         before = len(messages)
         view = QQuickView()
