@@ -118,7 +118,7 @@ if xorriso -osirrox on -indev "$ISO" -extract /live/filesystem.squashfs "$tmp/fs
   have '/usr/local/bin/nova_ui\.py'                 "NOVA UI kit"
   have '/etc/nova-release'                          "nova-release"
   have '/usr/share/plasma/desktoptheme/Fluent-round-dark/metadata.desktop' "Fluent Plasma theme (vendored, GPL-3)"
-  have '/usr/share/aurorae/themes/Fluent-round-dark/metadata.desktop|/usr/share/aurorae/themes/Fluent-round-dark/.*' "Fluent window decorations"
+  have '/usr/share/aurorae/themes/Fluent-round-dark/metadata.desktop' "Fluent window decorations"
   have '/usr/share/icons/Fluent-dark/index.theme'   "Fluent icons"
   have '/usr/share/sddm/themes/Fluent/Main.qml'     "Fluent login screen (SDDM)"
   have '/usr/share/doc/nova-third-party/fluent-kde/LICENSE' "third-party licences shipped"

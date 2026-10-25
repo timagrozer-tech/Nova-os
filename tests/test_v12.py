@@ -203,6 +203,11 @@ class VerifyIsoScript(unittest.TestCase):
              '/usr/share/color-schemes/NovaNeon.colors',
              '/usr/share/plasma/wallpapers/org.nova.live.wallpaper/contents/ui/main.qml',
              '/usr/share/plasma/plasmoids/org.nova.neon.stats/contents/ui/main.qml',
+             '/usr/share/plasma/desktoptheme/Fluent-round-dark/metadata.desktop',
+             '/usr/share/aurorae/themes/Fluent-round-dark/metadata.desktop', '/usr/share/icons/Fluent-dark/index.theme',
+             '/usr/share/sddm/themes/Fluent/Main.qml', '/usr/share/doc/nova-third-party/fluent-kde/LICENSE',
+             ] + [f'/usr/share/wallpapers/{w}/contents/images/3840x2160.jpg'
+                  for w in ('NOVA-NeonRain', 'NOVA-BlueSilk', 'NOVA-Signal', 'NOVA-Paper')] + [
              '/usr/sbin/qemu-ga', '/etc/xdg/kglobalshortcutsrc', '/usr/bin/kscreen-doctor', '/usr/bin/ddcutil',
              ] + [f'/usr/local/bin/{a}' for a in (
                  'nova-display', 'nova-hotkeys', 'nova-game-bar', 'nova-key', 'nova-control', 'nova-personalize', 'nova-layout', 'nova-selftest', 'nova-first-run', 'nova-defender',
