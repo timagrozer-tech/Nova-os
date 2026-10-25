@@ -213,7 +213,7 @@ jobs:
         run: |
           python3 tools/nova_qemu_smoke.py \
             --iso output/NOVA-OS-${{ needs.build-iso.outputs.version }}-amd64.iso \
-            --firmware ${{ matrix.firmware }} --out output/boot-test-${{ matrix.firmware }} --resolutions
+            --firmware ${{ matrix.firmware }} --out output/boot-test-${{ matrix.firmware }} --resolutions --styles
       - name: Summary
         if: always()
         run: |

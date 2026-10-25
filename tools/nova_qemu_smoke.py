@@ -231,6 +231,9 @@ def qemu_command(iso: Path, out: Path, firmware: str, memory: int, cpus: int, bl
     return argv
 
 
+STYLES = ('air-dark', 'aurora', 'sakura', 'ocean', 'horizon', 'neon', 'air-light')
+
+
 def shot(qmp: QMP, out: Path, name: str, results: dict) -> None:
     ppm = out / f'{name}.ppm'
     try:
@@ -254,6 +257,7 @@ def main(argv=None) -> int:
     ap.add_argument('--boot-timeout', type=int, default=0, help='seconds (default 900 with KVM, 2400 without)')
     ap.add_argument('--blank-disk', action='store_true', help='attach an empty 20G qcow2 virtual disk')
     ap.add_argument('--resolutions', action='store_true', help='switch Plasma resolutions and take screenshots')
+    ap.add_argument('--styles', action='store_true', help='apply every NOVA style and take screenshots')
     args = ap.parse_args(argv)
 
     if not args.iso.is_file():
@@ -348,6 +352,23 @@ def main(argv=None) -> int:
                 time.sleep(8)
                 shot(qmp, out, f'04-plasma-{res}-{int(scale * 100)}', results)
                 results['resolutions'][res] = 'ok' if code == 0 else f'kscreen-doctor exit {code}: {text[:200]}'
+
+        if args.styles and plasma:
+            results['styles'] = {}
+            session = ['/usr/local/bin/nova-selftest', '--session-exec']
+            for style in STYLES:
+                code, text = qga.exec([*session, 'nova-style', 'apply', style], timeout=120)
+                time.sleep(14)
+                shot(qmp, out, f'05-style-{style}', results)
+                results['styles'][style] = 'ok' if code == 0 else f'exit {code}: {text[-300:]}'
+            qga.exec([*session, 'nova-style', 'apply', 'horizon'], timeout=120)
+            qga.exec([*session, 'sh', '-c', 'nova-styles >/dev/null 2>&1 &'], timeout=20)
+            time.sleep(12)
+            shot(qmp, out, '06-styles-app', results)
+            code, text = qga.exec([*session, 'nova-style', 'revert'], timeout=120)
+            time.sleep(14)
+            shot(qmp, out, '07-reverted', results)
+            results['styles']['revert'] = 'ok' if code == 0 else f'exit {code}: {text[-300:]}'
 
         ok = results['checks']['guest_agent'] and plasma
         desk = results.get('screenshots', {}).get('03-desktop', {})
