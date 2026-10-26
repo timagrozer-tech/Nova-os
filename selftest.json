@@ -1,0 +1,253 @@
+{
+ "version": "0.12",
+ "host": "nova-live",
+ "kernel": "6.12.113+deb13-amd64",
+ "time": "2026-10-26T13:25:55+0000",
+ "checks": [
+  {
+   "id": "boot",
+   "title": "Режим загрузки",
+   "status": "info",
+   "detail": "Live USB/ISO, BIOS/Legacy"
+  },
+  {
+   "id": "secureboot",
+   "title": "Secure Boot",
+   "status": "info",
+   "detail": "EFI variables are not supported on this system"
+  },
+  {
+   "id": "release",
+   "title": "Версия NOVA OS",
+   "status": "pass",
+   "detail": "NOVA OS 0.12"
+  },
+  {
+   "id": "plasma",
+   "title": "Сеанс KDE Plasma",
+   "status": "pass",
+   "detail": "plasmashell PID 1522, пользователь user, сеанс wayland"
+  },
+  {
+   "id": "sddm",
+   "title": "Экран входа SDDM",
+   "status": "pass",
+   "detail": "active"
+  },
+  {
+   "id": "screens",
+   "title": "Экраны и масштаб",
+   "status": "pass",
+   "detail": "Virtual-1: 1920×1080 @75.0 Гц — Full HD, масштаб 105 %",
+   "outputs": [
+    {
+     "name": "Virtual-1",
+     "connected": true,
+     "enabled": true,
+     "width": 1920,
+     "height": 1080,
+     "refresh": 75.0,
+     "scale": 1.05,
+     "modes": [
+      [
+       5120,
+       2160
+      ],
+      [
+       4096,
+       2160
+      ],
+      [
+       3840,
+       2160
+      ],
+      [
+       2560,
+       1080
+      ],
+      [
+       2048,
+       1152
+      ],
+      [
+       1920,
+       1440
+      ],
+      [
+       1920,
+       1200
+      ],
+      [
+       1920,
+       1080
+      ],
+      [
+       1856,
+       1392
+      ],
+      [
+       1792,
+       1344
+      ],
+      [
+       1680,
+       1050
+      ],
+      [
+       1600,
+       1200
+      ],
+      [
+       1440,
+       900
+      ],
+      [
+       1400,
+       1050
+      ],
+      [
+       1360,
+       768
+      ],
+      [
+       1280,
+       1024
+      ],
+      [
+       1280,
+       960
+      ],
+      [
+       1280,
+       768
+      ],
+      [
+       1024,
+       768
+      ],
+      [
+       800,
+       600
+      ],
+      [
+       640,
+       480
+      ]
+     ],
+     "mode_ids": {
+      "1920x1080": "14",
+      "1792x1344": "10",
+      "2048x1152": "11",
+      "1920x1200": "12",
+      "1600x1200": "15",
+      "1680x1050": "16",
+      "1400x1050": "17",
+      "1280x1024": "18",
+      "1440x900": "19",
+      "5120x2160": "2",
+      "1280x960": "20",
+      "1360x768": "21",
+      "1280x768": "22",
+      "1024x768": "23",
+      "800x600": "24",
+      "640x480": "26",
+      "4096x2160": "3",
+      "3840x2160": "6",
+      "1920x1440": "7",
+      "2560x1080": "8",
+      "1856x1392": "9"
+     }
+    }
+   ]
+  },
+  {
+   "id": "gpu",
+   "title": "Видеокарта",
+   "status": "pass",
+   "detail": "virtual: Red Hat, Inc. Virtio 1.0 GPU [virtio-pci]",
+   "hybrid": false,
+   "vendors": [
+    "virtual"
+   ]
+  },
+  {
+   "id": "network",
+   "title": "Сеть (NetworkManager)",
+   "status": "pass",
+   "detail": "connected:full"
+  },
+  {
+   "id": "wifi",
+   "title": "Wi-Fi адаптер",
+   "status": "info",
+   "detail": "не найден (в VM это нормально)"
+  },
+  {
+   "id": "audio",
+   "title": "Звук (PipeWire)",
+   "status": "pass",
+   "detail": "выходы: Встроенное аудио Аналоговый стерео"
+  },
+  {
+   "id": "input",
+   "title": "Устройства ввода",
+   "status": "info",
+   "detail": "тачпад: нет, сенсорный экран: нет, клавиатура: да"
+  },
+  {
+   "id": "power",
+   "title": "Питание",
+   "status": "info",
+   "detail": "батарея: нет, профиль: balanced"
+  },
+  {
+   "id": "bluetooth",
+   "title": "Bluetooth",
+   "status": "info",
+   "detail": "адаптер не найден"
+  },
+  {
+   "id": "memory",
+   "title": "Оперативная память",
+   "status": "pass",
+   "detail": "3.8 ГБ"
+  },
+  {
+   "id": "firewall",
+   "title": "Сетевой экран UFW",
+   "status": "pass",
+   "detail": "включён (входящие запрещены)"
+  },
+  {
+   "id": "apparmor",
+   "title": "AppArmor",
+   "status": "pass",
+   "detail": "включён"
+  },
+  {
+   "id": "installer",
+   "title": "Установщик Calamares",
+   "status": "pass",
+   "detail": "Calamares найден; GRUB для офлайн-установки на носителе"
+  },
+  {
+   "id": "nova-apps",
+   "title": "Приложения NOVA",
+   "status": "pass",
+   "detail": "25 проверено"
+  },
+  {
+   "id": "firmware",
+   "title": "Прошивки устройств",
+   "status": "pass",
+   "detail": "ошибок загрузки прошивок не найдено"
+  }
+ ],
+ "summary": {
+  "pass": 13,
+  "warn": 0,
+  "fail": 0,
+  "info": 6,
+  "verdict": "pass"
+ }
+}

@@ -1,0 +1,4 @@
+окт 26 13:25:12 nova-live adduser[911]: The group `powerdev' does not exist.
+окт 26 13:25:12 nova-live adduser[927]: The group `debian-tor' does not exist.
+окт 26 13:25:32 nova-live obexd[1875]: Unable to acquire registry: Error calling StartServiceByName for org.gnome.evolution.dataserver.Sources5: Unit evolution-source-registry.service not found.
+окт 26 13:25:32 nova-live obexd[1875]: Unable to acquire registry: Error calling StartServiceByName for org.gnome.evolution.dataserver.Sources5: Unit evolution-source-registry.service not found.

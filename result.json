@@ -1,0 +1,177 @@
+{
+ "iso": "NOVA-OS-0.12-amd64.iso",
+ "firmware": "bios",
+ "accel": "kvm",
+ "checks": {
+  "guest_agent": true,
+  "plasmashell": true
+ },
+ "screenshots": {
+  "01-boot-menu": {
+   "width": 640,
+   "height": 480,
+   "lit_fraction": 0.623,
+   "colours": 201
+  },
+  "03-desktop": {
+   "width": 1920,
+   "height": 1080,
+   "lit_fraction": 0.897,
+   "colours": 532
+  },
+  "05-style-air-dark": {
+   "width": 1920,
+   "height": 1080,
+   "lit_fraction": 0.897,
+   "colours": 532
+  },
+  "08-window-air-dark": {
+   "width": 1920,
+   "height": 1080,
+   "lit_fraction": 0.897,
+   "colours": 372
+  },
+  "05-style-signal": {
+   "width": 1920,
+   "height": 1080,
+   "lit_fraction": 0.17,
+   "colours": 247
+  },
+  "08-window-signal": {
+   "width": 1920,
+   "height": 1080,
+   "lit_fraction": 0.249,
+   "colours": 204
+  },
+  "05-style-ocean": {
+   "width": 1920,
+   "height": 1080,
+   "lit_fraction": 0.872,
+   "colours": 174
+  },
+  "08-window-ocean": {
+   "width": 1920,
+   "height": 1080,
+   "lit_fraction": 0.798,
+   "colours": 213
+  },
+  "05-style-aurora": {
+   "width": 1920,
+   "height": 1080,
+   "lit_fraction": 0.974,
+   "colours": 103
+  },
+  "08-window-aurora": {
+   "width": 1920,
+   "height": 1080,
+   "lit_fraction": 0.889,
+   "colours": 166
+  },
+  "05-style-sakura": {
+   "width": 1920,
+   "height": 1080,
+   "lit_fraction": 1.0,
+   "colours": 164
+  },
+  "08-window-sakura": {
+   "width": 1920,
+   "height": 1080,
+   "lit_fraction": 1.0,
+   "colours": 236
+  },
+  "05-style-horizon": {
+   "width": 1920,
+   "height": 1080,
+   "lit_fraction": 1.0,
+   "colours": 148
+  },
+  "08-window-horizon": {
+   "width": 1920,
+   "height": 1080,
+   "lit_fraction": 1.0,
+   "colours": 201
+  },
+  "05-style-neon": {
+   "width": 1920,
+   "height": 1080,
+   "lit_fraction": 0.557,
+   "colours": 207
+  },
+  "08-window-neon": {
+   "width": 1920,
+   "height": 1080,
+   "lit_fraction": 0.537,
+   "colours": 253
+  },
+  "05-style-neon-later": {
+   "width": 1920,
+   "height": 1080,
+   "lit_fraction": 0.56,
+   "colours": 208
+  },
+  "05-style-air-light": {
+   "width": 1920,
+   "height": 1080,
+   "lit_fraction": 1.0,
+   "colours": 151
+  },
+  "08-window-air-light": {
+   "width": 1920,
+   "height": 1080,
+   "lit_fraction": 1.0,
+   "colours": 167
+  },
+  "06-styles-app": {
+   "width": 1920,
+   "height": 1080,
+   "lit_fraction": 0.871,
+   "colours": 534
+  },
+  "07-reverted": {
+   "width": 1920,
+   "height": 1080,
+   "lit_fraction": 0.63,
+   "colours": 215
+  },
+  "04-plasma-1920x1080-100": {
+   "width": 1920,
+   "height": 1080,
+   "lit_fraction": 0.631,
+   "colours": 226
+  },
+  "04-plasma-3840x2160-200": {
+   "width": 3840,
+   "height": 2160,
+   "lit_fraction": 0.637,
+   "colours": 213
+  }
+ },
+ "seconds_to_userspace": 38,
+ "seconds_to_plasma": 49,
+ "selftest_summary": {
+  "pass": 13,
+  "warn": 0,
+  "fail": 0,
+  "info": 6,
+  "verdict": "pass"
+ },
+ "failed_units": [],
+ "styles": {
+  "air-dark": "ok",
+  "signal": "ok",
+  "ocean": "ok",
+  "aurora": "ok",
+  "sakura": "ok",
+  "horizon": "ok",
+  "neon": "ok",
+  "air-light": "ok",
+  "revert": "ok"
+ },
+ "resolutions": {
+  "1366x768": "mode not offered by the virtual GPU",
+  "1920x1080": "ok",
+  "2560x1440": "mode not offered by the virtual GPU",
+  "3840x2160": "ok"
+ },
+ "verdict": "pass"
+}
