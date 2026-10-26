@@ -1,0 +1,400 @@
+Get:119 http://deb.debian.org/debian trixie/main amd64 zstd amd64 1.5.7+dfsg-1 [756 kB]
+Fetched 51.0 MB in 0s (114 MB/s)
+Download complete and in download only mode
+Reading package lists...
+Building dependency tree...
+Reading state information...
+The following additional packages will be installed:
+  apt base-passwd ca-certificates debconf debconf-i18n debian-archive-keyring
+  dmsetup dpkg gcc-14-base gettext-base grub-common grub-efi-amd64-unsigned
+  grub2-common init-system-helpers kmod libacl1 libapt-pkg7.0 libblkid1
+  libbrotli1 libbz2-1.0 libc6 libcap2 libcrypt1 libdebconfclient0
+  libdevmapper1.02.1 libefiboot1t64 libefivar1t64 libfreetype6 libfuse3-4
+  libgcc-s1 libgmp10 libgpm2 libhogweed6t64 libidn2-0 libkeyutils1 libkmod2
+  liblocale-gettext-perl liblz4-1 liblzma5 libmd0 libmount1 libncursesw6
+  libnettle8t64 libpcre2-8-0 libpng16-16t64 libpopt0 libproc2-0 libseccomp2
+  libselinux1 libsmartcols1 libssl3t64 libstdc++6 libsystemd0
+  libtext-charwidth-perl libtext-iconv-perl libtext-wrapi18n-perl libtinfo6
+  libudev1 libunistring5 libxxhash0 libzstd1 linux-sysctl-defaults mount
+  openssl openssl-provider-legacy os-prober perl-base procps psmisc
+  sensible-utils shim-helpers-amd64-signed shim-signed-common shim-unsigned
+  sqv tar ucf zlib1g
+Suggested packages:
+  apt-doc aptitude | synaptic | wajig dpkg-dev gnupg | gnupg2 | gnupg1
+  powermgmt-base debconf-doc debconf-kde-helper debconf-utils libgtk3-perl
+  libnet-ldap-perl libterm-readline-gnu-perl perl whiptail | dialog
+  debsig-verify multiboot-doc grub-emu mtools xorriso desktop-base
+  console-setup glibc-doc libc-l10n locales libnss-nis libnss-nisplus fuse3
+  gpm cryptsetup-bin libgcrypt20 nfs-common bzip2 ncompress xz-utils
+  tar-scripts tar-doc
+The following NEW packages will be installed:
+  apt base-passwd ca-certificates debconf debconf-i18n debian-archive-keyring
+  dmsetup dpkg efibootmgr gcc-14-base gettext-base grub-common grub-efi-amd64
+  grub-efi-amd64-bin grub-efi-amd64-signed grub-efi-amd64-unsigned
+  grub2-common init-system-helpers kmod libacl1 libapt-pkg7.0 libblkid1
+  libbrotli1 libbz2-1.0 libc6 libcap2 libcrypt1 libdebconfclient0
+  libdevmapper1.02.1 libefiboot1t64 libefivar1t64 libfreetype6 libfuse3-4
+  libgcc-s1 libgmp10 libgpm2 libhogweed6t64 libidn2-0 libkeyutils1 libkmod2
+  liblocale-gettext-perl liblz4-1 liblzma5 libmd0 libmount1 libncursesw6
+  libnettle8t64 libpcre2-8-0 libpng16-16t64 libpopt0 libproc2-0 libseccomp2
+  libselinux1 libsmartcols1 libssl3t64 libstdc++6 libsystemd0
+  libtext-charwidth-perl libtext-iconv-perl libtext-wrapi18n-perl libtinfo6
+  libudev1 libunistring5 libxxhash0 libzstd1 linux-sysctl-defaults mokutil
+  mount openssl openssl-provider-legacy os-prober perl-base procps psmisc
+  sensible-utils shim-helpers-amd64-signed shim-signed shim-signed-common
+  shim-unsigned sqv tar ucf zlib1g
+0 upgraded, 83 newly installed, 0 to remove and 0 not upgraded.
+Need to get 4999 kB/32.8 MB of archives.
+After this operation, 128 MB of additional disk space will be used.
+Get:1 http://deb.debian.org/debian trixie/main amd64 mokutil amd64 0.7.2-1 [26.7 kB]
+Get:2 http://deb.debian.org/debian trixie/main amd64 shim-signed-common all 1.51~1+deb13u1+16.1-2~deb13u1 [15.9 kB]
+Get:3 http://deb.debian.org/debian trixie/main amd64 grub-efi-amd64-unsigned amd64 2.12-9+deb13u2 [1362 kB]
+Get:4 http://deb.debian.org/debian trixie/main amd64 grub-efi-amd64-bin amd64 2.12-9+deb13u2 [1053 kB]
+Get:5 http://deb.debian.org/debian trixie/main amd64 shim-unsigned amd64 16.1-2~deb13u1 [453 kB]
+Get:6 http://deb.debian.org/debian trixie/main amd64 shim-helpers-amd64-signed amd64 1+16.1+2~deb13u1 [301 kB]
+Get:7 http://deb.debian.org/debian trixie/main amd64 shim-signed amd64 1.51~1+deb13u1+16.1-2~deb13u1 [347 kB]
+Get:8 http://deb.debian.org/debian trixie/main amd64 efibootmgr amd64 18-2 [30.2 kB]
+Get:9 http://deb.debian.org/debian trixie/main amd64 grub-efi-amd64 amd64 2.12-9+deb13u2 [46.7 kB]
+Get:10 http://deb.debian.org/debian trixie/main amd64 grub-efi-amd64-signed amd64 1+2.12+9+deb13u2 [1363 kB]
+Fetched 4999 kB in 0s (64.0 MB/s)
+Download complete and in download only mode
+Reading package lists...
+Building dependency tree...
+Reading state information...
+The following packages will be REMOVED:
+  dctrl-tools*
+0 upgraded, 0 newly installed, 1 to remove and 0 not upgraded.
+After this operation, 432 kB disk space will be freed.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 285691 files and directories currently installed.)
+Removing dctrl-tools (2.24-3+b1) ...
+Processing triggers for man-db (2.13.1-1) ...
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 285650 files and directories currently installed.)
+Purging configuration files for dctrl-tools (2.24-3+b1) ...
+Reading package lists...
+Building dependency tree...
+Reading state information...
+[2026-10-26 13:20:46] lb binary_linux-image 
+P: Begin install linux-image...
+[2026-10-26 13:20:46] lb binary_memtest 
+[2026-10-26 13:20:46] lb binary_grub-legacy 
+[2026-10-26 13:20:46] lb binary_grub-pc 
+P: Begin installing grub-pc...
+Reading package lists...
+Building dependency tree...
+Reading state information...
+Suggested packages:
+  desktop-base
+The following NEW packages will be installed:
+  grub-pc-bin
+0 upgraded, 1 newly installed, 0 to remove and 0 not upgraded.
+Need to get 1021 kB of archives.
+After this operation, 3247 kB of additional disk space will be used.
+Get:1 http://deb.debian.org/debian trixie/main amd64 grub-pc-bin amd64 2.12-9+deb13u2 [1021 kB]
+Fetched 1021 kB in 0s (34.9 MB/s)
+Selecting previously unselected package grub-pc-bin.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 285650 files and directories currently installed.)
+Preparing to unpack .../grub-pc-bin_2.12-9+deb13u2_amd64.deb ...
+Unpacking grub-pc-bin (2.12-9+deb13u2) ...
+Setting up grub-pc-bin (2.12-9+deb13u2) ...
+Reading package lists...
+Building dependency tree...
+Reading state information...
+Reading package lists...
+Building dependency tree...
+Reading state information...
+The following packages will be REMOVED:
+  grub-pc-bin*
+0 upgraded, 0 newly installed, 1 to remove and 0 not upgraded.
+After this operation, 3247 kB disk space will be freed.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 285960 files and directories currently installed.)
+Removing grub-pc-bin (2.12-9+deb13u2) ...
+[2026-10-26 13:20:48] lb binary_grub_cfg 
+P: Begin installing config for grub-pc and/or grub-efi, and loopback support...
+[2026-10-26 13:20:48] lb binary_syslinux 
+[2026-10-26 13:20:48] lb binary_disk 
+P: Begin installing disk information...
+[2026-10-26 13:20:48] lb binary_loadlin 
+[2026-10-26 13:20:49] lb binary_win32-loader 
+[2026-10-26 13:20:49] lb binary_includes 
+P: Begin copying binary includes...
+1982 blocks
+[2026-10-26 13:20:49] lb binary_grub-efi 
+P: Begin preparing Grub based EFI support...
+Reading package lists...
+Building dependency tree...
+Reading state information...
+The following additional packages will be installed:
+  grub-efi-amd64-unsigned grub-efi-ia32-unsigned
+Suggested packages:
+  floppyd
+Recommended packages:
+  grub-efi-amd64-signed
+The following NEW packages will be installed:
+  grub-efi-amd64-bin grub-efi-amd64-unsigned grub-efi-ia32-bin
+  grub-efi-ia32-unsigned mtools
+0 upgraded, 5 newly installed, 0 to remove and 0 not upgraded.
+Need to get 4628 kB of archives.
+After this operation, 23.6 MB of additional disk space will be used.
+Get:1 http://deb.debian.org/debian trixie/main amd64 grub-efi-amd64-unsigned amd64 2.12-9+deb13u2 [1362 kB]
+Get:2 http://deb.debian.org/debian trixie/main amd64 grub-efi-amd64-bin amd64 2.12-9+deb13u2 [1053 kB]
+Get:3 http://deb.debian.org/debian trixie/main amd64 grub-efi-ia32-unsigned amd64 2.12-9+deb13u2 [1324 kB]
+Get:4 http://deb.debian.org/debian trixie/main amd64 grub-efi-ia32-bin amd64 2.12-9+deb13u2 [691 kB]
+Get:5 http://deb.debian.org/debian trixie/main amd64 mtools amd64 4.0.48-1 [198 kB]
+Fetched 4628 kB in 0s (87.0 MB/s)
+Selecting previously unselected package grub-efi-amd64-unsigned.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 285650 files and directories currently installed.)
+Preparing to unpack .../grub-efi-amd64-unsigned_2.12-9+deb13u2_amd64.deb ...
+Unpacking grub-efi-amd64-unsigned (2.12-9+deb13u2) ...
+Selecting previously unselected package grub-efi-amd64-bin.
+Preparing to unpack .../grub-efi-amd64-bin_2.12-9+deb13u2_amd64.deb ...
+Unpacking grub-efi-amd64-bin (2.12-9+deb13u2) ...
+Selecting previously unselected package grub-efi-ia32-unsigned.
+Preparing to unpack .../grub-efi-ia32-unsigned_2.12-9+deb13u2_amd64.deb ...
+Unpacking grub-efi-ia32-unsigned (2.12-9+deb13u2) ...
+Selecting previously unselected package grub-efi-ia32-bin.
+Preparing to unpack .../grub-efi-ia32-bin_2.12-9+deb13u2_amd64.deb ...
+Unpacking grub-efi-ia32-bin (2.12-9+deb13u2) ...
+Selecting previously unselected package mtools.
+Preparing to unpack .../mtools_4.0.48-1_amd64.deb ...
+Unpacking mtools (4.0.48-1) ...
+Setting up grub-efi-amd64-unsigned (2.12-9+deb13u2) ...
+Setting up grub-efi-ia32-unsigned (2.12-9+deb13u2) ...
+Setting up grub-efi-ia32-bin (2.12-9+deb13u2) ...
+Setting up mtools (4.0.48-1) ...
+Setting up grub-efi-amd64-bin (2.12-9+deb13u2) ...
+Processing triggers for man-db (2.13.1-1) ...
+!!! The following error/warning messages can be ignored !!!
+Reading package lists...
+Building dependency tree...
+Reading state information...
+The following additional packages will be installed:
+  grub2-common shim-helpers-amd64-signed shim-signed-common shim-unsigned
+The following NEW packages will be installed:
+  grub2-common shim-helpers-amd64-signed shim-signed shim-signed-common
+  shim-unsigned
+0 upgraded, 5 newly installed, 0 to remove and 0 not upgraded.
+Need to get 1758 kB of archives.
+After this operation, 5615 kB of additional disk space will be used.
+Get:1 http://deb.debian.org/debian trixie/main amd64 shim-signed-common all 1.51~1+deb13u1+16.1-2~deb13u1 [15.9 kB]
+Get:2 http://deb.debian.org/debian trixie/main amd64 shim-unsigned amd64 16.1-2~deb13u1 [453 kB]
+Get:3 http://deb.debian.org/debian trixie/main amd64 shim-helpers-amd64-signed amd64 1+16.1+2~deb13u1 [301 kB]
+Get:4 http://deb.debian.org/debian trixie/main amd64 grub2-common amd64 2.12-9+deb13u2 [641 kB]
+Get:5 http://deb.debian.org/debian trixie/main amd64 shim-signed amd64 1.51~1+deb13u1+16.1-2~deb13u1 [347 kB]
+Preconfiguring packages ...
+Fetched 1758 kB in 0s (33.4 MB/s)
+Selecting previously unselected package shim-signed-common.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 286325 files and directories currently installed.)
+Preparing to unpack .../shim-signed-common_1.51~1+deb13u1+16.1-2~deb13u1_all.deb ...
+Unpacking shim-signed-common (1.51~1+deb13u1+16.1-2~deb13u1) ...
+Selecting previously unselected package shim-unsigned:amd64.
+Preparing to unpack .../shim-unsigned_16.1-2~deb13u1_amd64.deb ...
+Unpacking shim-unsigned:amd64 (16.1-2~deb13u1) ...
+Selecting previously unselected package shim-helpers-amd64-signed.
+Preparing to unpack .../shim-helpers-amd64-signed_1+16.1+2~deb13u1_amd64.deb ...
+Unpacking shim-helpers-amd64-signed (1+16.1+2~deb13u1) ...
+Selecting previously unselected package grub2-common.
+Preparing to unpack .../grub2-common_2.12-9+deb13u2_amd64.deb ...
+Unpacking grub2-common (2.12-9+deb13u2) ...
+Selecting previously unselected package shim-signed:amd64.
+Preparing to unpack .../shim-signed_1.51~1+deb13u1+16.1-2~deb13u1_amd64.deb ...
+shim-signed: checking if we can safely install /usr/lib/shim/shimx64.efi.signed
+  EFI variables are not supported on this system; assuming shim installation is safe.
+Unpacking shim-signed:amd64 (1.51~1+deb13u1+16.1-2~deb13u1) ...
+Setting up grub2-common (2.12-9+deb13u2) ...
+Setting up shim-signed-common (1.51~1+deb13u1+16.1-2~deb13u1) ...
+No DKMS packages installed: not changing Secure Boot validation state.
+Setting up shim-unsigned:amd64 (16.1-2~deb13u1) ...
+Setting up shim-helpers-amd64-signed (1+16.1+2~deb13u1) ...
+Setting up shim-signed:amd64 (1.51~1+deb13u1+16.1-2~deb13u1) ...
+No DKMS packages installed: not changing Secure Boot validation state.
+Processing triggers for man-db (2.13.1-1) ...
+Reading package lists...
+Building dependency tree...
+Reading state information...
+The following NEW packages will be installed:
+  grub-efi-amd64-signed
+0 upgraded, 1 newly installed, 0 to remove and 0 not upgraded.
+Need to get 1363 kB of archives.
+After this operation, 9720 kB of additional disk space will be used.
+Get:1 http://deb.debian.org/debian trixie/main amd64 grub-efi-amd64-signed amd64 1+2.12+9+deb13u2 [1363 kB]
+Fetched 1363 kB in 0s (42.5 MB/s)
+Selecting previously unselected package grub-efi-amd64-signed.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 286375 files and directories currently installed.)
+Preparing to unpack .../grub-efi-amd64-signed_1+2.12+9+deb13u2_amd64.deb ...
+Unpacking grub-efi-amd64-signed (1+2.12+9+deb13u2) ...
+Setting up grub-efi-amd64-signed (1+2.12+9+deb13u2) ...
+!!! The above error/warning messages can be ignored !!!
+P: UEFI Secure Boot support enabled.
+mkfs.fat 4.2 (2021-01-31)
+Reading package lists...
+Building dependency tree...
+Reading state information...
+Reading package lists...
+Building dependency tree...
+Reading state information...
+The following packages will be REMOVED:
+  grub-efi-amd64-bin* grub-efi-amd64-signed* grub-efi-amd64-unsigned*
+  grub-efi-ia32-bin* grub-efi-ia32-unsigned* grub2-common* mtools*
+  shim-helpers-amd64-signed* shim-signed* shim-signed-common* shim-unsigned*
+WARNING: The following essential packages will be removed.
+This should NOT be done unless you know exactly what you are doing!
+  grub-efi-amd64-signed
+0 upgraded, 0 newly installed, 11 to remove and 0 not upgraded.
+After this operation, 38.9 MB disk space will be freed.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 286385 files and directories currently installed.)
+Removing shim-signed:amd64 (1.51~1+deb13u1+16.1-2~deb13u1) ...
+No DKMS packages installed: not changing Secure Boot validation state.
+Removing grub-efi-amd64-bin (2.12-9+deb13u2) ...
+dpkg: warning: overriding problem because --force enabled:
+dpkg: warning: this is a protected package; it should not be removed
+Removing grub-efi-amd64-signed (1+2.12+9+deb13u2) ...
+Removing grub-efi-amd64-unsigned (2.12-9+deb13u2) ...
+Removing grub-efi-ia32-bin (2.12-9+deb13u2) ...
+Removing grub-efi-ia32-unsigned (2.12-9+deb13u2) ...
+Removing grub2-common (2.12-9+deb13u2) ...
+Removing mtools (4.0.48-1) ...
+Removing shim-helpers-amd64-signed (1+16.1+2~deb13u1) ...
+Removing shim-signed-common (1.51~1+deb13u1+16.1-2~deb13u1) ...
+Removing shim-unsigned:amd64 (16.1-2~deb13u1) ...
+Processing triggers for man-db (2.13.1-1) ...
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 285653 files and directories currently installed.)
+Purging configuration files for mtools (4.0.48-1) ...
+Purging configuration files for grub2-common (2.12-9+deb13u2) ...
+Purging configuration files for shim-signed:amd64 (1.51~1+deb13u1+16.1-2~deb13u1) ...
+Purging configuration files for shim-signed-common (1.51~1+deb13u1+16.1-2~deb13u1) ...
+Purging configuration files for shim-helpers-amd64-signed (1+16.1+2~deb13u1) ...
+Purging configuration files for grub-efi-amd64-bin (2.12-9+deb13u2) ...
+[2026-10-26 13:20:57] lb binary_bootloader_splash 
+P: Begin preparing the bootloader splash image...
+Reading package lists...
+Building dependency tree...
+Reading state information...
+The following NEW packages will be installed:
+  librsvg2-bin
+0 upgraded, 1 newly installed, 0 to remove and 0 not upgraded.
+Need to get 1955 kB of archives.
+After this operation, 7040 kB of additional disk space will be used.
+Get:1 http://security.debian.org trixie-security/main amd64 librsvg2-bin amd64 2.60.0+dfsg-1+deb13u1 [1955 kB]
+Fetched 1955 kB in 0s (65.6 MB/s)
+Selecting previously unselected package librsvg2-bin.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 285650 files and directories currently installed.)
+Preparing to unpack .../librsvg2-bin_2.60.0+dfsg-1+deb13u1_amd64.deb ...
+Unpacking librsvg2-bin (2.60.0+dfsg-1+deb13u1) ...
+Setting up librsvg2-bin (2.60.0+dfsg-1+deb13u1) ...
+Processing triggers for man-db (2.13.1-1) ...
+Reading package lists...
+Building dependency tree...
+Reading state information...
+Reading package lists...
+Building dependency tree...
+Reading state information...
+The following packages will be REMOVED:
+  librsvg2-bin*
+0 upgraded, 0 newly installed, 1 to remove and 0 not upgraded.
+After this operation, 7040 kB disk space will be freed.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 285656 files and directories currently installed.)
+Removing librsvg2-bin (2.60.0+dfsg-1+deb13u1) ...
+Processing triggers for man-db (2.13.1-1) ...
+[2026-10-26 13:21:01] lb binary_hooks 
+P: Begin executing hooks...
+P: Executing hook config/hooks/live/095-nova-pool-indices.hook.binary...
+NOVA: offline bootloader packages present on the medium.
+P: Executing hook config/hooks/live/096-nova-bootmenu.hook.binary...
+NOVA: boot menu branding applied
+[2026-10-26 13:21:01] lb binary_checksums 
+P: Begin creating binary sha256sum.txt...
+[2026-10-26 13:21:04] lb binary_iso 
+P: Begin building binary iso image...
+Reading package lists...
+Building dependency tree...
+Reading state information...
+Suggested packages:
+  desktop-base
+Recommended packages:
+  syslinux-common
+The following NEW packages will be installed:
+  grub-pc-bin isolinux
+0 upgraded, 2 newly installed, 0 to remove and 0 not upgraded.
+Need to get 86.5 kB/1108 kB of archives.
+After this operation, 3437 kB of additional disk space will be used.
+Get:1 http://deb.debian.org/debian trixie/main amd64 isolinux all 3:6.04~git20190206.bf6db5b4+dfsg1-3.1 [86.5 kB]
+Fetched 86.5 kB in 0s (4513 kB/s)
+Selecting previously unselected package grub-pc-bin.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 285650 files and directories currently installed.)
+Preparing to unpack .../grub-pc-bin_2.12-9+deb13u2_amd64.deb ...
+Unpacking grub-pc-bin (2.12-9+deb13u2) ...
+Selecting previously unselected package isolinux.
+Preparing to unpack .../isolinux_3%3a6.04~git20190206.bf6db5b4+dfsg1-3.1_all.deb ...
+Unpacking isolinux (3:6.04~git20190206.bf6db5b4+dfsg1-3.1) ...
+Setting up isolinux (3:6.04~git20190206.bf6db5b4+dfsg1-3.1) ...
+Setting up grub-pc-bin (2.12-9+deb13u2) ...
+xorriso 1.5.6 : RockRidge filesystem manipulator, libburnia project.
+
+xorriso : NOTE : Environment variable SOURCE_DATE_EPOCH encountered with value 1793019874
+Drive current: -outdev 'stdio:nova-os-0.12-amd64.hybrid.iso'
+Media current: stdio file, overwriteable
+Media status : is blank
+Media summary: 0 sessions, 0 data blocks, 0 data, 94.4g free
+xorriso : NOTE : -as mkisofs: Ignored option '-cache-inodes'
+Added to ISO image: directory '/'='/binary'
+xorriso : UPDATE :     836 files added in 1 seconds
+xorriso : UPDATE :     836 files added in 1 seconds
+xorriso : NOTE : Copying to System Area: 512 bytes from file '/usr/lib/grub/i386-pc/boot_hybrid.img'
+xorriso : UPDATE :  5.93% done
+xorriso : UPDATE :  56.36% done
+xorriso : UPDATE :  85.26% done
+xorriso : UPDATE :  98.02% done
+ISO image produced: 1477292 sectors
+Written to medium : 1477292 sectors at LBA 0
+Writing to 'stdio:nova-os-0.12-amd64.hybrid.iso' completed successfully.
+
+Reading package lists...
+Building dependency tree...
+Reading state information...
+Reading package lists...
+Building dependency tree...
+Reading state information...
+The following packages will be REMOVED:
+  grub-pc-bin* isolinux*
+0 upgraded, 0 newly installed, 2 to remove and 0 not upgraded.
+After this operation, 3437 kB disk space will be freed.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 285977 files and directories currently installed.)
+Removing grub-pc-bin (2.12-9+deb13u2) ...
+Removing isolinux (3:6.04~git20190206.bf6db5b4+dfsg1-3.1) ...
+[2026-10-26 13:21:10] lb binary_onie 
+[2026-10-26 13:21:10] lb binary_netboot 
+[2026-10-26 13:21:10] lb binary_tar 
+[2026-10-26 13:21:10] lb binary_hdd 
+[2026-10-26 13:21:10] lb binary_zsync 
+[2026-10-26 13:21:10] lb chroot_prep remove dpkg tmpfs sysv-rc hosts resolv hostname apt
+[2026-10-26 13:21:10] lb chroot_apt remove
+P: Deconfiguring file /etc/apt/apt.conf
+[2026-10-26 13:21:10] lb chroot_hostname remove
+P: Deconfiguring file /etc/hostname
+P: Deconfiguring file /bin/hostname
+[2026-10-26 13:21:11] lb chroot_resolv remove
+P: Deconfiguring file /etc/resolv.conf
+[2026-10-26 13:21:11] lb chroot_hosts remove
+P: Deconfiguring file /etc/hosts
+[2026-10-26 13:21:11] lb chroot_sysv-rc remove
+P: Deconfiguring file /usr/sbin/policy-rc.d
+[2026-10-26 13:21:11] lb chroot_tmpfs remove
+[2026-10-26 13:21:11] lb chroot_dpkg remove
+P: Deconfiguring file /sbin/start-stop-daemon
+[2026-10-26 13:21:11] lb chroot_prep remove devpts proc selinuxfs sysfs
+[2026-10-26 13:21:11] lb chroot_sysfs remove
+P: Begin unmounting /sys...
+[2026-10-26 13:21:11] lb chroot_selinuxfs remove
+[2026-10-26 13:21:11] lb chroot_proc remove
+P: Begin unmounting /proc...
+[2026-10-26 13:21:11] lb chroot_devpts remove
+P: Begin unmounting /dev/pts...
+P: Binary stage completed
+P: Begin unmounting filesystems...
+P: Saving caches...
+Reading package lists...
+Building dependency tree...
+Reading state information...
+[2026-10-26 13:21:11] lb source 
+P: Source stage disabled, skipping
+P: Build completed successfully

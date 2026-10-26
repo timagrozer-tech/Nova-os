@@ -1,0 +1,93 @@
+NOVA OS ISO verification — NOVA-OS-0.12-amd64.iso
+size_bytes=3025494016
+PASS  SHA-256 matches SHA256SUMS
+El Torito catalog  : 2004  1
+El Torito cat path : /boot.catalog
+El Torito images   :   N  Pltf  B   Emul  Ld_seg  Hdpt  Ldsiz         LBA
+El Torito boot img :   1  BIOS  y   none  0x0000  0x00      4        2005
+El Torito boot img :   2  UEFI  y   none  0x0000  0x00   6656         339
+El Torito img path :   1  /boot/grub/grub_eltorito
+El Torito img opts :   1  boot-info-table grub2-boot-info
+El Torito img path :   2  /boot/grub/efi.img
+PASS  BIOS (Legacy) El Torito boot image present
+PASS  UEFI El Torito boot image present
+PASS  hybrid system area (USB boot via dd/Rufus DD/Ventoy)
+PASS  live kernel
+PASS  live initrd
+PASS  live root filesystem
+PASS  GRUB menu
+PASS  UEFI loader EFI/boot/bootx64.efi
+PASS  Secure Boot chain (shim -> grubx64.efi)
+PASS  offline GRUB packages + APT indices for Calamares on the medium
+PASS  boot=live in GRUB menu
+INFO  pool marker: ok grub-pc=1 grub-efi-amd64=1 grub-efi-amd64-signed=1
+PASS  NOVA boot menu (branded background)
+PASS  Calamares installer
+PASS  Plasma Wayland session
+PASS  Plasma X11 fallback session
+PASS  SDDM login manager
+PASS  NetworkManager
+PASS  PipeWire/WirePlumber audio
+PASS  KWin Wayland compositor
+PASS  live-config user setup
+PASS  Calamares settings
+PASS  NOVA Calamares branding
+PASS  NEON Stats widget
+PASS  NOVA Fluent window frame
+PASS  NOVA Aqua window frame
+PASS  Aurorae engine for NOVA window frames
+PASS  NOVA Air light look-and-feel
+PASS  NOVA Air dark look-and-feel
+PASS  NOVA Air light colour scheme
+PASS  NEON//SYS look-and-feel
+PASS  NEON//SYS live wallpaper (QML)
+PASS  NEON//SYS colour scheme
+PASS  NEON//SYS fonts (Orbitron, Share Tech Mono)
+PASS  NOVA boot splash (Plymouth)
+PASS  NOVA Live wallpaper (QML)
+PASS  NOVA Styles and features
+PASS  zram-tools (swap in compressed RAM)
+PASS  nova-control
+PASS  nova-personalize
+PASS  nova-layout
+PASS  nova-selftest
+PASS  nova-first-run
+PASS  nova-defender
+PASS  nova-task-manager
+PASS  nova-update-center
+PASS  nova-driver-center
+PASS  nova-android-hub
+PASS  nova-dualboot
+PASS  nova-migration
+PASS  nova-sound-studio
+PASS  nova-gaming
+PASS  nova-phone-hub
+PASS  nova-health
+PASS  nova-performance
+PASS  nova-display
+PASS  nova-hotkeys
+PASS  nova-game-bar
+PASS  nova-key
+PASS  nova-neon
+PASS  nova-neon-center
+PASS  NOVA UI kit
+PASS  nova-release
+PASS  Fluent Plasma theme (vendored, GPL-3)
+PASS  Fluent window decorations
+PASS  Fluent icons
+PASS  Fluent login screen (SDDM)
+PASS  third-party licences shipped
+PASS  wallpaper NOVA-NeonRain (4K)
+PASS  wallpaper NOVA-BlueSilk (4K)
+PASS  wallpaper NOVA-Signal (4K)
+PASS  wallpaper NOVA-Paper (4K)
+PASS  Bibata cursors
+PASS  Kvantum Fluent theme
+PASS  Windows-like shortcuts defaults
+PASS  kscreen-doctor (refresh rate / monitors)
+PASS  ddcutil (external monitor brightness)
+PASS  QEMU guest agent (CI self-test in VMs)
+PASS  no preinstalled office suite
+PASS  no proprietary NVIDIA module in the image
+SUMMARY fail=0 warn=0
+Checks above inspect the image only; boot/installation/hardware are verified separately.
