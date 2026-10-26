@@ -1,17 +1,27 @@
-# NOVA OS defaults
+# NOVA OS defaults: NOVA Fluent window frames (Windows 11 language) and motion
 [org.kde.kdecoration2]
 library=org.kde.kwin.aurorae
-theme=__aurorae__svg__Fluent-round-dark
+theme=__aurorae__svg__NOVA-Fluent-Dark
+ButtonsOnLeft=M
+ButtonsOnRight=IAX
 BorderSize=Normal
 BorderSizeAuto=false
 
 [Plugins]
+scaleEnabled=true
+glideEnabled=false
+squashEnabled=true
+magiclampEnabled=false
+slideEnabled=true
 blurEnabled=true
 contrastEnabled=true
 
 [Effect-blur]
 BlurStrength=10
-NoiseStrength=2
+NoiseStrength=4
+
+[Effect-overview]
+BorderActivate=9
 
 # On-screen keyboard (Plasma 6 shows it only for touch input).
 [Wayland]

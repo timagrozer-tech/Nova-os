@@ -21,7 +21,9 @@ LayoutName=org.kde.breeze.desktop
 
 [kwinrc][org.kde.kdecoration2]
 library=org.kde.kwin.aurorae
-theme=__aurorae__svg__Fluent-round-dark
+theme=__aurorae__svg__NOVA-Fluent-Aurora
+ButtonsOnLeft=M
+ButtonsOnRight=IAX
 
 [KSplash]
 Theme=org.nova.aurora.desktop

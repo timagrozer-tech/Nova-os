@@ -48,7 +48,8 @@ novaKickoff(bar);
 novaWidget(bar, "org.kde.plasma.appmenu");
 novaSpacer(bar);
 novaWidget(bar, "org.kde.plasma.systemtray");
-novaWidget(bar, "org.kde.plasma.digitalclock");
+var clock = novaWidget(bar, "org.kde.plasma.digitalclock");
+if (clock) { novaTry(function () { clock.currentConfigGroup = ["Appearance"]; clock.writeConfig("showDate", true); clock.writeConfig("dateDisplayFormat", 1); }); }
 var dock = new Panel;
 novaTry(function () { dock.location = "bottom"; });
 novaTry(function () { dock.height = 56; });
@@ -57,6 +58,8 @@ novaTry(function () { dock.lengthMode = "fit"; });
 novaTry(function () { dock.floating = true; });
 novaTry(function () { dock.hiding = "dodgewindows"; });
 novaTasks(dock, ["applications:org.kde.dolphin.desktop", "applications:firefox-esr.desktop", "applications:nova-control.desktop", "applications:org.kde.discover.desktop", "applications:org.kde.konsole.desktop"]);
+novaWidget(dock, "org.kde.plasma.marginsseparator");
+novaWidget(dock, "org.kde.plasma.trash");
 // NOVA style: sakura
 var ws = desktops();
 for (var i = 0; i < ws.length; i++) { var d = ws[i]; novaTry(function () {

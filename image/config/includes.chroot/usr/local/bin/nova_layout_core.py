@@ -146,7 +146,7 @@ def plasma_script(mode: str, density: str = 'standard', *, remove_existing: bool
             'var p = new Panel;',
             'novaTry(function () { p.location = "bottom"; });',
             f'novaTry(function () {{ p.height = {h}; }});',
-            'novaTry(function () { p.floating = true; });',      # Plasma 6 style: floats until a window touches it
+            'novaTry(function () { p.floating = false; });',     # Windows 11: full-width taskbar along the edge
             'novaTry(function () { p.lengthMode = "fill"; });',
             'novaTry(function () { p.hiding = "none"; });',
             'novaSpacer(p);',
@@ -168,7 +168,9 @@ def plasma_script(mode: str, density: str = 'standard', *, remove_existing: bool
             'novaWidget(bar, "org.kde.plasma.appmenu");',
             'novaSpacer(bar);',
             'novaWidget(bar, "org.kde.plasma.systemtray");',
-            'novaWidget(bar, "org.kde.plasma.digitalclock");',
+            'var clock = novaWidget(bar, "org.kde.plasma.digitalclock");',      # macOS: «Пн 26 окт. 15:46»
+            'if (clock) { novaTry(function () { clock.currentConfigGroup = ["Appearance"]; '
+            'clock.writeConfig("showDate", true); clock.writeConfig("dateDisplayFormat", 1); }); }',
             'var dock = new Panel;',
             'novaTry(function () { dock.location = "bottom"; });',
             f'novaTry(function () {{ dock.height = {h + 8}; }});',
@@ -177,6 +179,8 @@ def plasma_script(mode: str, density: str = 'standard', *, remove_existing: bool
             'novaTry(function () { dock.floating = true; });',
             'novaTry(function () { dock.hiding = "dodgewindows"; });',
             f'novaTasks(dock, {launchers});',
+            'novaWidget(dock, "org.kde.plasma.marginsseparator");',
+            'novaWidget(dock, "org.kde.plasma.trash");',                         # like the macOS dock
         ]
     else:  # hybrid
         js += [

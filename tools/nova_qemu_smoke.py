@@ -337,6 +337,32 @@ def main(argv=None) -> int:
         (out / 'failed-units.txt').write_text(text)
         results['failed_units'] = [line.split()[0] for line in text.splitlines() if line.strip()]
 
+        if args.styles and plasma:
+            results['styles'] = {}
+            session = ['/usr/local/bin/nova-selftest', '--session-exec']
+            for style in STYLES:
+                code, text = qga.exec([*session, 'nova-style', 'apply', style], timeout=120)
+                time.sleep(12)
+                shot(qmp, out, f'05-style-{style}', results)
+                # the same style with a file manager open: window frame, shadow, title bar
+                qga.exec([*session, 'sh', '-c', 'dolphin --new-window "$HOME" >/dev/null 2>&1 &'], timeout=20)
+                time.sleep(8)
+                shot(qmp, out, f'08-window-{style}', results)
+                qga.exec([*session, 'pkill', '-x', 'dolphin'], timeout=20)
+                time.sleep(2)
+                if style == 'neon':          # system-monitor widgets fill in after a while
+                    time.sleep(30)
+                    shot(qmp, out, '05-style-neon-later', results)
+                results['styles'][style] = 'ok' if code == 0 else f'exit {code}: {text[-300:]}'
+            qga.exec([*session, 'nova-style', 'apply', 'horizon'], timeout=120)
+            qga.exec([*session, 'sh', '-c', 'nova-styles >/dev/null 2>&1 &'], timeout=20)
+            time.sleep(12)
+            shot(qmp, out, '06-styles-app', results)
+            code, text = qga.exec([*session, 'nova-style', 'revert'], timeout=120)
+            time.sleep(14)
+            shot(qmp, out, '07-reverted', results)
+            results['styles']['revert'] = 'ok' if code == 0 else f'exit {code}: {text[-300:]}'
+
         if args.resolutions and plasma:
             results['resolutions'] = {}
             code, text = qga.exec(['/usr/local/bin/nova-selftest', '--session-exec', 'kscreen-doctor', '-j'], timeout=30)
@@ -361,26 +387,6 @@ def main(argv=None) -> int:
                 time.sleep(8)
                 shot(qmp, out, f'04-plasma-{res}-{int(scale * 100)}', results)
                 results['resolutions'][res] = 'ok' if code == 0 else f'kscreen-doctor exit {code}: {text[:200]}'
-
-        if args.styles and plasma:
-            results['styles'] = {}
-            session = ['/usr/local/bin/nova-selftest', '--session-exec']
-            for style in STYLES:
-                code, text = qga.exec([*session, 'nova-style', 'apply', style], timeout=120)
-                time.sleep(14)
-                shot(qmp, out, f'05-style-{style}', results)
-                if style == 'neon':          # system-monitor widgets fill in after a while
-                    time.sleep(30)
-                    shot(qmp, out, '05-style-neon-later', results)
-                results['styles'][style] = 'ok' if code == 0 else f'exit {code}: {text[-300:]}'
-            qga.exec([*session, 'nova-style', 'apply', 'horizon'], timeout=120)
-            qga.exec([*session, 'sh', '-c', 'nova-styles >/dev/null 2>&1 &'], timeout=20)
-            time.sleep(12)
-            shot(qmp, out, '06-styles-app', results)
-            code, text = qga.exec([*session, 'nova-style', 'revert'], timeout=120)
-            time.sleep(14)
-            shot(qmp, out, '07-reverted', results)
-            results['styles']['revert'] = 'ok' if code == 0 else f'exit {code}: {text[-300:]}'
 
         ok = results['checks']['guest_agent'] and plasma
         desk = results.get('screenshots', {}).get('03-desktop', {})

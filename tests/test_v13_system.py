@@ -183,9 +183,10 @@ class ModernUi(unittest.TestCase):
             self.assertNotRegex(text, r"QLabel\('NOVA\s+/\s+[A-Z &]+'\)", app.name)
             self.assertNotRegex(text, r"QLabel\('NOVA [A-Z ]+\s+\|", app.name)
 
-    def test_windows_like_panel_floats(self):
-        js = layout.plasma_script('windows')
-        self.assertIn('p.floating = true', js)
+    def test_windows_like_panel_is_a_full_width_taskbar(self):
+        js = layout.plasma_script('windows')          # Windows 11: flush with the screen edge, not floating
+        self.assertIn('p.floating = false', js)
+        self.assertIn('p.lengthMode = "fill"', js)
 
 
 if __name__ == '__main__':

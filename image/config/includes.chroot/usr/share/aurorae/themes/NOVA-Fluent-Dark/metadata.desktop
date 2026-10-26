@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=NOVA Fluent (dark)
+Name[ru]=NOVA Fluent (dark)
+Comment=NOVA window frame — fluent
+Comment[ru]=Рамка окон NOVA: кнопки справа, как в Windows 11
+X-KDE-PluginInfo-Name=NOVA-Fluent-Dark
+X-KDE-PluginInfo-Author=NOVA OS community project
+X-KDE-PluginInfo-Version=0.12
+X-KDE-PluginInfo-License=GPL-2.0-or-later
+X-KDE-PluginInfo-Website=
+X-KDE-PluginInfo-Email=

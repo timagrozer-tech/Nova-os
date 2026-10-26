@@ -203,6 +203,8 @@ class VerifyIsoScript(unittest.TestCase):
              '/usr/share/color-schemes/NovaNeon.colors',
              '/usr/share/plasma/wallpapers/org.nova.live.wallpaper/contents/ui/main.qml',
              '/usr/share/plasma/plasmoids/org.nova.neon.stats/contents/ui/main.qml',
+             '/usr/share/aurorae/themes/NOVA-Fluent-Light/decoration.svg',
+             '/usr/share/aurorae/themes/NOVA-Aqua-Sakura/close.svg',
              '/usr/share/plasma/desktoptheme/Fluent-round-dark/metadata.desktop',
              '/usr/share/aurorae/themes/Fluent-round-dark/metadata.desktop', '/usr/share/icons/Fluent-dark/index.theme',
              '/usr/share/sddm/themes/Fluent/Main.qml', '/usr/share/doc/nova-third-party/fluent-kde/LICENSE',
@@ -399,7 +401,7 @@ panels:st.panels.map(p=>({loc:p.location,h:p.height,len:p.lengthMode,fl:p.floati
         self.assertEqual((win[0]['loc'], win[0]['h'], win[0]['len']), ('bottom', 48, 'fill'))
         dock = results['dock']['panels']
         self.assertEqual([p['loc'] for p in dock], ['top', 'bottom'])
-        self.assertEqual((dock[1]['len'], dock[1]['fl'], dock[1]['w']), ('fit', True, ['org.kde.plasma.icontasks']))
+        self.assertEqual((dock[1]['len'], dock[1]['fl'], dock[1]['w']), ('fit', True, ['org.kde.plasma.icontasks', 'org.kde.plasma.marginsseparator', 'org.kde.plasma.trash']))
         hyb = results['hybrid']['panels']
         self.assertEqual((len(hyb), hyb[0]['len'], hyb[0]['fl']), (1, 'fit', True))
 

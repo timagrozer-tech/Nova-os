@@ -56,7 +56,8 @@ class FluentLook(unittest.TestCase):
                 continue
             d = core.lnf_defaults(sid)
             self.assertIn(f"name={st['plasma']}", d)
-            self.assertIn(f"theme=__aurorae__svg__{st['deco']}", d)
+            import nova_chrome_core as chrome                          # NOVA frames (Fluent/Aqua) per style
+            self.assertIn(f"theme={chrome.kwin_theme(*st['chrome'])}", d)
             self.assertIn(f"cursorTheme={st['cursor']}", d)
             self.assertIn(f"Theme={layout.LNF[st['lnf']]}", d)          # NOVA splash
 

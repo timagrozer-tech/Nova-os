@@ -437,8 +437,91 @@ def setup_window(window, title: str | None = None, size: tuple[int, int] = (1000
     close.activated.connect(window.close)
     window._nova_shortcuts = [close]  # keep a reference
     QtCore.QTimer.singleShot(0, lambda: fit_content(window))
+    enable_motion(window)
     _install_smoke_hook(window, app_id)
     return w, h
+
+
+# ---------------------------------------------------------------- motion
+# Windows 11 / macOS feel: content fades in when a window opens (≈250 ms), pages
+# slide up a little and fade when you switch tabs (≈170 ms, decelerating curve).
+# Scaled by Plasma's animation speed; «Уменьшить движение» (factor 0) turns it off.
+
+def motion_factor(home=None) -> float:
+    if os.environ.get('NOVA_REDUCE_MOTION'):
+        return 0.0
+    for path in ((Path(home) if home else Path.home()) / '.config/kdeglobals', Path('/etc/xdg/kdeglobals')):
+        try:
+            group = None
+            for raw in path.read_text(encoding='utf-8', errors='replace').splitlines():
+                line = raw.strip()
+                if line.startswith('['):
+                    group = line
+                elif group == '[KDE]' and line.startswith('AnimationDurationFactor='):
+                    return max(0.0, min(4.0, float(line.split('=', 1)[1])))
+        except (OSError, ValueError):
+            continue
+    return 1.0
+
+
+def _animate(widget, ms: int, slide: int = 0):
+    QtCore, _, QtWidgets = _qt()
+    if widget is None or ms <= 0:
+        return
+    effect = QtWidgets.QGraphicsOpacityEffect(widget)
+    effect.setOpacity(0.0)
+    widget.setGraphicsEffect(effect)
+    group = QtCore.QParallelAnimationGroup(widget)
+    fade = QtCore.QPropertyAnimation(effect, b'opacity', group)
+    fade.setDuration(ms)
+    fade.setStartValue(0.0)
+    fade.setEndValue(1.0)
+    fade.setEasingCurve(QtCore.QEasingCurve.Type.OutCubic)
+    group.addAnimation(fade)
+    if slide:
+        end = widget.pos()
+        move = QtCore.QPropertyAnimation(widget, b'pos', group)
+        move.setDuration(ms)
+        move.setStartValue(end + QtCore.QPoint(0, slide))
+        move.setEndValue(end)
+        move.setEasingCurve(QtCore.QEasingCurve.Type.OutCubic)
+        group.addAnimation(move)
+
+    def done():
+        if widget.graphicsEffect() is effect:
+            widget.setGraphicsEffect(None)       # effects cost rendering time: drop it when finished
+    group.finished.connect(done)
+    group.start(QtCore.QAbstractAnimation.DeletionPolicy.DeleteWhenStopped)
+
+
+def enable_motion(window) -> bool:
+    QtCore, _, QtWidgets = _qt()
+    factor = motion_factor()
+    if factor <= 0:
+        return False
+    open_ms, page_ms = int(250 * factor), int(170 * factor)
+
+    def hook_pages():
+        for stack in window.findChildren(QtWidgets.QStackedWidget):
+            if stack.property('novaMotion'):
+                continue
+            stack.setProperty('novaMotion', True)
+            stack.currentChanged.connect(lambda _i, st=stack: _animate(st.currentWidget(), page_ms, 12))
+
+    class _OnShow(QtCore.QObject):
+        done = False
+
+        def eventFilter(self, obj, event):  # noqa: N802 (Qt API)
+            if event.type() == QtCore.QEvent.Type.Show and not self.done:
+                self.done = True
+                central = window.centralWidget() if hasattr(window, 'centralWidget') else None
+                _animate(central, open_ms)
+                QtCore.QTimer.singleShot(0, hook_pages)
+            return False
+    watcher = _OnShow(window)
+    window.installEventFilter(watcher)
+    window._nova_motion = watcher
+    return True
 
 
 def fit_content(window) -> bool:

@@ -14,6 +14,7 @@ import re
 import secrets
 from pathlib import Path
 
+import nova_chrome_core as chrome
 import nova_layout_core as layout
 
 LIVE_PLUGIN = 'org.nova.live.wallpaper'
@@ -23,7 +24,8 @@ SHARE = Path(__file__).resolve().parents[2] / 'share'      # /usr/share (or the 
 # wallpaper: ('image', package dir) or ('live', scene)
 # Look (0.12 «premium» pass): Plasma desktop theme, window decoration (Aurorae) and
 # icons come from the vendored Fluent KDE project (GPL-3, third_party/), cursors
-# from Debian's bibata-cursor-theme. Wallpapers are NOVA's own artwork.
+# from Debian's bibata-cursor-theme. Wallpapers are NOVA's own artwork. 'deco' (vendored Fluent frame)
+# stays installed as an alternative; styles use NOVA's own Fluent/Aqua frames (CHROME below).
 DARK_LOOK = {'plasma': 'Fluent-round-dark', 'deco': 'Fluent-round-dark', 'icons': 'Fluent-dark',
              'cursor': 'Bibata-Modern-Ice'}
 LIGHT_LOOK = {'plasma': 'Fluent-round-light', 'deco': 'Fluent-round-light', 'icons': 'Fluent',
@@ -63,6 +65,12 @@ STYLES = {
         'variant': 'auto', 'lnf': 'light', 'mode': 'windows', 'wallpaper': ('live', 'sky'), **LIGHT_LOOK,
         'palette': ('#f4f6fa', '#71b4ff', '#11161f'), 'layout_title': 'Панель снизу'},
 }
+# Window frame + motion language of each style (nova_chrome_core): Fluent = Windows 11, Aqua = macOS.
+CHROME = {'air-light': ('fluent', 'light'), 'air-dark': ('fluent', 'dark'), 'neon': ('fluent', 'neon'),
+          'signal': ('fluent', 'neon'), 'aurora': ('fluent', 'aurora'), 'sakura': ('aqua', 'sakura'),
+          'ocean': ('fluent', 'ocean'), 'horizon': ('fluent', 'light')}
+for _sid, _chrome in CHROME.items():
+    STYLES[_sid]['chrome'] = _chrome
 STYLE_ORDER = tuple(STYLES)
 NEW_LNF = ('aurora', 'sakura', 'ocean', 'signal')   # look-and-feel packages added by NOVA styles
 AIR_LNF = ('air-light', 'air-dark')                 # NOVA Air packages (also generated from STYLES)
@@ -320,10 +328,7 @@ LayoutName=org.kde.breeze.desktop
 [kwinrc][DesktopSwitcher]
 LayoutName=org.kde.breeze.desktop
 
-[kwinrc][org.kde.kdecoration2]
-library=org.kde.kwin.aurorae
-theme=__aurorae__svg__{st['deco']}
-
+{chrome.lnf_section(*st['chrome'])}
 [KSplash]
 Theme={layout.LNF[st['lnf']]}
 """
@@ -494,6 +499,9 @@ def revert_summary(state: dict) -> list[str]:
                     if f'{fl}/{g}/{k}' in (state.get('feature_backup') or {})})
     if names:
         items.append('ваши прежние настройки эффектов: ' + ', '.join(n.lower() for n in names))
+    if any(k.startswith(('kwinrc/org.kde.kdecoration2/', 'kwinrc/Effect-blur/'))
+           for k in (state.get('feature_backup') or {})):
+        items.append('прежние рамки окон и анимации')
     if state.get('autopilot'):
         items.append('автопилот день/ночь будет выключен')
     return items

@@ -15,7 +15,7 @@ Theme=Fluent-dark
 LookAndFeelPackage=org.nova.air.dark.desktop
 widgetStyle=Breeze
 SingleClick=false
-AnimationDurationFactor=1
+AnimationDurationFactor=0.75
 
 [Colors:Window]
 BackgroundAlternate=33,43,59

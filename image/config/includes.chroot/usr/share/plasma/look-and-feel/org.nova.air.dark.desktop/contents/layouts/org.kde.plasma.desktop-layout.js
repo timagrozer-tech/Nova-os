@@ -42,7 +42,7 @@ function novaRemovePanels() {
 var p = new Panel;
 novaTry(function () { p.location = "bottom"; });
 novaTry(function () { p.height = 48; });
-novaTry(function () { p.floating = true; });
+novaTry(function () { p.floating = false; });
 novaTry(function () { p.lengthMode = "fill"; });
 novaTry(function () { p.hiding = "none"; });
 novaSpacer(p);

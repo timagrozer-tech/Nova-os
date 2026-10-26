@@ -19,6 +19,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 
+import nova_chrome_core as chrome
 import nova_layout_core as layout
 import nova_neon_core as neon
 import nova_sky_core as sky
@@ -125,6 +126,7 @@ def cmd_apply(args):
     if style == 'neon':
         remember_original(args.keep_layout)
         run(['nova-neon', *(['--dry-run'] if DRY else []), 'apply', *(['--look-only'] if args.keep_layout else [])])
+        apply_chrome(*st['chrome'])
         set_autopilot(False)
         if not DRY:
             core.save_state({'style': 'neon'})
@@ -133,6 +135,7 @@ def cmd_apply(args):
         run(['nova-neon', 'revert'])          # leave NEON cleanly; it restores its own snapshot
     remember_original(args.keep_layout)
     run(layout.lookandfeel_command(st['lnf']))
+    apply_chrome(*st['chrome'])
     info = sky.location_info()
     evaluate(core.plasma_script(style, info['lat'], info['lon'], args.density, keep_layout=args.keep_layout))
     if not DRY:
@@ -141,6 +144,22 @@ def cmd_apply(args):
     set_autopilot(style == 'horizon')
     print('Стиль:', st['title'], '—', st['note'])
     print('Вернуть как было: nova-style revert')
+
+
+def apply_chrome(family: str, variant: str):
+    """Window frame + motion of the style; the user's own values are remembered once for «Вернуть как было»."""
+    entries = chrome.chrome_entries(family, variant)
+    st = core.load_state()
+    backup = dict(st.get('feature_backup', {}))
+    for file, group, key, _value in entries:
+        k = f'{file}/{group}/{key}'
+        if k not in backup:
+            backup[k] = core.kde_value(None, file, group, key)
+    if not DRY:
+        core.save_state({'feature_backup': backup})
+    for file, group, key, value in entries:
+        run(core.kwrite(file, group, key, value), check=False)
+    reconfigure_kwin()
 
 
 def cmd_revert(_args):
@@ -239,6 +258,13 @@ def autopilot_tick():
     scheme = core.autopilot_decision(current, day)
     if scheme:
         run(['plasma-apply-colorscheme', scheme], check=False)
+        frame = chrome.current_theme()
+        if frame and frame[1] in ('light', 'dark'):
+            want = 'light' if day else 'dark'
+            if frame[1] != want:
+                run(core.kwrite('kwinrc', 'org.kde.kdecoration2', 'theme', chrome.kwin_theme(frame[0], want)),
+                    check=False)
+                reconfigure_kwin()
         print('Автопилот:', 'день — светлая тема' if day else 'ночь — тёмная тема')
 
 

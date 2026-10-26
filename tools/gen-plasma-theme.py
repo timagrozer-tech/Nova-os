@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 OVERLAY = ROOT / 'image/config/includes.chroot'
 sys.path.insert(0, str(OVERLAY / 'usr/local/bin'))
 
+import nova_chrome_core as chrome  # noqa: E402
 import nova_hotkeys_core as hotkeys  # noqa: E402
 import nova_layout_core as layout  # noqa: E402
 import nova_neon_core as neon  # noqa: E402
@@ -150,10 +151,7 @@ LayoutName=org.kde.breeze.desktop
 [kwinrc][DesktopSwitcher]
 LayoutName=org.kde.breeze.desktop
 
-[kwinrc][org.kde.kdecoration2]
-library=org.kde.breeze
-theme=Breeze
-
+{chrome.lnf_section('fluent', variant)}
 [KSplash]
 Theme=org.kde.breeze.desktop
 """
@@ -194,7 +192,7 @@ def system_kdeglobals() -> str:
             f'LookAndFeelPackage={layout.LNF["dark"]}\n'
             'widgetStyle=Breeze\n'
             'SingleClick=false\n'
-            'AnimationDurationFactor=1\n\n'
+            'AnimationDurationFactor=0.75\n\n'
             + color_groups('dark'))
 
 
@@ -210,10 +208,8 @@ STATIC = {
     'etc/xdg/plasmarc': f"[Theme]\nname={_default()['plasma']}\n",
     'etc/xdg/kcminputrc': f"[Mouse]\ncursorTheme={_default()['cursor']}\ncursorSize=24\n",
     'etc/xdg/ksplashrc': f"[KSplash]\nEngine=KSplashQML\nTheme={layout.LNF['dark']}\n",
-    'etc/xdg/kwinrc': ('# NOVA OS defaults\n[org.kde.kdecoration2]\nlibrary=org.kde.kwin.aurorae\n'
-                       f"theme=__aurorae__svg__{_default()['deco']}\n"
-                       'BorderSize=Normal\nBorderSizeAuto=false\n\n[Plugins]\nblurEnabled=true\ncontrastEnabled=true\n\n'
-                       '[Effect-blur]\nBlurStrength=10\nNoiseStrength=2\n\n'
+    'etc/xdg/kwinrc': ('# NOVA OS defaults: NOVA Fluent window frames (Windows 11 language) and motion\n'
+                       + chrome.system_kwinrc(*styles.STYLES['air-dark']['chrome']) +
                        '# On-screen keyboard (Plasma 6 shows it only for touch input).\n'
                        '[Wayland]\nInputMethod[$e]=/usr/share/applications/com.github.maliit.keyboard.desktop\n'),
     'etc/xdg/kxkbrc': ('# NOVA OS: English + Russian, Alt+Shift switches layout\n[Layout]\n'
@@ -253,6 +249,10 @@ def outputs() -> dict[str, str]:
         files[f'{base}/contents/defaults'] = styles.lnf_defaults(style)
         files[f'{base}/contents/layouts/org.kde.plasma.desktop-layout.js'] = styles.lnf_layout_script(style)
         files[f'{base}/contents/splash/Splash.qml'] = styles.splash_qml(style)
+    files.update(chrome.all_theme_files(VERSION))
+    files['etc/xdg/krunnerrc'] = ('# NOVA OS: search opens in the middle of the screen (like Spotlight / Windows search)\n'
+                                  '[General]\nFreeFloating=true\nActivateWhenTypingOnDesktop=true\n'
+                                  'historyBehavior=CompletionSuggestion\n')
     files.update(neon_outputs())
     files.update(style_outputs())
     return files
