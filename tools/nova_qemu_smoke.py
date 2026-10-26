@@ -231,6 +231,9 @@ def qemu_command(iso: Path, out: Path, firmware: str, memory: int, cpus: int, bl
     return argv
 
 
+STYLES = ('air-dark', 'signal', 'ocean', 'aurora', 'sakura', 'horizon', 'neon', 'air-light')
+
+
 def shot(qmp: QMP, out: Path, name: str, results: dict) -> None:
     ppm = out / f'{name}.ppm'
     try:
@@ -254,6 +257,7 @@ def main(argv=None) -> int:
     ap.add_argument('--boot-timeout', type=int, default=0, help='seconds (default 900 with KVM, 2400 without)')
     ap.add_argument('--blank-disk', action='store_true', help='attach an empty 20G qcow2 virtual disk')
     ap.add_argument('--resolutions', action='store_true', help='switch Plasma resolutions and take screenshots')
+    ap.add_argument('--styles', action='store_true', help='apply every NOVA style and take screenshots')
     args = ap.parse_args(argv)
 
     if not args.iso.is_file():
@@ -307,6 +311,15 @@ def main(argv=None) -> int:
                 break
             time.sleep(10)
         results['checks']['plasmashell'] = plasma
+        if not plasma:      # collect what the display stack said, so a failure can be diagnosed from CI
+            for fname, argv in (('sddm-journal.txt', ['/bin/journalctl', '-b', '-u', 'sddm', '--no-pager', '-q']),
+                                ('session-journal.txt', ['/bin/journalctl', '-b', '--no-pager', '-q', '-n', '400',
+                                                         '_COMM=kwin_wayland', '+', '_COMM=startplasma-wayland',
+                                                         '+', '_COMM=sddm-helper', '+', '_COMM=plasmashell']),
+                                ('drm.txt', ['/bin/sh', '-c', 'ls -l /dev/dri; cat /sys/class/drm/*/status; '
+                                             'loginctl list-sessions; ps -eo pid,user,comm | grep -Ei "kwin|plasma|sddm|Xorg"'])):
+                code, text = qga.exec(argv, timeout=60)
+                (out / fname).write_text(text)
         results['seconds_to_plasma'] = round(time.time() - started)
         time.sleep(25)
         shot(qmp, out, '03-desktop', results)
@@ -323,6 +336,32 @@ def main(argv=None) -> int:
         code, text = qga.exec(['/bin/systemctl', '--failed', '--no-legend', '--plain'], timeout=30)
         (out / 'failed-units.txt').write_text(text)
         results['failed_units'] = [line.split()[0] for line in text.splitlines() if line.strip()]
+
+        if args.styles and plasma:
+            results['styles'] = {}
+            session = ['/usr/local/bin/nova-selftest', '--session-exec']
+            for style in STYLES:
+                code, text = qga.exec([*session, 'nova-style', 'apply', style], timeout=120)
+                time.sleep(12)
+                shot(qmp, out, f'05-style-{style}', results)
+                # the same style with a file manager open: window frame, shadow, title bar
+                qga.exec([*session, 'sh', '-c', 'dolphin --new-window "$HOME" >/dev/null 2>&1 &'], timeout=20)
+                time.sleep(8)
+                shot(qmp, out, f'08-window-{style}', results)
+                qga.exec([*session, 'pkill', '-x', 'dolphin'], timeout=20)
+                time.sleep(2)
+                if style == 'neon':          # system-monitor widgets fill in after a while
+                    time.sleep(30)
+                    shot(qmp, out, '05-style-neon-later', results)
+                results['styles'][style] = 'ok' if code == 0 else f'exit {code}: {text[-300:]}'
+            qga.exec([*session, 'nova-style', 'apply', 'horizon'], timeout=120)
+            qga.exec([*session, 'sh', '-c', 'nova-styles >/dev/null 2>&1 &'], timeout=20)
+            time.sleep(12)
+            shot(qmp, out, '06-styles-app', results)
+            code, text = qga.exec([*session, 'nova-style', 'revert'], timeout=120)
+            time.sleep(14)
+            shot(qmp, out, '07-reverted', results)
+            results['styles']['revert'] = 'ok' if code == 0 else f'exit {code}: {text[-300:]}'
 
         if args.resolutions and plasma:
             results['resolutions'] = {}

@@ -1,0 +1,321 @@
+#!/usr/bin/env python3
+"""nova-neon — NEON//SYS cyberpunk experience for NOVA OS (KDE Plasma 6).
+
+Built only from what NOVA already ships: no downloads, no root, no system
+files. Before the panels change, the Plasma layout is backed up; `revert`
+returns the previous look, layout, sounds, Konsole profile and mode effects.
+
+  nova-neon status
+  nova-neon apply [--look-only] [--no-widgets] [--density compact|standard|touch]
+  nova-neon revert
+  nova-neon wallpaper auto|synth|city|rain|circuit|next|pause|resume
+  nova-neon widgets                 # put the NEON desktop widgets back
+  nova-neon mode work|game|night|focus|next
+  nova-neon print-script            # show the Plasma script, change nothing
+Add --dry-run to print what would be executed.
+"""
+import argparse
+import shutil
+import subprocess
+import sys
+
+import nova_layout_core as layout
+import nova_neon_core as core
+import nova_ui as ui
+
+DRY = False
+
+
+def run(argv, check=True):
+    if DRY:
+        print('DRY-RUN:', ' '.join(argv))
+        return 0
+    if not shutil.which(argv[0]):
+        print(f'Нет программы {argv[0]} (нужна сессия KDE Plasma 6).', file=sys.stderr)
+        if check:
+            raise SystemExit(3)
+        return 127
+    result = subprocess.run(argv, check=False)
+    if check and result.returncode != 0:
+        raise SystemExit(f'Команда завершилась с ошибкой {result.returncode}: {argv[0]}')
+    return result.returncode
+
+
+def output(argv) -> str:
+    if DRY or not shutil.which(argv[0]):
+        return ''
+    try:
+        return subprocess.run(argv, capture_output=True, text=True, timeout=8, check=False).stdout.strip()
+    except (OSError, subprocess.TimeoutExpired):
+        return ''
+
+
+def dbus_call(service, path, interface, method, *args):
+    if DRY:
+        print(f'DRY-RUN: dbus {service} {path} {interface}.{method}')
+        return None
+    try:
+        import dbus
+        bus = dbus.SessionBus()
+        return getattr(dbus.Interface(bus.get_object(service, path), interface), method)(*args)
+    except Exception as exc:  # noqa: BLE001 — every D-Bus problem is non-fatal here
+        print(f'D-Bus {service}: {exc}', file=sys.stderr)
+        return None
+
+
+def evaluate(script: str):
+    if DRY:
+        print('DRY-RUN: org.kde.PlasmaShell.evaluateScript (%d bytes)' % len(script))
+        return
+    result = dbus_call('org.kde.plasmashell', '/PlasmaShell', 'org.kde.PlasmaShell', 'evaluateScript', script)
+    if result is None:
+        raise SystemExit('Plasma не отвечает (запущена ли сессия KDE Plasma 6?).')
+    if str(result).strip():
+        print(str(result).strip())
+
+
+def notify(summary, body=''):
+    if DRY:
+        print('DRY-RUN: notify', summary)
+        return
+    try:
+        import dbus
+    except ImportError:
+        return
+    dbus_call('org.freedesktop.Notifications', '/org/freedesktop/Notifications', 'org.freedesktop.Notifications',
+              'Notify', 'NEON//SYS', dbus.UInt32(0), 'nova', summary, body, dbus.Array([], signature='s'),
+              dbus.Dictionary({}, signature='sv'), dbus.Int32(2500))
+
+
+def restart_plasmashell(action_between):
+    unit = 'plasma-plasmashell.service'
+    use_systemd = shutil.which('systemctl') and subprocess.run(
+        ['systemctl', '--user', 'is-active', '--quiet', unit], check=False).returncode == 0
+    if use_systemd:
+        run(['systemctl', '--user', 'stop', unit])
+        try:
+            action_between()
+        finally:
+            run(['systemctl', '--user', 'start', unit])
+    else:
+        run(['kquitapp6', 'plasmashell'], check=False)
+        try:
+            action_between()
+        finally:
+            subprocess.Popen(['kstart', 'plasmashell'], start_new_session=True,
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def require_active():
+    if not core.is_active():
+        notify('NEON//SYS выключен', 'Включите его: NOVA — персонализация → NEON//SYS или «nova-neon apply».')
+        raise SystemExit('NEON//SYS не включён. Включить: nova-neon apply')
+
+# ---------------------------------------------------------------- commands
+
+
+def cmd_status(_args):
+    st = core.load_state()
+    print('NEON//SYS:', 'включён' if st.get('active') else 'выключен')
+    if st.get('active'):
+        print('Режим:', core.MODES[st.get('mode', 'work')]['title'])
+        print('Обои:', core.SCENES[st.get('scene', 'auto')])
+        print('Резервная копия панели:', st.get('backup', '—'))
+    print('Горячие клавиши:')
+    for _d, _k, desc in core.SHORTCUTS:
+        print('  ', desc)
+
+
+def cmd_apply(args):
+    st = core.load_state()
+    if not st.get('active'):
+        prev = core.current_lnf_variant()
+        record = {
+            'prev_lnf': 'light' if prev == 'neon' else prev,
+            'prev_choice': ui.read_choice() if ui.read_choice() != 'neon' else 'auto',
+            'prev_sound_theme': core.kde_value(None, 'kdeglobals', 'Sounds', 'Theme') or '',
+            'prev_sound_enable': core.kde_value(None, 'kdeglobals', 'Sounds', 'Enable') or '',
+            'prev_konsole_profile': core.kde_value(None, 'konsolerc', 'Desktop Entry', 'DefaultProfile') or '',
+        }
+        if not DRY:
+            core.save_state(record)
+    if not args.look_only:
+        if DRY:
+            print('DRY-RUN: backup of Plasma layout files')
+            backup = None
+        else:
+            backup = layout.make_backup(label='before-neon')
+            print('Резервная копия раскладки:', backup or 'нечего сохранять (раскладка ещё не создана)')
+        if backup is not None and not st.get('backup'):
+            core.save_state({'backup': backup.name})
+    for argv in core.look_commands():
+        run(argv, check=argv[0] != 'kwriteconfig6')
+    if args.look_only:
+        evaluate(core.wallpaper_script('auto', False))
+    else:
+        evaluate(core.plasma_script(args.density, widgets=not args.no_widgets))
+    if not DRY:
+        ui.save_choice('neon')
+        core.save_state({'active': True, 'scene': 'auto', 'mode': 'work',
+                         'layout_applied': bool(st.get('layout_applied')) or not args.look_only})
+    notify('NEON//SYS // ONLINE', 'Центр NEON — Win+Alt+N. Вернуть прежний вид — там же.')
+    print('NEON//SYS включён. Центр управления: Win+Alt+N (nova-neon-center).')
+    print('Вернуть прежнее оформление: nova-neon revert')
+
+
+def restore_mode_effects(st):
+    """Put back what the current mode changed (your own values were recorded when you left WORK)."""
+    current = core.MODES.get(st.get('mode', 'work'), core.MODES['work'])
+    if current['power'] and st.get('prev_power'):
+        run(core.power_command(st['prev_power']), check=False)
+    if current['dnd'] and 'prev_dnd' in st:
+        for argv in core.dnd_commands(False, st.get('prev_dnd') or None):
+            run(argv, check=False)
+    if current['night'] and 'prev_night' in st:
+        for argv in core.night_light_commands(None, st.get('prev_night') or None):
+            run(argv, check=False)
+        dbus_call('org.kde.KWin', '/KWin', 'org.kde.KWin', 'reconfigure')
+    if not DRY:
+        core.save_state({'prev_power': None, 'prev_dnd': None, 'prev_night': None})
+
+
+def cmd_revert(_args):
+    st = core.load_state()
+    if not st.get('active'):
+        print('NEON//SYS уже выключен.')
+        return
+    restore_mode_effects(st)
+    for argv in core.restore_look_commands(st):
+        run(argv, check=argv[0] != 'kwriteconfig6')
+    backups = [b for b in layout.list_backups() if b.name == st.get('backup')]
+    if st.get('layout_applied') and backups:
+        target = backups[0]
+
+        def put_back():
+            if DRY:
+                print('DRY-RUN: restore', target)
+            else:
+                print('Восстановлено:', ', '.join(layout.restore_files(target)))
+        restart_plasmashell(put_back)
+    else:
+        # Only the wallpaper was NEON: back to the NOVA picture.
+        evaluate(layout._JS_HELPERS.replace('%WALLPAPER%', layout.WALLPAPER) + '\nnovaWallpaper();\n')
+    if not DRY:
+        prev_choice = st.get('prev_choice', 'auto')
+        ui.save_choice(prev_choice if prev_choice in ('auto', 'light', 'dark') else 'auto')
+        core.save_state({'active': False, 'mode': 'work', 'layout_applied': False, 'backup': None,
+                         'prev_lnf': None, 'prev_choice': None, 'prev_sound_theme': None,
+                         'prev_sound_enable': None, 'prev_konsole_profile': None})
+    print('Возвращено прежнее оформление. NEON//SYS можно включить снова в любой момент.')
+
+
+def cmd_wallpaper(args):
+    if not DRY:
+        require_active()
+    st = core.load_state()
+    what = args.what
+    if what == 'next':
+        what = core.next_scene(st.get('scene', 'auto'))
+    if what in ('pause', 'resume'):
+        evaluate(core.wallpaper_script(None, what == 'pause'))
+        print('Анимация обоев:', 'пауза' if what == 'pause' else 'продолжается')
+        return
+    core.validate_scene(what)
+    evaluate(core.wallpaper_script(what, None))
+    if not DRY:
+        core.save_state({'scene': what})
+    notify('WALLPAPER // ' + what.upper(), core.SCENES[what])
+    print('Обои:', core.SCENES[what])
+
+
+def cmd_widgets(args):
+    if not DRY:
+        require_active()
+    evaluate(core.widgets_script(args.density))
+    print('Виджеты NEON//SYS добавлены (прежние виджеты NEON заменены, ваши собственные не тронуты).')
+
+
+def cmd_mode(args):
+    if not DRY:
+        require_active()
+    st = core.load_state()
+    mode = args.mode
+    if mode == 'next':
+        order = core.MODE_ORDER
+        mode = order[(order.index(st.get('mode', 'work')) + 1) % len(order)]
+    spec = core.MODES[core.validate_mode(mode)]
+    if mode == 'work':
+        restore_mode_effects(st)
+    else:
+        # remember the user's own settings once (they are restored by WORK / revert)
+        record = {}
+        if 'prev_power' not in st:
+            current = output(['powerprofilesctl', 'get'])
+            if current in ('performance', 'balanced', 'power-saver'):
+                record['prev_power'] = current
+        if 'prev_dnd' not in st:
+            record['prev_dnd'] = core.kde_value(None, 'plasmanotifyrc', 'DoNotDisturb', 'Until') or ''
+        if 'prev_night' not in st:
+            record['prev_night'] = core.kde_value(None, 'kwinrc', 'NightColor', 'Active') or ''
+        if record and not DRY:
+            core.save_state(record)
+        st = core.load_state() if not DRY else {**st, **record}
+        was = core.MODES.get(st.get('mode', 'work'), core.MODES['work'])
+        if spec['power']:
+            run(core.power_command(spec['power']), check=False)
+        elif was['power'] and st.get('prev_power'):            # leaving GAME: your profile back
+            run(core.power_command(st['prev_power']), check=False)
+        if spec['dnd'] or was['dnd']:
+            for argv in core.dnd_commands(spec['dnd'], st.get('prev_dnd') or None):
+                run(argv, check=False)
+        if spec['night'] or st.get('mode') == 'night':      # only NIGHT turns it on; leaving NIGHT restores yours
+            for argv in core.night_light_commands(spec['night'], st.get('prev_night') or None):
+                run(argv, check=False)
+            dbus_call('org.kde.KWin', '/KWin', 'org.kde.KWin', 'reconfigure')
+    evaluate(core.wallpaper_script(spec['scene'], spec['paused']))
+    if not DRY:
+        core.save_state({'mode': mode, **({'scene': spec['scene']} if spec['scene'] else {})})
+    notify('MODE // ' + mode.upper(), spec['title'])
+    print('Режим:', spec['title'])
+
+
+def cmd_print(args):
+    sys.stdout.write(core.plasma_script(args.density))
+
+
+def main(argv=None):
+    global DRY
+    parser = argparse.ArgumentParser(prog='nova-neon', description='NEON//SYS — киберпанк-оформление NOVA OS')
+    parser.add_argument('--dry-run', action='store_true', help='только показать действия')
+    sub = parser.add_subparsers(dest='command', required=True)
+    sub.add_parser('status').set_defaults(func=cmd_status)
+    p = sub.add_parser('apply')
+    p.add_argument('--look-only', action='store_true', help='только цвета, звуки и обои, панели не трогать')
+    p.add_argument('--no-widgets', action='store_true', help='без виджетов на рабочем столе')
+    p.add_argument('--density', choices=layout.DENSITIES, default='standard')
+    p.set_defaults(func=cmd_apply)
+    sub.add_parser('revert').set_defaults(func=cmd_revert)
+    p = sub.add_parser('wallpaper')
+    p.add_argument('what', choices=(*core.SCENE_ORDER, 'next', 'pause', 'resume'))
+    p.set_defaults(func=cmd_wallpaper)
+    p = sub.add_parser('widgets')
+    p.add_argument('--density', choices=layout.DENSITIES, default='standard')
+    p.set_defaults(func=cmd_widgets)
+    p = sub.add_parser('mode')
+    p.add_argument('mode', choices=(*core.MODE_ORDER, 'next'))
+    p.set_defaults(func=cmd_mode)
+    p = sub.add_parser('print-script')
+    p.add_argument('--density', choices=layout.DENSITIES, default='standard')
+    p.set_defaults(func=cmd_print)
+    args = parser.parse_args(argv)
+    DRY = args.dry_run
+    try:
+        args.func(args)
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
+        return 2
+    return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

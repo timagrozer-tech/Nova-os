@@ -78,6 +78,8 @@ grubcfg="$(iso_file /boot/grub/grub.cfg)"
 if grep -q 'boot=live' <<<"$grubcfg"; then ok "boot=live in GRUB menu"; else bad "GRUB menu lacks boot=live"; fi
 marker="$(iso_file /.disk/nova-offline-bootloader)"
 [[ -n "$marker" ]] && say "INFO  pool marker: $marker"
+bm="$(iso_file /.disk/nova-bootmenu)"
+if [[ "$bm" == applied* ]]; then ok "NOVA boot menu (branded background)"; else note "NOVA boot menu branding not applied (${bm:-no marker}); Debian default menu is used"; fi
 
 # 5. Root filesystem contents
 if xorriso -osirrox on -indev "$ISO" -extract /live/filesystem.squashfs "$tmp/fs.squashfs" >/dev/null 2>&1; then
@@ -95,17 +97,39 @@ if xorriso -osirrox on -indev "$ISO" -extract /live/filesystem.squashfs "$tmp/fs
   have '/usr/lib/live/config/0030-user-setup|/usr/lib/live/config/0030-live-debconfig_passwd|/usr/lib/live/config/.*user-setup.*' "live-config user setup"
   have '/etc/calamares/settings\.conf'              "Calamares settings"
   maybe '/etc/calamares/branding/nova/branding\.desc' "NOVA Calamares branding"
+  have '/usr/share/plasma/plasmoids/org\.nova\.neon\.stats/contents/ui/main\.qml' "NEON Stats widget"
+  have '/usr/share/aurorae/themes/NOVA-Fluent-Light/decoration\.svg' "NOVA Fluent window frame"
+  have '/usr/share/aurorae/themes/NOVA-Aqua-Sakura/close\.svg' "NOVA Aqua window frame"
+  maybe '/usr/lib/.*/qt6/plugins/org\.kde\.kdecoration[23]/(org\.kde\.kwin\.)?aurorae\.so' "Aurorae engine for NOVA window frames"
   have '/usr/share/plasma/look-and-feel/org\.nova\.air\.light\.desktop/metadata\.json' "NOVA Air light look-and-feel"
   have '/usr/share/plasma/look-and-feel/org\.nova\.air\.dark\.desktop/metadata\.json'  "NOVA Air dark look-and-feel"
   have '/usr/share/color-schemes/NovaAirLight\.colors' "NOVA Air light colour scheme"
+  have '/usr/share/plasma/look-and-feel/org\.nova\.neon\.desktop/metadata\.json' "NEON//SYS look-and-feel"
+  have '/usr/share/plasma/wallpapers/org\.nova\.neon\.wallpaper/contents/ui/main\.qml' "NEON//SYS live wallpaper (QML)"
+  have '/usr/share/color-schemes/NovaNeon\.colors'  "NEON//SYS colour scheme"
+  maybe '/usr/share/fonts/truetype/nova-neon/Orbitron-Variable\.ttf' "NEON//SYS fonts (Orbitron, Share Tech Mono)"
+  maybe '/usr/share/plymouth/themes/nova/nova\.plymouth' "NOVA boot splash (Plymouth)"
+  have '/usr/share/plasma/wallpapers/org\.nova\.live\.wallpaper/contents/ui/main\.qml' "NOVA Live wallpaper (QML)"
+  have '/usr/local/bin/nova-styles'                 "NOVA Styles and features"
+  maybe '/usr/sbin/zramswap'                        "zram-tools (swap in compressed RAM)"
   for app in nova-control nova-personalize nova-layout nova-selftest nova-first-run nova-defender \
              nova-task-manager nova-update-center nova-driver-center nova-android-hub nova-dualboot \
              nova-migration nova-sound-studio nova-gaming nova-phone-hub nova-health nova-performance \
-             nova-display nova-hotkeys nova-game-bar nova-key; do
+             nova-display nova-hotkeys nova-game-bar nova-key nova-neon nova-neon-center; do
     have "/usr/local/bin/$app" "$app"
   done
   have '/usr/local/bin/nova_ui\.py'                 "NOVA UI kit"
   have '/etc/nova-release'                          "nova-release"
+  have '/usr/share/plasma/desktoptheme/Fluent-round-dark/metadata.desktop' "Fluent Plasma theme (vendored, GPL-3)"
+  have '/usr/share/aurorae/themes/Fluent-round-dark/metadata.desktop' "Fluent window decorations"
+  have '/usr/share/icons/Fluent-dark/index.theme'   "Fluent icons"
+  have '/usr/share/sddm/themes/Fluent/Main.qml'     "Fluent login screen (SDDM)"
+  have '/usr/share/doc/nova-third-party/fluent-kde/LICENSE' "third-party licences shipped"
+  for wp in NOVA-NeonRain NOVA-BlueSilk NOVA-Signal NOVA-Paper; do
+    have "/usr/share/wallpapers/$wp/contents/images/3840x2160.jpg" "wallpaper $wp (4K)"
+  done
+  maybe '/usr/share/icons/Bibata-Modern-Ice/index.theme' "Bibata cursors"
+  maybe '/usr/share/Kvantum/Fluent-round/Fluent-round.kvconfig' "Kvantum Fluent theme"
   have '/etc/xdg/kglobalshortcutsrc'                "Windows-like shortcuts defaults"
   have '/usr/bin/kscreen-doctor'                    "kscreen-doctor (refresh rate / monitors)"
   maybe '/usr/bin/ddcutil'                          "ddcutil (external monitor brightness)"

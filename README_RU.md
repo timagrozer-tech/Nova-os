@@ -11,6 +11,20 @@ ISO собирается в GitHub Actions (вкладка Actions → Artifacts
 - **Проверка на ноутбуке без риска для Windows 11:** `nova-docs/USB_LIVE_TEST_RU.md` (Ventoy/Rufus, BitLocker, Fast Startup, Live-режим).
 - **Проверка исходников:** `bash tools/validate-project.sh` (без root и сети).
 
+## Стили и NOVA Live (готовится к 0.13)
+
+Семь стилей системы в приложении «Стили и функции»: NOVA Air, NEON//SYS, Aurora, Sakura, Ocean и Horizon с живыми
+обоями «Живое небо», где Солнце и Луна стоят на своих настоящих местах, и автопилотом день/ночь.
+Подробно: `nova-docs/STYLES_RU.md`.
+
+## NEON//SYS — встроенное киберпанк-оформление (готовится к 0.13)
+
+Второе оформление рядом с NOVA Air, собранное только из того, что уже есть в образе: HUD-панель и плавающий док,
+**живые QML-обои Plasma** (Synth Grid, Night City, Data Rain, Circuit — без Wallpaper Engine/Lively, пауза на
+батарее), стандартные виджеты Plasma, режимы WORK/GAME/NIGHT/FOCUS, неоновая тема всех окон NOVA, профиль Konsole,
+звуковая тема и заставка загрузки. Включается в первом запуске, в Персонализации или по **Win+Alt+N**; прежний вид
+возвращается одной кнопкой. Подробно: `nova-docs/NEON_RU.md`.
+
 ## Что нового в 0.12
 
 - **Сборка ISO:** исправлен несуществующий пакет (`spectacle` → `kde-spectacle`), добавлен офлайн-пул GRUB для Calamares (BIOS и UEFI), единый файл `VERSION`, проверка свободного места, манифест пакетов, полноценный `verify-iso.sh`.

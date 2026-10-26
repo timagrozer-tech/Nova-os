@@ -1,0 +1,13 @@
+{
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "NOVA OS community project"
+            }
+        ],
+        "Id": "NOVA-Paper",
+        "License": "CC-BY-SA-4.0",
+        "Name": "NOVA Paper",
+        "Name[ru]": "NOVA — бумага"
+    }
+}

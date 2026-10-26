@@ -1,0 +1,20 @@
+{
+    "KPackageStructure": "Plasma/LookAndFeel",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "NOVA OS community project"
+            }
+        ],
+        "Category": "",
+        "Description": "NOVA style Sakura",
+        "Description[ru]": "Стиль NOVA: Светлая и мягкая, как macOS",
+        "Id": "org.nova.sakura.desktop",
+        "License": "GPL-2.0-or-later",
+        "Name": "NOVA Sakura",
+        "Name[ru]": "NOVA Sakura",
+        "Version": "0.12",
+        "Website": ""
+    },
+    "X-Plasma-APIVersion": "2"
+}

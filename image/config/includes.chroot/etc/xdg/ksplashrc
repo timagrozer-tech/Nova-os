@@ -1,2 +1,3 @@
 [KSplash]
-Theme=org.kde.breeze.desktop
+Engine=KSplashQML
+Theme=org.nova.air.dark.desktop

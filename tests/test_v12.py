@@ -198,11 +198,24 @@ class VerifyIsoScript(unittest.TestCase):
              '/usr/share/plasma/look-and-feel/org.nova.air.light.desktop/metadata.json',
              '/usr/share/plasma/look-and-feel/org.nova.air.dark.desktop/metadata.json',
              '/usr/share/color-schemes/NovaAirLight.colors', '/usr/local/bin/nova_ui.py', '/etc/nova-release',
+             '/usr/share/plasma/look-and-feel/org.nova.neon.desktop/metadata.json',
+             '/usr/share/plasma/wallpapers/org.nova.neon.wallpaper/contents/ui/main.qml',
+             '/usr/share/color-schemes/NovaNeon.colors',
+             '/usr/share/plasma/wallpapers/org.nova.live.wallpaper/contents/ui/main.qml',
+             '/usr/share/plasma/plasmoids/org.nova.neon.stats/contents/ui/main.qml',
+             '/usr/share/aurorae/themes/NOVA-Fluent-Light/decoration.svg',
+             '/usr/share/aurorae/themes/NOVA-Aqua-Sakura/close.svg',
+             '/usr/share/plasma/desktoptheme/Fluent-round-dark/metadata.desktop',
+             '/usr/share/aurorae/themes/Fluent-round-dark/metadata.desktop', '/usr/share/icons/Fluent-dark/index.theme',
+             '/usr/share/sddm/themes/Fluent/Main.qml', '/usr/share/doc/nova-third-party/fluent-kde/LICENSE',
+             ] + [f'/usr/share/wallpapers/{w}/contents/images/3840x2160.jpg'
+                  for w in ('NOVA-NeonRain', 'NOVA-BlueSilk', 'NOVA-Signal', 'NOVA-Paper')] + [
              '/usr/sbin/qemu-ga', '/etc/xdg/kglobalshortcutsrc', '/usr/bin/kscreen-doctor', '/usr/bin/ddcutil',
              ] + [f'/usr/local/bin/{a}' for a in (
                  'nova-display', 'nova-hotkeys', 'nova-game-bar', 'nova-key', 'nova-control', 'nova-personalize', 'nova-layout', 'nova-selftest', 'nova-first-run', 'nova-defender',
                  'nova-task-manager', 'nova-update-center', 'nova-driver-center', 'nova-android-hub', 'nova-dualboot',
-                 'nova-migration', 'nova-sound-studio', 'nova-gaming', 'nova-phone-hub', 'nova-health', 'nova-performance')]
+                 'nova-migration', 'nova-sound-studio', 'nova-gaming', 'nova-phone-hub', 'nova-health', 'nova-performance',
+                 'nova-neon', 'nova-neon-center', 'nova-styles')]
 
     def _stubs(self, tmp, uefi=True, files=None):
         stub = Path(tmp) / 'stub'
@@ -286,7 +299,7 @@ class UiKit(unittest.TestCase):
                 ui.save_choice('dark', home)
                 self.assertEqual(ui.read_choice(home), 'dark')
                 with self.assertRaises(ValueError):
-                    ui.save_choice('neon', home)
+                    ui.save_choice('sepia', home)
                 cfg = Path(home) / '.config/kdeglobals'
                 cfg.write_text('[Colors:Window]\nBackgroundNormal=32,35,38\n')
                 self.assertEqual(ui.detect_plasma_variant(home, system_file='/nonexistent'), 'dark')
@@ -388,7 +401,7 @@ panels:st.panels.map(p=>({loc:p.location,h:p.height,len:p.lengthMode,fl:p.floati
         self.assertEqual((win[0]['loc'], win[0]['h'], win[0]['len']), ('bottom', 48, 'fill'))
         dock = results['dock']['panels']
         self.assertEqual([p['loc'] for p in dock], ['top', 'bottom'])
-        self.assertEqual((dock[1]['len'], dock[1]['fl'], dock[1]['w']), ('fit', True, ['org.kde.plasma.icontasks']))
+        self.assertEqual((dock[1]['len'], dock[1]['fl'], dock[1]['w']), ('fit', True, ['org.kde.plasma.icontasks', 'org.kde.plasma.marginsseparator', 'org.kde.plasma.trash']))
         hyb = results['hybrid']['panels']
         self.assertEqual((len(hyb), hyb[0]['len'], hyb[0]['fl']), (1, 'fit', True))
 
@@ -424,7 +437,7 @@ panels:st.panels.map(p=>({loc:p.location,h:p.height,len:p.lengthMode,fl:p.floati
         self.assertNotIn('--resetLayout', layout.lookandfeel_command('dark'))
         self.assertEqual(layout.animation_command('off')[-1], '0')
         with self.assertRaises(ValueError):
-            layout.lookandfeel_command('neon')
+            layout.lookandfeel_command('sepia')
 
     def test_cli_dry_run(self):
         with tempfile.TemporaryDirectory() as home:
@@ -453,7 +466,7 @@ class PlasmaAssets(unittest.TestCase):
             self.assertEqual(meta['KPackageStructure'], 'Plasma/LookAndFeel')
             self.assertIn('new Panel', (base / 'contents/layouts/org.kde.plasma.desktop-layout.js').read_text())
             self.assertTrue((base / 'contents/previews/preview.png').is_file())
-        self.assertIn(f'LookAndFeelPackage={layout.LNF["light"]}', kdeglobals)
+        self.assertIn(f'LookAndFeelPackage={layout.LNF["dark"]}', kdeglobals)  # default style: NOVA Air dark
         for scheme in ('NovaAirLight', 'NovaAirDark'):
             text = (O / f'usr/share/color-schemes/{scheme}.colors').read_text()
             for group in ('Window', 'View', 'Button', 'Selection', 'Tooltip', 'Complementary', 'Header'):

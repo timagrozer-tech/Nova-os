@@ -34,7 +34,7 @@ class Preflight(QMainWindow):
         ui.setup_window(self, size=(1000, 700), app_id='nova-preflight')
         self.proc = None
         w=QWidget(); lay=QVBoxLayout(w);lay.setContentsMargins(23,20,23,20)
-        title=QLabel('NOVA  /  HARDWARE CHECK');title.setObjectName('brand');lay.addWidget(title)
+        title=QLabel('Проверка ноутбука');title.setObjectName('brand');lay.addWidget(title)
         desc=QLabel('Проверка оборудования в Live-режиме до удаления Windows. Это не гарантирует совместимость всех драйверов.')
         desc.setWordWrap(True);lay.addWidget(desc)
         main=QHBoxLayout();lay.addLayout(main,1)

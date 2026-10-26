@@ -1,0 +1,358 @@
+#!/usr/bin/env python3
+"""nova-style — NOVA styles, desktop features and the day/night autopilot.
+
+User level only (no root, no network). Before the first style change the
+Plasma layout is backed up; `revert` («Вернуть как было») restores the
+layout, theme, wallpaper, desktop effects and switches the autopilot off.
+
+  nova-style list | status
+  nova-style apply air-light|air-dark|neon|aurora|sakura|ocean|horizon [--keep-layout] [--density D]
+  nova-style revert
+  nova-style feature list | feature ID on|off
+  nova-style autopilot on|off|tick|status | autopilot sun | autopilot schedule 07:00 20:00
+  nova-style location "55.75, 37.62" [--label Москва] | location clear | location show
+Add --dry-run to print what would be executed.
+"""
+import argparse
+import shutil
+import subprocess
+import sys
+from datetime import datetime, timezone
+
+import nova_chrome_core as chrome
+import nova_layout_core as layout
+import nova_neon_core as neon
+import nova_sky_core as sky
+import nova_styles_core as core
+import nova_ui as ui
+
+DRY = False
+
+
+def run(argv, check=True):
+    if DRY:
+        print('DRY-RUN:', ' '.join(argv))
+        return 0
+    if not shutil.which(argv[0]):
+        print(f'Нет программы {argv[0]} (нужна сессия KDE Plasma 6).', file=sys.stderr)
+        if check:
+            raise SystemExit(3)
+        return 127
+    result = subprocess.run(argv, check=False)
+    if check and result.returncode != 0:
+        raise SystemExit(f'Команда завершилась с ошибкой {result.returncode}: {argv[0]}')
+    return result.returncode
+
+
+def dbus_call(service, path, interface, method, *args):
+    if DRY:
+        print(f'DRY-RUN: dbus {service} {path} {interface}.{method}')
+        return ''
+    try:
+        import dbus
+        bus = dbus.SessionBus()
+        return getattr(dbus.Interface(bus.get_object(service, path), interface), method)(*args)
+    except Exception as exc:  # noqa: BLE001 — D-Bus problems are reported, not fatal
+        print(f'D-Bus {service}: {exc}', file=sys.stderr)
+        return None
+
+
+def evaluate(script: str):
+    if DRY:
+        print('DRY-RUN: org.kde.PlasmaShell.evaluateScript (%d bytes)' % len(script))
+        return
+    if dbus_call('org.kde.plasmashell', '/PlasmaShell', 'org.kde.PlasmaShell', 'evaluateScript', script) is None:
+        raise SystemExit('Plasma не отвечает (запущена ли сессия KDE Plasma 6?).')
+
+
+def restart_plasmashell(action_between):
+    unit = 'plasma-plasmashell.service'
+    use_systemd = shutil.which('systemctl') and subprocess.run(
+        ['systemctl', '--user', 'is-active', '--quiet', unit], check=False).returncode == 0
+    if use_systemd:
+        run(['systemctl', '--user', 'stop', unit])
+        try:
+            action_between()
+        finally:
+            run(['systemctl', '--user', 'start', unit])
+    else:
+        run(['kquitapp6', 'plasmashell'], check=False)
+        try:
+            action_between()
+        finally:
+            subprocess.Popen(['kstart', 'plasmashell'], start_new_session=True,
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def remember_original(keep_layout: bool):
+    """Record what «Вернуть как было» returns to — only once, before the first style change."""
+    st = core.load_state()
+    if DRY:
+        return
+    if 'prev_lnf' not in st and not neon.is_active():
+        prev = neon.current_lnf_variant()
+        core.save_state({'prev_lnf': prev if prev in ('light', 'dark', 'kde-default') else 'light',
+                         'prev_choice': ui.read_choice() if ui.read_choice() in ('auto', 'light', 'dark') else 'auto'})
+    if not keep_layout and 'backup' not in st:
+        backup = layout.make_backup(label='before-style')
+        if backup is not None:
+            core.save_state({'backup': backup.name})
+
+# ---------------------------------------------------------------- styles
+
+
+def cmd_list(_args):
+    current = core.load_state().get('style')
+    for sid in core.STYLE_ORDER:
+        st = core.STYLES[sid]
+        mark = '●' if sid == current else ' '
+        print(f'{mark} {sid:10} {st["title"]} — {st["note"]} ({st["layout_title"]})')
+
+
+def cmd_status(args):
+    st = core.load_state()
+    print('Стиль:', core.STYLES[st['style']]['title'] if st.get('style') else 'не выбран (оформление по умолчанию)')
+    mode = (f'по графику {st.get("schedule_light", "07:00")}–{st.get("schedule_dark", "20:00")}'
+            if st.get('autopilot_mode') == 'schedule' else 'по солнцу')
+    print('Автопилот день/ночь:', f'включён, {mode}' if st.get('autopilot') else 'выключен')
+    for fid in core.FEATURE_ORDER:
+        print(f'  {"[x]" if core.feature_enabled(fid) else "[ ]"} {core.FEATURES[fid][0]}')
+    cmd_location_show(args)
+
+
+def cmd_apply(args):
+    style = core.validate_style(args.style)
+    st = core.STYLES[style]
+    if style == 'neon':
+        remember_original(args.keep_layout)
+        run(['nova-neon', *(['--dry-run'] if DRY else []), 'apply', *(['--look-only'] if args.keep_layout else [])])
+        apply_chrome(*st['chrome'])
+        set_autopilot(False)
+        if not DRY:
+            core.save_state({'style': 'neon'})
+        return
+    if neon.is_active():
+        run(['nova-neon', 'revert'])          # leave NEON cleanly; it restores its own snapshot
+    remember_original(args.keep_layout)
+    run(layout.lookandfeel_command(st['lnf']))
+    apply_chrome(*st['chrome'])
+    info = sky.location_info()
+    evaluate(core.plasma_script(style, info['lat'], info['lon'], args.density, keep_layout=args.keep_layout))
+    if not DRY:
+        ui.save_choice(st['variant'])
+        core.save_state({'style': style})
+    set_autopilot(style == 'horizon')
+    print('Стиль:', st['title'], '—', st['note'])
+    print('Вернуть как было: nova-style revert')
+
+
+def apply_chrome(family: str, variant: str):
+    """Window frame + motion of the style; the user's own values are remembered once for «Вернуть как было»."""
+    entries = chrome.chrome_entries(family, variant)
+    st = core.load_state()
+    backup = dict(st.get('feature_backup', {}))
+    for file, group, key, _value in entries:
+        k = f'{file}/{group}/{key}'
+        if k not in backup:
+            backup[k] = core.kde_value(None, file, group, key)
+    if not DRY:
+        core.save_state({'feature_backup': backup})
+    for file, group, key, value in entries:
+        run(core.kwrite(file, group, key, value), check=False)
+    reconfigure_kwin()
+
+
+def cmd_revert(_args):
+    st = core.load_state()
+    print('Вернётся:', '; '.join(core.revert_summary(st)))
+    if neon.is_active():
+        run(['nova-neon', 'revert'])
+    set_autopilot(False)
+    restore_features(st)
+    run(layout.lookandfeel_command(st.get('prev_lnf', 'light')))
+    backups = [b for b in layout.list_backups() if b.name == st.get('backup')]
+    if backups:
+        target = backups[0]
+
+        def put_back():
+            if DRY:
+                print('DRY-RUN: restore', target)
+            else:
+                print('Восстановлено:', ', '.join(layout.restore_files(target)))
+        restart_plasmashell(put_back)
+    else:
+        evaluate(layout._JS_HELPERS.replace('%WALLPAPER%', layout.WALLPAPER) + '\nnovaWallpaper();\n')
+    if not DRY:
+        ui.save_choice(st.get('prev_choice', 'auto'))
+        core.state_path().unlink(missing_ok=True)
+    print('Возвращено прежнее оформление: тема, панель, обои и эффекты.')
+
+# ---------------------------------------------------------------- features
+
+
+def reconfigure_kwin():
+    dbus_call('org.kde.KWin', '/KWin', 'org.kde.KWin', 'reconfigure')
+
+
+def cmd_feature(args):
+    if args.feature == 'list':
+        for fid in core.FEATURE_ORDER:
+            title, desc, _w = core.FEATURES[fid]
+            print(f'{"[x]" if core.feature_enabled(fid) else "[ ]"} {fid:12} {title} — {desc}')
+        for title, desc in core.BUILTIN_FEATURES:
+            print(f'[•] {"":12} {title} — {desc}')
+        return
+    fid = core.validate_feature(args.feature)
+    if args.state not in ('on', 'off'):
+        raise SystemExit('Укажите on или off')
+    on = args.state == 'on'
+    st = core.load_state()
+    backup = dict(st.get('feature_backup', {}))
+    for file, group, key, _value in core.FEATURES[fid][2]:
+        k = f'{file}/{group}/{key}'
+        if k not in backup:      # remember the user's own value once
+            backup[k] = core.kde_value(None, file, group, key)
+    if not DRY:
+        core.save_state({'feature_backup': {k: v for k, v in backup.items()}})
+    info = sky.location_info()
+    for argv in core.feature_commands(fid, on, backup, info['lat'], info['lon']):
+        run(argv)
+    reconfigure_kwin()
+    print(core.FEATURES[fid][0] + ':', 'включено' if on else 'выключено')
+
+
+def restore_features(st):
+    backup = st.get('feature_backup') or {}
+    for k, v in backup.items():
+        file, group, key = k.split('/', 2)
+        run(core.kwrite(file, group, key, v), check=False)
+    if backup:
+        reconfigure_kwin()
+
+# ---------------------------------------------------------------- autopilot
+
+
+def set_autopilot(on: bool):
+    if shutil.which('systemctl') or DRY:
+        run(['systemctl', '--user', 'enable' if on else 'disable', '--now', 'nova-autopilot.timer'], check=False)
+    if not DRY:
+        core.save_state({'autopilot': on})
+    if on:
+        autopilot_tick()
+
+
+def autopilot_is_day(st) -> bool:
+    if st.get('autopilot_mode') == 'schedule':
+        return core.schedule_is_day(datetime.now().astimezone(), st.get('schedule_light', '07:00'),
+                                    st.get('schedule_dark', '20:00'))
+    info = sky.location_info()
+    return sky.is_day(datetime.now(timezone.utc), info['lat'], info['lon'])
+
+
+def autopilot_tick():
+    st = core.load_state()
+    if not st.get('autopilot') and not DRY:
+        return
+    day = autopilot_is_day(st)
+    current = core.kde_value(None, 'kdeglobals', 'General', 'ColorScheme')
+    scheme = core.autopilot_decision(current, day)
+    if scheme:
+        run(['plasma-apply-colorscheme', scheme], check=False)
+        frame = chrome.current_theme()
+        if frame and frame[1] in ('light', 'dark'):
+            want = 'light' if day else 'dark'
+            if frame[1] != want:
+                run(core.kwrite('kwinrc', 'org.kde.kdecoration2', 'theme', chrome.kwin_theme(frame[0], want)),
+                    check=False)
+                reconfigure_kwin()
+        print('Автопилот:', 'день — светлая тема' if day else 'ночь — тёмная тема')
+
+
+def cmd_autopilot(args):
+    if args.action in ('on', 'off'):
+        set_autopilot(args.action == 'on')
+        print('Автопилот день/ночь:', 'включён' if args.action == 'on' else 'выключен')
+    elif args.action == 'tick':
+        autopilot_tick()
+    elif args.action == 'sun':
+        if not DRY:
+            core.save_state({'autopilot_mode': 'sun'})
+        print('Автопилот: по восходу и закату.')
+        autopilot_tick()
+    elif args.action == 'schedule':
+        if len(args.times) != 2:
+            raise ValueError('Укажите два времени: когда светлая и когда тёмная, например 07:00 20:00')
+        light, dark = (core.parse_hhmm(t) for t in args.times)
+        if not DRY:
+            core.save_state({'autopilot_mode': 'schedule', 'schedule_light': light, 'schedule_dark': dark})
+        print(f'Автопилот по графику: светлая с {light}, тёмная с {dark}.')
+        autopilot_tick()
+    else:
+        cmd_location_show(args)
+
+# ---------------------------------------------------------------- location
+
+
+def cmd_location_show(_args):
+    info = sky.location_info()
+    exact = 'задано вручную' if info['source'] == 'manual' else 'приближённо, по часовому поясу'
+    print(f'Место для неба: {info["label"]} ({info["lat"]:.2f}, {info["lon"]:.2f}) — {exact}')
+    local = datetime.now().astimezone()
+    start = local.replace(hour=0, minute=0, second=0, microsecond=0)
+    ev = sky.sun_events(start, info['lat'], info['lon'])
+    fmt = lambda t: t.astimezone(local.tzinfo).strftime('%H:%M') if t else '—'   # noqa: E731
+    print(f'Сегодня: восход {fmt(ev["sunrise"])}, закат {fmt(ev["sunset"])}')
+
+
+def cmd_location(args):
+    if args.value == 'show':
+        cmd_location_show(args)
+        return
+    if args.value == 'clear':
+        if not DRY:
+            sky.override_path().unlink(missing_ok=True)
+        print('Место: снова по часовому поясу (приближённо).')
+        return
+    lat, lon = sky.parse_latlon(args.value)
+    if not DRY:
+        sky.save_override(lat, lon, args.label or '')
+    print(f'Место для неба: {lat:.4f}, {lon:.4f}. Обои «Живое небо» обновятся при следующем применении стиля Horizon.')
+
+
+def main(argv=None):
+    global DRY
+    parser = argparse.ArgumentParser(prog='nova-style', description='Стили NOVA, функции рабочего стола, автопилот')
+    parser.add_argument('--dry-run', action='store_true', help='только показать действия')
+    sub = parser.add_subparsers(dest='command', required=True)
+    sub.add_parser('list').set_defaults(func=cmd_list)
+    sub.add_parser('status').set_defaults(func=cmd_status)
+    p = sub.add_parser('apply')
+    p.add_argument('style', choices=core.STYLE_ORDER)
+    p.add_argument('--keep-layout', action='store_true', help='не менять панели')
+    p.add_argument('--density', choices=layout.DENSITIES, default='standard')
+    p.set_defaults(func=cmd_apply)
+    sub.add_parser('revert').set_defaults(func=cmd_revert)
+    p = sub.add_parser('feature')
+    p.add_argument('feature', choices=(*core.FEATURE_ORDER, 'list'))
+    p.add_argument('state', nargs='?', choices=('on', 'off'))
+    p.set_defaults(func=cmd_feature)
+    p = sub.add_parser('autopilot')
+    p.add_argument('action', choices=('on', 'off', 'tick', 'status', 'sun', 'schedule'))
+    p.add_argument('times', nargs='*', help='для schedule: ЧЧ:ММ светлой и ЧЧ:ММ тёмной темы')
+    p.set_defaults(func=cmd_autopilot)
+    p = sub.add_parser('location')
+    p.add_argument('value', help='«широта, долгота», show или clear')
+    p.add_argument('--label', default='')
+    p.set_defaults(func=cmd_location)
+    args = parser.parse_args(argv)
+    DRY = args.dry_run
+    try:
+        args.func(args)
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
+        return 2
+    return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

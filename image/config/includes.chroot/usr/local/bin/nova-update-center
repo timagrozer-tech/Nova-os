@@ -39,7 +39,7 @@ class UpdateCenter(QMainWindow):
         self.job=None; self.plan_ok=False; self.plan_count=0
         main=QWidget(); layout=QVBoxLayout(main)
         layout.setContentsMargins(24,20,24,20)
-        brand=QLabel('NOVA  /  UPDATE & RECOVERY');brand.setObjectName('brand')
+        brand=QLabel('Обновления и восстановление');brand.setObjectName('brand')
         layout.addWidget(brand)
         description=QLabel('Системные обновления Debian · приложение Flatpak · снимки Timeshift · ядро Linux')
         description.setWordWrap(True);layout.addWidget(description)

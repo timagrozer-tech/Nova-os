@@ -1,0 +1,20 @@
+{
+    "KPackageStructure": "Plasma/LookAndFeel",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "NOVA OS community project"
+            }
+        ],
+        "Category": "",
+        "Description": "NOVA style Signal",
+        "Description[ru]": "Стиль NOVA: Чёрный, бирюза и красный — линейная графика",
+        "Id": "org.nova.signal.desktop",
+        "License": "GPL-2.0-or-later",
+        "Name": "NOVA Signal",
+        "Name[ru]": "NOVA Signal",
+        "Version": "0.12",
+        "Website": ""
+    },
+    "X-Plasma-APIVersion": "2"
+}

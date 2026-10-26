@@ -28,7 +28,7 @@ class Gaming(QMainWindow):
     def __init__(self):
         super().__init__();self.setWindowTitle('NOVA Gaming — режим консоли');ui.setup_window(self, size=(850, 630), app_id='nova-gaming')
         w=QWidget();v=QVBoxLayout(w);self.setCentralWidget(w)
-        t=QLabel('NOVA  /  GAMING');t.setObjectName('brand');v.addWidget(t)
+        t=QLabel('Игры');t.setObjectName('brand');v.addWidget(t)
         v.addWidget(QLabel('Игровая библиотека, DualShock / DualSense, Steam Input, энергопрофили и мониторинг.'))
         row=QHBoxLayout();v.addLayout(row)
         self.button(row,'🎮 Открыть Steam Big Picture',self.steam)

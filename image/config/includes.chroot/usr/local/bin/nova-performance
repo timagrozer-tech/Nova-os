@@ -20,7 +20,7 @@ class Performance(QMainWindow):
         self.previous=None
         self.processes=[]
         wrap=QWidget();outer=QVBoxLayout(wrap);outer.setContentsMargins(24,18,24,18)
-        headline=QLabel('NOVA  /  PERFORMANCE');headline.setObjectName('brand');outer.addWidget(headline)
+        headline=QLabel('Производительность');headline.setObjectName('brand');outer.addWidget(headline)
         info=QLabel('Показатели ноутбука, энергопрофили и процессы. Никакого автоматического разгона или отключения защиты.')
         info.setWordWrap(True);outer.addWidget(info)
         box=QGroupBox('Мониторинг в реальном времени');grid=QGridLayout(box)

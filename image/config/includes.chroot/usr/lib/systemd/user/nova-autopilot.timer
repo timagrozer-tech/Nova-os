@@ -1,0 +1,10 @@
+[Unit]
+Description=NOVA day/night autopilot: check the sun every 10 minutes
+
+[Timer]
+OnStartupSec=20s
+OnUnitActiveSec=10min
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,34 @@
+#!/bin/sh
+# NOVA OS — branded boot menu for the live ISO (same GRUB menu for BIOS and UEFI).
+# Runs on the BUILD HOST inside the binary/ tree, after live-build has written
+# boot/grub. Replaces only the background picture, uses "crop" scaling so 4:3
+# and 16:9 screens are not distorted, and names the entries "NOVA OS Live".
+# If live-build's layout ever differs, the hook changes nothing (warning only).
+set -eu
+
+SRC=boot/grub/nova/splash.png
+MARKER=.disk/nova-bootmenu
+mkdir -p .disk
+
+if [ ! -f "$SRC" ] || [ ! -f boot/grub/grub.cfg ]; then
+	echo "NOVA WARNING: boot menu branding skipped (no $SRC or boot/grub/grub.cfg)" >&2
+	echo "skipped" > "$MARKER"
+	exit 0
+fi
+
+cp "$SRC" boot/grub/splash.png
+
+for theme in boot/grub/live-theme/theme.txt; do
+	[ -f "$theme" ] || continue
+	if grep -q '^desktop-image:' "$theme" && ! grep -q '^desktop-image-scale-method' "$theme"; then
+		sed -i '/^desktop-image:/a desktop-image-scale-method: "crop"' "$theme"
+	fi
+done
+
+for cfg in boot/grub/*.cfg; do
+	[ -f "$cfg" ] || continue
+	sed -i 's/menuentry "Live system/menuentry "NOVA OS Live/' "$cfg"
+done
+
+echo "applied" > "$MARKER"
+echo "NOVA: boot menu branding applied"

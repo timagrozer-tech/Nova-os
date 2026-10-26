@@ -91,7 +91,7 @@ class DriverCenter(QMainWindow):
         main = QWidget()
         layout = QVBoxLayout(main)
         layout.setContentsMargins(24, 18, 24, 18)
-        title = QLabel('NOVA  /  DRIVER CENTER')
+        title = QLabel('Драйверы и оборудование')
         title.setObjectName('brand')
         layout.addWidget(title)
         info = QLabel('Проверка оборудования → подбор пакетов → скачивание из официальных подписанных репозиториев Debian → установка только по подтверждению. NVIDIA проверяется отдельно.')

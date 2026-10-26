@@ -1,0 +1,20 @@
+{
+    "KPackageStructure": "Plasma/LookAndFeel",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "NOVA OS community project"
+            }
+        ],
+        "Category": "",
+        "Description": "NEON//SYS: cyberpunk look with a HUD bar, floating dock, live wallpaper and widgets",
+        "Description[ru]": "NEON//SYS: киберпанк-оформление — HUD-панель, плавающий док, живые обои и виджеты",
+        "Id": "org.nova.neon.desktop",
+        "License": "GPL-2.0-or-later",
+        "Name": "NEON//SYS",
+        "Name[ru]": "NEON//SYS — киберпанк",
+        "Version": "0.12",
+        "Website": ""
+    },
+    "X-Plasma-APIVersion": "2"
+}

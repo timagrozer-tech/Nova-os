@@ -1,0 +1,12 @@
+{
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "NOVA OS community project"
+            }
+        ],
+        "Id": "NOVA-Horizon",
+        "License": "NOVA OS project artwork",
+        "Name": "NOVA Horizon"
+    }
+}

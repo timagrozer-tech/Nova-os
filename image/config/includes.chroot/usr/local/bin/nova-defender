@@ -6,7 +6,6 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from nova_theme import load_nova_stylesheet
 import nova_ui as ui
 from PyQt6.QtCore import QProcess
 from PyQt6.QtWidgets import (QApplication, QFileDialog, QHBoxLayout, QLabel,
@@ -20,37 +19,87 @@ def run(args, timeout=9):
     except (OSError, subprocess.TimeoutExpired) as error:
         return f'Нет данных: {error}'
 
+def first_line(text):
+    return (text.strip().splitlines() or [''])[0].strip()
+
+
 class Defender(QMainWindow):
+    CHECKS = (
+        ('apparmor', 'AppArmor', 'Ограничивает права программ (профили безопасности).'),
+        ('ufw', 'Брандмауэр', 'Входящие соединения запрещены, исходящие разрешены.'),
+        ('clamav', 'Антивирус ClamAV', 'Проверка файлов по требованию; базы обновляет служба freshclam.'),
+        ('updates', 'Обновления безопасности', 'Ежедневная проверка обновлений Debian (apt-daily).'),
+    )
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle('NOVA Defender — центр защиты')
-        ui.setup_window(self, size=(840, 660), app_id='nova-defender')
-        w = QWidget(); layout = QVBoxLayout(w)
-        layout.addWidget(QLabel('NOVA DEFENDER  |  Состояние безопасности'))
-        caption = QLabel('AppArmor + UFW + ClamAV. Проверка по требованию; полноценной EDR/защиты в реальном времени нет.')
-        caption.setWordWrap(True); layout.addWidget(caption)
-        self.status = QTextEdit(); self.status.setReadOnly(True); layout.addWidget(self.status, 1)
-        controls = QHBoxLayout(); layout.addLayout(controls)
-        self.button(controls, 'Обновить статус', self.refresh)
-        self.button(controls, 'Сканировать папку…', self.scan)
+        ui.setup_window(self, size=(900, 700), app_id='nova-defender')
+        w = QWidget(); outer = QVBoxLayout(w)
+        outer.setContentsMargins(20, 16, 20, 12)
+        outer.addWidget(ui.header('Защита', 'AppArmor + UFW + ClamAV. Проверка по требованию; '
+                                             'полноценной EDR/защиты в реальном времени нет.'))
+        page, lay = ui.scroll_page()
+        outer.addWidget(page, 1)
+        grid = ui.responsive_grid(min_column=260, maximum=2)
+        ui.add_to_page(lay, grid)
+        self.state = {}
+        for key, title, desc in self.CHECKS:
+            frame, box = ui.card(title, desc)
+            label = QLabel('Проверка…')
+            label.setWordWrap(True)
+            box.addWidget(label)
+            self.state[key] = label
+            grid.add(frame)
+        frame, box = ui.card('Проверка папки на вирусы', 'ClamAV проверяет выбранную папку. Код 1 означает, что найден подозрительный файл.')
+        controls = QHBoxLayout()
+        self.button(controls, 'Сканировать папку…', self.scan, 'primary')
         self.button(controls, 'Остановить', self.stop)
-        self.button(controls, 'Обновления сигнатур', self.signatures)
-        self.output = QTextEdit(); self.output.setReadOnly(True); layout.addWidget(self.output, 2)
+        self.button(controls, 'Обновить статус', self.refresh)
+        self.button(controls, 'Базы сигнатур', self.signatures)
+        box.addLayout(controls)
+        self.output = QTextEdit(); self.output.setReadOnly(True); self.output.setMinimumHeight(160)
+        box.addWidget(self.output)
+        ui.add_to_page(lay, frame)
+        self.status = QTextEdit()   # full report (kept for copy/paste and older tests)
+        self.status.setReadOnly(True); self.status.setMinimumHeight(120)
+        frame, box = ui.card('Подробный отчёт', '')
+        box.addWidget(self.status)
+        ui.add_to_page(lay, frame)
         self.proc = None
         self.setCentralWidget(w)
-        self.setStyleSheet(load_nova_stylesheet())
         self.refresh()
 
-    def button(self, layout, label, callback):
-        b = QPushButton(label); b.clicked.connect(callback); layout.addWidget(b)
+    def button(self, layout, label, callback, variant='secondary'):
+        b = ui.make_button(label, callback, variant); layout.addWidget(b)
+
+    def set_state(self, key, ok, text):
+        label = self.state[key]
+        label.setObjectName('status-ok' if ok else 'status-warn')
+        label.setText(('●  ' if ok else '▲  ') + text)
+        label.style().unpolish(label); label.style().polish(label)
 
     def refresh(self):
+        aa = run(['aa-status', '--enabled']) if shutil.which('aa-status') else 'утилита недоступна'
+        ufw_active = run(['systemctl', 'is-active', 'ufw'])
+        ufw_enabled = run(['systemctl', 'is-enabled', 'ufw'])
+        clam = run(['clamscan', '--version'])
+        fresh = run(['systemctl', 'is-active', 'clamav-freshclam'])
+        apt = run(['systemctl', 'is-active', 'apt-daily.timer'])
+        self.set_state('apparmor', aa.strip() in ('', 'Код: 0'), 'Включён' if aa.strip() in ('', 'Код: 0') else 'Не активен: ' + first_line(aa))
+        ufw_ok = first_line(ufw_active) == 'active'
+        self.set_state('ufw', ufw_ok, 'Включён' if ufw_ok else f'Выключен ({first_line(ufw_active)}, автозапуск: {first_line(ufw_enabled)})')
+        clam_ok = clam.startswith('ClamAV')
+        self.set_state('clamav', clam_ok, (first_line(clam) + (', базы обновляются' if first_line(fresh) == 'active' else ', служба баз не запущена'))
+                       if clam_ok else 'Не установлен или недоступен')
+        apt_ok = first_line(apt) == 'active'
+        self.set_state('updates', apt_ok, 'Проверка обновлений включена' if apt_ok else 'Таймер apt-daily не активен')
         parts = [
-            'APPARMOR\n' + run(['aa-status', '--enabled']) if shutil.which('aa-status') else 'AppArmor: утилита недоступна',
-            '\nСЕТЕВОЙ ЭКРАН UFW (состояние службы)\n' + run(['systemctl', 'is-active', 'ufw']) + '\n' + run(['systemctl','is-enabled','ufw']),
-            '\nАНТИВИРУС CLAMAV\n' + run(['clamscan', '--version']),
-            '\nСЕРВИС ОБНОВЛЕНИЯ СИГНАТУР\n' + run(['systemctl', 'is-active', 'clamav-freshclam']),
-            '\nОБНОВЛЕНИЯ ОС\n' + run(['systemctl', 'is-active', 'apt-daily.timer'])
+            'APPARMOR\n' + aa,
+            '\nСЕТЕВОЙ ЭКРАН UFW (состояние службы)\n' + ufw_active + '\n' + ufw_enabled,
+            '\nАНТИВИРУС CLAMAV\n' + clam,
+            '\nСЕРВИС ОБНОВЛЕНИЯ СИГНАТУР\n' + fresh,
+            '\nОБНОВЛЕНИЯ ОС\n' + apt,
         ]
         self.status.setPlainText('\n'.join(parts))
 

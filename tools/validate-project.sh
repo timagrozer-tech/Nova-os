@@ -73,9 +73,9 @@ import sys
 sys.path.insert(0, 'image/config/includes.chroot/usr/local/bin')
 from pathlib import Path
 from nova_ui import build_stylesheet
-for v in ('light', 'dark'):
-    assert Path(f'image/config/includes.chroot/usr/share/nova/themes/air-{v}.qss').read_text() == build_stylesheet(v), \
-        f'air-{v}.qss out of date: run python3 image/config/includes.chroot/usr/local/bin/nova_ui.py --write-qss image/config/includes.chroot/usr/share/nova/themes'
+for v, name in (('light', 'air-light'), ('dark', 'air-dark'), ('neon', 'neon')):
+    assert Path(f'image/config/includes.chroot/usr/share/nova/themes/{name}.qss').read_text() == build_stylesheet(v), \
+        f'{name}.qss out of date: run python3 image/config/includes.chroot/usr/local/bin/nova_ui.py --write-qss image/config/includes.chroot/usr/share/nova/themes'
 print('Generated QSS in sync')
 PY
 

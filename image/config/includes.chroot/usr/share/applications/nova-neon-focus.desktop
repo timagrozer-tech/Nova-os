@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=NEON//SYS mode FOCUS
+Name[ru]=NEON//SYS — режим FOCUS
+Comment[ru]=Режим FOCUS: фокус, без уведомлений
+Exec=nova-neon mode focus
+Icon=preferences-desktop-theme
+Terminal=false
+NoDisplay=true
+X-KDE-Shortcuts=Ctrl+Meta+Alt+4

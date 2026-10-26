@@ -6,7 +6,7 @@ generation, geometry maths) so it can be unit-tested without Qt. Qt widgets
 are imported lazily in the second half.
 
 Environment switches (for tests/CI, harmless in production):
-  NOVA_THEME=light|dark|auto     overrides ~/.config/nova/theme
+  NOVA_THEME=light|dark|neon|auto  overrides ~/.config/nova/theme
   NOVA_SCREEN_OVERRIDE=WxH       pretend the available screen area is WxH
   NOVA_REDUCED_MOTION=1          disable animations
   NOVA_UI_SMOKE=/dir             grab the main window to /dir/<app>.png + .json and quit
@@ -43,31 +43,76 @@ BASE_FONT_PX = 13
 CONTROL_HEIGHT = 36          # >= 36 px: comfortable for touchpad and touch
 SPACING = {'xs': 4, 's': 8, 'm': 12, 'l': 16, 'xl': 24}
 RADIUS = {'s': 8, 'm': 10, 'l': 14}
+# Shape language per style (design tokens v1.0): small / medium / large radius
+RADII = {
+    'light': RADIUS, 'dark': RADIUS,
+    'neon': {'s': 4, 'm': 6, 'l': 8},
+    'aurora': {'s': 10, 'm': 14, 'l': 17},
+    'sakura': {'s': 12, 'm': 20, 'l': 24},
+    'ocean': {'s': 6, 'm': 8, 'l': 10},
+}
 BREAKPOINT_COMPACT = 820     # below this window width navigation collapses
 
 TOKENS = {
+    # NOVA Air light (design tokens v1.0 + border_strong at 3:1)
     'light': {
-        'bg': '#f4f6fa', 'surface': '#ffffff', 'surface_alt': '#eef2f8',
-        'border': '#dbe2ec', 'border_strong': '#c3cedd',
-        'text': '#162033', 'text_muted': '#4b5870', 'text_disabled': '#8b95a6',
-        'accent': '#1f6feb', 'accent_text': '#ffffff', 'accent_soft': '#dbe9ff',
-        'accent_soft_text': '#0f4fb8', 'accent_hover': '#1a5fd0',
-        'danger': '#c62f3c', 'danger_text': '#ffffff', 'success': '#1c7c4b',
-        'warning': '#8a5a00', 'selection': '#cfe2ff', 'brand': '#1159c9',
+        'bg': '#f4f6fa', 'surface': '#ffffff', 'surface_alt': '#eef2f8', 'border': '#dbe2ec',
+        'border_strong': '#818c9b', 'text': '#162033', 'text_muted': '#4b5870', 'text_disabled': '#8b95a6',
+        'accent': '#1f6feb', 'accent_text': '#ffffff', 'accent_soft': '#dbe9ff', 'accent_soft_text': '#163d7e',
+        'accent_hover': '#1a5fd0', 'danger': '#c62f3c', 'danger_text': '#ffffff', 'success': '#1c7c4b',
+        'warning': '#8a5a00', 'selection': '#dbe9ff', 'brand': '#1159c9', 'focus_ring': '#1f6feb',
     },
+    # NOVA Air dark
     'dark': {
-        'bg': '#11161f', 'surface': '#1a2230', 'surface_alt': '#212b3b',
-        'border': '#2e3a4d', 'border_strong': '#43536b',
-        'text': '#e8eef7', 'text_muted': '#a9b6ca', 'text_disabled': '#69768a',
-        'accent': '#4c93ff', 'accent_text': '#08111f', 'accent_soft': '#23395b',
-        'accent_soft_text': '#cfe2ff', 'accent_hover': '#6aa6ff',
-        'danger': '#ff6b77', 'danger_text': '#1a0508', 'success': '#5fd39a',
-        'warning': '#f2c46b', 'selection': '#2c4a78', 'brand': '#8bbcff',
+        'bg': '#11161f', 'surface': '#1a2230', 'surface_alt': '#212b3b', 'border': '#2e3a4d',
+        'border_strong': '#667c99', 'text': '#e8eef7', 'text_muted': '#a9b6ca', 'text_disabled': '#69768a',
+        'accent': '#4c93ff', 'accent_text': '#07172f', 'accent_soft': '#23395b', 'accent_soft_text': '#d9eaff',
+        'accent_hover': '#6aa6ff', 'danger': '#ff7281', 'danger_text': '#1a0508', 'success': '#5cdb96',
+        'warning': '#f5ca69', 'selection': '#23395b', 'brand': '#8bbcff', 'focus_ring': '#8bb6ff',
+    },
+    # NEON//SYS: dark violet base, cyan accent, magenta and yellow highlights.
+    'neon': {
+        'bg': '#0b0714', 'surface': '#140d24', 'surface_alt': '#1d1433', 'border': '#33255a',
+        'border_strong': '#8c6ab8', 'text': '#eafcff', 'text_muted': '#b3a6d6', 'text_disabled': '#6f6296',
+        'accent': '#00e5f2', 'accent_text': '#061721', 'accent_soft': '#183848', 'accent_soft_text': '#b8faff',
+        'accent_hover': '#5cf2fa', 'danger': '#ff638c', 'danger_text': '#0b0714', 'success': '#65e5ba',
+        'warning': '#fcee0a', 'selection': '#183848', 'brand': '#fcee0a', 'focus_ring': '#fcee0a',
+        'neon_magenta': '#ff2a6d', 'neon_cyan': '#00f0ff', 'neon_yellow': '#fcee0a', 'neon_violet': '#b967ff',
+    },
+    # NOVA styles (nova-style): Aurora — northern lights
+    'aurora': {
+        'bg': '#071417', 'surface': '#0d1f24', 'surface_alt': '#153038', 'border': '#1f3d45',
+        'border_strong': '#5c9b9d', 'text': '#e6fbf6', 'text_muted': '#9cc7bd', 'text_disabled': '#5d8078',
+        'accent': '#3ee6b0', 'accent_text': '#062720', 'accent_soft': '#193b35', 'accent_soft_text': '#b6ffe3',
+        'accent_hover': '#6af0c4', 'danger': '#fa818a', 'danger_text': '#1a0508', 'success': '#52dca0',
+        'warning': '#f4c578', 'selection': '#193b35', 'brand': '#8af5d2', 'focus_ring': '#8af5d2',
+    },
+    # Sakura — warm and soft, macOS-like (border_strong at 3:1)
+    'sakura': {
+        'bg': '#fbf6f7', 'surface': '#ffffff', 'surface_alt': '#f6eaee', 'border': '#ecd9df',
+        'border_strong': '#a17e8c', 'text': '#2a1d22', 'text_muted': '#6b5560', 'text_disabled': '#a3929a',
+        'accent': '#c2185b', 'accent_text': '#ffffff', 'accent_soft': '#fadbe7', 'accent_soft_text': '#7c1541',
+        'accent_hover': '#a3144c', 'danger': '#bd2851', 'danger_text': '#ffffff', 'success': '#177f54',
+        'warning': '#845100', 'selection': '#fadbe7', 'brand': '#a3144c', 'focus_ring': '#c2185b',
+    },
+    # Ocean — crisp deep blue, Windows 11-like
+    'ocean': {
+        'bg': '#06101f', 'surface': '#0c1a30', 'surface_alt': '#122744', 'border': '#1d3352',
+        'border_strong': '#5d789e', 'text': '#e7f0ff', 'text_muted': '#9fb4d6', 'text_disabled': '#5f7396',
+        'accent': '#38bdf8', 'accent_text': '#072237', 'accent_soft': '#173b55', 'accent_soft_text': '#cfedff',
+        'accent_hover': '#67cdfa', 'danger': '#f77c9b', 'danger_text': '#1a0508', 'success': '#4bdbb7',
+        'warning': '#fac870', 'selection': '#173b55', 'brand': '#7dd3fc', 'focus_ring': '#7dd3fc',
     },
 }
 
-VARIANTS = ('light', 'dark')
-CHOICES = ('auto', 'light', 'dark')
+VARIANTS = ('light', 'dark')            # NOVA Air
+ALL_VARIANTS = VARIANTS + ('neon', 'aurora', 'sakura', 'ocean')   # + NEON//SYS and NOVA styles
+CHOICES = ('auto',) + ALL_VARIANTS
+NEON_SCHEME = 'NovaNeon'
+# Plasma colour scheme name -> NOVA app variant (auto mode follows the Plasma style)
+SCHEME_VARIANTS = {NEON_SCHEME: 'neon', 'NovaAurora': 'aurora', 'NovaSakura': 'sakura', 'NovaOcean': 'ocean'}
+NEON_FONT = '"Orbitron", "Inter", "Noto Sans", sans-serif'      # Latin headings only (no Cyrillic in Orbitron)
+NEON_MONO = '"Share Tech Mono", "Noto Sans Mono", monospace'
 
 
 def _hex_to_rgb(value: str) -> tuple[int, int, int]:
@@ -133,13 +178,16 @@ def _kde_value(text: str, group: str, key: str) -> str | None:
 
 
 def detect_plasma_variant(home=None, system_file='/etc/xdg/kdeglobals') -> str:
-    """Return 'dark' or 'light' from the user's (then system) KDE colours."""
+    """Return 'neon', 'dark' or 'light' from the user's (then system) KDE colours."""
     base = Path(home) if home else Path.home()
     for path in (base / '.config/kdeglobals', Path(system_file)):
         try:
             text = path.read_text(encoding='utf-8', errors='replace')
         except OSError:
             continue
+        scheme_variant = SCHEME_VARIANTS.get(_kde_value(text, 'General', 'ColorScheme') or '')
+        if scheme_variant:
+            return scheme_variant
         bg = _kde_value(text, 'Colors:Window', 'BackgroundNormal')
         if bg and re.fullmatch(r'\d{1,3},\d{1,3},\d{1,3}(,\d{1,3})?', bg):
             r, g, b = (int(x) for x in bg.split(',')[:3])
@@ -162,37 +210,54 @@ def build_stylesheet(variant: str = 'light') -> str:
     if variant not in TOKENS:
         variant = 'light'
     t = TOKENS[variant]
-    r, s, h = RADIUS, SPACING, CONTROL_HEIGHT
-    return f"""/* NOVA Air {variant} — generated by nova_ui.py (do not edit by hand) */
+    r, s, h = RADII.get(variant, RADIUS), SPACING, CONTROL_HEIGHT
+    f = t.get('focus_ring', t['accent'])
+    title = {'neon': 'NEON//SYS'}.get(variant, f'NOVA Air {variant}' if variant in VARIANTS else f'NOVA {variant.title()}')
+    return f"""/* {title} — generated by nova_ui.py (do not edit by hand) */
 QWidget {{ background: {t['bg']}; color: {t['text']}; font-family: {FONT_STACK}; font-size: {BASE_FONT_PX}px; }}
 QMainWindow, QDialog {{ background: {t['bg']}; }}
 QToolTip {{ background: {t['surface']}; color: {t['text']}; border: 1px solid {t['border_strong']}; border-radius: {r['s']}px; padding: 6px 8px; }}
 QLabel {{ background: transparent; }}
-QLabel#brand {{ font-size: 24px; font-weight: 700; color: {t['brand']}; padding: 2px 0; }}
+QLabel#brand {{ font-size: 26px; font-weight: 700; color: {t['text']}; padding: 2px 0; letter-spacing: -0.3px; }}
 QLabel#heading {{ font-size: 17px; font-weight: 650; color: {t['text']}; }}
 QLabel#description, QLabel[muted="true"] {{ color: {t['text_muted']}; }}
 QLabel#status-ok {{ color: {t['success']}; font-weight: 600; }}
 QLabel#status-warn {{ color: {t['warning']}; font-weight: 600; }}
 QFrame#card {{ background: {t['surface']}; border: 1px solid {t['border']}; border-radius: {r['l']}px; }}
 QFrame#card QLabel, QFrame#card QCheckBox, QFrame#card QRadioButton {{ background: transparent; }}
+QFrame#card[active="true"] {{ border: 2px solid {t['accent']}; }}
 QListWidget, QTableWidget, QTreeWidget, QTextEdit, QPlainTextEdit {{ background: {t['surface']}; color: {t['text']}; border: 1px solid {t['border']}; border-radius: {r['m']}px; padding: {s['xs']}px; outline: 0; alternate-background-color: {t['surface_alt']}; selection-background-color: {t['selection']}; selection-color: {t['text']}; }}
 QListWidget::item {{ padding: 9px 11px; border-radius: {r['s']}px; min-height: 20px; }}
 QListWidget::item:hover {{ background: {t['surface_alt']}; }}
 QListWidget::item:selected, QTableWidget::item:selected, QTreeWidget::item:selected {{ background: {t['accent_soft']}; color: {t['accent_soft_text']}; }}
+QListWidget::item:selected {{ border-left: 3px solid {t['accent']}; font-weight: 600; }}
 QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox {{ background: {t['surface']}; color: {t['text']}; border: 1px solid {t['border_strong']}; border-radius: {r['m']}px; padding: 6px 10px; min-height: {h - 14}px; selection-background-color: {t['selection']}; selection-color: {t['text']}; }}
-QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus {{ border: 2px solid {t['accent']}; }}
+QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus {{ border: 2px solid {f}; }}
 QComboBox QAbstractItemView {{ background: {t['surface']}; color: {t['text']}; border: 1px solid {t['border_strong']}; selection-background-color: {t['accent_soft']}; selection-color: {t['accent_soft_text']}; }}
-QPushButton {{ background: {t['surface']}; color: {t['text']}; border: 1px solid {t['border_strong']}; border-radius: {r['m']}px; padding: 7px 14px; min-height: {h - 16}px; font-weight: 600; text-align: left; }}
+QPushButton {{ background: {t['surface']}; color: {t['text']}; border: 1px solid {t['border_strong']}; border-radius: {r['m']}px; padding: 7px 16px; min-height: {h - 16}px; font-weight: 600; text-align: center; }}
 QPushButton:hover {{ background: {t['surface_alt']}; border-color: {t['accent']}; }}
 QPushButton:pressed {{ background: {t['accent_soft']}; }}
-QPushButton:focus {{ border: 2px solid {t['accent']}; }}
+QPushButton:focus {{ border: 2px solid {f}; }}
 QPushButton:disabled {{ color: {t['text_disabled']}; border-color: {t['border']}; background: {t['surface_alt']}; }}
 QPushButton[variant="primary"] {{ background: {t['accent']}; color: {t['accent_text']}; border: 1px solid {t['accent']}; text-align: center; }}
 QPushButton[variant="primary"]:hover {{ background: {t['accent_hover']}; }}
 QPushButton[variant="danger"] {{ background: {t['surface']}; color: {t['danger']}; border: 1px solid {t['danger']}; }}
 QPushButton[variant="danger"]:hover {{ background: {t['danger']}; color: {t['danger_text']}; }}
 QPushButton[variant="nav"] {{ text-align: center; }}
-QCheckBox, QRadioButton {{ spacing: 8px; background: transparent; min-height: 24px; }}
+QCheckBox, QRadioButton {{ spacing: 10px; background: transparent; min-height: 26px; }}
+QCheckBox::indicator, QRadioButton::indicator {{ width: 16px; height: 16px; background: {t['surface']}; border: 2px solid {t['border_strong']}; }}
+QRadioButton::indicator {{ border-radius: 10px; }}
+QCheckBox::indicator {{ border-radius: 5px; }}
+QCheckBox::indicator:hover, QRadioButton::indicator:hover {{ border-color: {t['accent']}; }}
+QRadioButton::indicator:checked {{ background: {t['surface']}; border: 6px solid {t['accent']}; width: 8px; height: 8px; }}
+QCheckBox::indicator:checked {{ background: {t['accent']}; border-color: {t['accent']}; }}
+QCheckBox::indicator:disabled, QRadioButton::indicator:disabled {{ border-color: {t['border']}; background: {t['surface_alt']}; }}
+QCheckBox:focus, QRadioButton:focus {{ color: {t['accent_soft_text']}; }}
+QSlider::groove:horizontal {{ height: 6px; background: {t['surface_alt']}; border: 1px solid {t['border']}; border-radius: 3px; }}
+QSlider::sub-page:horizontal {{ background: {t['accent']}; border-radius: 3px; }}
+QSlider::handle:horizontal {{ background: {t['surface']}; border: 2px solid {t['accent']}; width: 16px; height: 16px; margin: -7px 0; border-radius: 10px; }}
+QGroupBox {{ background: {t['surface']}; border: 1px solid {t['border']}; border-radius: {r['l']}px; margin-top: 18px; padding: 12px 10px 10px 10px; font-weight: 600; }}
+QGroupBox::title {{ subcontrol-origin: margin; left: 12px; padding: 0 4px; color: {t['text']}; }}
 QScrollArea {{ border: 0; background: transparent; }}
 QScrollArea > QWidget > QWidget {{ background: transparent; }}
 QScrollBar:vertical {{ background: transparent; width: 10px; margin: 2px; }}
@@ -208,6 +273,55 @@ QProgressBar {{ background: {t['surface_alt']}; border: 0; border-radius: 5px; h
 QProgressBar::chunk {{ background: {t['accent']}; border-radius: 5px; }}
 QStatusBar {{ color: {t['text_muted']}; }}
 QMessageBox QLabel {{ color: {t['text']}; }}
+""" + (_neon_extras(t) if variant == 'neon' else '') + _style_extras(variant, t)
+
+
+def _style_extras(variant: str, t: dict) -> str:
+    """Shape language of the NOVA styles (colours alone do not make a style)."""
+    if variant == 'sakura':      # soft and round, macOS-like
+        return f"""/* Sakura: soft, round */
+QFrame#card {{ border-radius: 20px; border: 1px solid {t['border']}; }}
+QPushButton {{ border-radius: 17px; padding: 7px 18px; }}
+QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox {{ border-radius: 14px; }}
+QListWidget::item {{ border-radius: 12px; }}
+QListWidget::item:selected {{ border-left: 0; background: {t['accent_soft']}; }}
+QTabBar::tab {{ border-radius: 14px; }}
+"""
+    if variant == 'ocean':       # crisp, Windows 11-like
+        return f"""/* Ocean: crisp */
+QFrame#card {{ border-radius: 8px; }}
+QPushButton {{ border-radius: 6px; }}
+QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox {{ border-radius: 6px; border-bottom: 2px solid {t['border_strong']}; }}
+QLineEdit:focus, QComboBox:focus {{ border-bottom: 2px solid {t['accent']}; }}
+QTabBar::tab:selected {{ border-bottom: 2px solid {t['accent']}; }}
+"""
+    if variant == 'aurora':      # glowing edges
+        return f"""/* Aurora: glowing edges */
+QFrame#card {{ border: 1px solid {t['border']}; border-top: 2px solid {t['accent']}; border-radius: 16px; }}
+QProgressBar::chunk {{ background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #3ee6b0, stop:0.5 #38bdf8, stop:1 #b18cff); }}
+QSlider::sub-page:horizontal {{ background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #3ee6b0, stop:1 #b18cff); }}
+"""
+    return ''
+
+
+def _neon_extras(t: dict) -> str:
+    """NEON//SYS details on top of the shared rules: neon edges, gradients, display font."""
+    m, c, y = t['neon_magenta'], t['neon_cyan'], t['neon_yellow']
+    return f"""/* NEON//SYS extras */
+QLabel#brand {{ font-family: {NEON_FONT}; font-weight: 900; letter-spacing: 2px; color: {y}; }}
+QLabel#heading {{ color: {t['text']}; }}
+QFrame#card {{ border: 1px solid {t['border']}; border-top: 2px solid {m}; border-radius: 4px; }}
+QPushButton {{ border-radius: 4px; }}
+QPushButton:hover {{ border-color: {c}; color: {c}; }}
+QPushButton:focus {{ border: 2px solid {y}; }}
+QPushButton[variant="primary"] {{ background: {t['accent']}; color: {t['accent_text']}; border: 1px solid {c}; }}
+QPushButton[variant="primary"]:hover {{ background: {t['accent_hover']}; color: {t['accent_text']}; }}
+QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus {{ border: 2px solid {y}; }}
+QTabBar::tab:selected {{ background: {t['surface']}; color: {c}; border-bottom: 2px solid {y}; }}
+QProgressBar::chunk {{ background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {m}, stop:1 {c}); border-radius: 2px; }}
+QScrollBar::handle:vertical, QScrollBar::handle:horizontal {{ background: {t['border_strong']}; }}
+QScrollBar::handle:vertical:hover, QScrollBar::handle:horizontal:hover {{ background: {m}; }}
+QPlainTextEdit, QTextEdit {{ font-family: {NEON_MONO}; }}
 """
 
 
@@ -219,8 +333,8 @@ def write_qss_files(directory: str | os.PathLike) -> list[Path]:
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
     written = []
-    for variant in VARIANTS:
-        path = directory / f'air-{variant}.qss'
+    for variant in ALL_VARIANTS:
+        path = directory / (f'air-{variant}.qss' if variant in VARIANTS else f'{variant}.qss')
         path.write_text(build_stylesheet(variant), encoding='utf-8')
         written.append(path)
     return written
@@ -323,8 +437,91 @@ def setup_window(window, title: str | None = None, size: tuple[int, int] = (1000
     close.activated.connect(window.close)
     window._nova_shortcuts = [close]  # keep a reference
     QtCore.QTimer.singleShot(0, lambda: fit_content(window))
+    enable_motion(window)
     _install_smoke_hook(window, app_id)
     return w, h
+
+
+# ---------------------------------------------------------------- motion
+# Windows 11 / macOS feel: content fades in when a window opens (≈250 ms), pages
+# slide up a little and fade when you switch tabs (≈170 ms, decelerating curve).
+# Scaled by Plasma's animation speed; «Уменьшить движение» (factor 0) turns it off.
+
+def motion_factor(home=None) -> float:
+    if os.environ.get('NOVA_REDUCE_MOTION'):
+        return 0.0
+    for path in ((Path(home) if home else Path.home()) / '.config/kdeglobals', Path('/etc/xdg/kdeglobals')):
+        try:
+            group = None
+            for raw in path.read_text(encoding='utf-8', errors='replace').splitlines():
+                line = raw.strip()
+                if line.startswith('['):
+                    group = line
+                elif group == '[KDE]' and line.startswith('AnimationDurationFactor='):
+                    return max(0.0, min(4.0, float(line.split('=', 1)[1])))
+        except (OSError, ValueError):
+            continue
+    return 1.0
+
+
+def _animate(widget, ms: int, slide: int = 0):
+    QtCore, _, QtWidgets = _qt()
+    if widget is None or ms <= 0:
+        return
+    effect = QtWidgets.QGraphicsOpacityEffect(widget)
+    effect.setOpacity(0.0)
+    widget.setGraphicsEffect(effect)
+    group = QtCore.QParallelAnimationGroup(widget)
+    fade = QtCore.QPropertyAnimation(effect, b'opacity', group)
+    fade.setDuration(ms)
+    fade.setStartValue(0.0)
+    fade.setEndValue(1.0)
+    fade.setEasingCurve(QtCore.QEasingCurve.Type.OutCubic)
+    group.addAnimation(fade)
+    if slide:
+        end = widget.pos()
+        move = QtCore.QPropertyAnimation(widget, b'pos', group)
+        move.setDuration(ms)
+        move.setStartValue(end + QtCore.QPoint(0, slide))
+        move.setEndValue(end)
+        move.setEasingCurve(QtCore.QEasingCurve.Type.OutCubic)
+        group.addAnimation(move)
+
+    def done():
+        if widget.graphicsEffect() is effect:
+            widget.setGraphicsEffect(None)       # effects cost rendering time: drop it when finished
+    group.finished.connect(done)
+    group.start(QtCore.QAbstractAnimation.DeletionPolicy.DeleteWhenStopped)
+
+
+def enable_motion(window) -> bool:
+    QtCore, _, QtWidgets = _qt()
+    factor = motion_factor()
+    if factor <= 0:
+        return False
+    open_ms, page_ms = int(250 * factor), int(170 * factor)
+
+    def hook_pages():
+        for stack in window.findChildren(QtWidgets.QStackedWidget):
+            if stack.property('novaMotion'):
+                continue
+            stack.setProperty('novaMotion', True)
+            stack.currentChanged.connect(lambda _i, st=stack: _animate(st.currentWidget(), page_ms, 12))
+
+    class _OnShow(QtCore.QObject):
+        done = False
+
+        def eventFilter(self, obj, event):  # noqa: N802 (Qt API)
+            if event.type() == QtCore.QEvent.Type.Show and not self.done:
+                self.done = True
+                central = window.centralWidget() if hasattr(window, 'centralWidget') else None
+                _animate(central, open_ms)
+                QtCore.QTimer.singleShot(0, hook_pages)
+            return False
+    watcher = _OnShow(window)
+    window.installEventFilter(watcher)
+    window._nova_motion = watcher
+    return True
 
 
 def fit_content(window) -> bool:
@@ -395,10 +592,11 @@ def make_button(text: str, callback=None, variant: str = 'secondary', tooltip: s
 
 def card(title: str, description: str = ''):
     """Return (frame, layout) of a NOVA card."""
-    _, _, QtWidgets = _qt()
+    QtCore, _, QtWidgets = _qt()
     frame = QtWidgets.QFrame()
     frame.setObjectName('card')
     layout = QtWidgets.QVBoxLayout(frame)
+    layout.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)     # content starts at the top in stretched grid rows
     layout.setContentsMargins(SPACING['l'], SPACING['m'] + 2, SPACING['l'], SPACING['l'])
     layout.setSpacing(SPACING['s'])
     heading = QtWidgets.QLabel(title)

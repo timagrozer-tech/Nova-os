@@ -1,0 +1,13 @@
+{
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "NOVA OS community project"
+            }
+        ],
+        "Id": "NOVA-BlueSilk",
+        "License": "CC-BY-SA-4.0",
+        "Name": "NOVA Blue Silk",
+        "Name[ru]": "NOVA — синий шёлк"
+    }
+}

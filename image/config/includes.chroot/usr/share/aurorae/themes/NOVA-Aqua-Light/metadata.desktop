@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=NOVA Aqua (light)
+Name[ru]=NOVA Aqua (light)
+Comment=NOVA window frame — aqua
+Comment[ru]=Рамка окон NOVA: цветные кнопки слева, как в macOS
+X-KDE-PluginInfo-Name=NOVA-Aqua-Light
+X-KDE-PluginInfo-Author=NOVA OS community project
+X-KDE-PluginInfo-Version=0.12
+X-KDE-PluginInfo-License=GPL-2.0-or-later
+X-KDE-PluginInfo-Website=
+X-KDE-PluginInfo-Email=

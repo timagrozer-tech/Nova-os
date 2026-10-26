@@ -6,6 +6,7 @@ changes are always preceded by a backup; «Вернуть KDE по умолча�
 stock KDE Plasma (Breeze) appearance and panel.
 """
 import shutil
+from pathlib import Path
 import subprocess
 import sys
 
@@ -16,7 +17,7 @@ from PyQt6.QtWidgets import (QApplication, QButtonGroup, QHBoxLayout, QLabel, QM
                              QPushButton, QRadioButton, QTextEdit, QVBoxLayout, QWidget,
                              QListWidget)
 
-THEMES = (('light', 'Светлая'), ('dark', 'Тёмная'), ('auto', 'Как в KDE Plasma'))
+THEMES = (('light', 'Светлая'), ('dark', 'Тёмная'), ('neon', 'NEON//SYS — киберпанк'), ('auto', 'Как в KDE Plasma'))
 DENSITY = (('compact', 'Компактная'), ('standard', 'Стандартная'), ('touch', 'Сенсорная'))
 ANIMATIONS = (('off', 'Выключены'), ('fast', 'Быстрые'), ('standard', 'Стандартные'))
 
@@ -38,7 +39,7 @@ class Personalize(QMainWindow):
         ui.add_to_page(lay, grid)
 
         # Theme
-        frame, box = ui.card('Тема оформления', 'Светлая или тёмная NOVA Air для Plasma и приложений NOVA.')
+        frame, box = ui.card('Тема оформления', 'Светлая или тёмная NOVA Air или неоновая NEON//SYS — для Plasma и приложений NOVA.')
         self.theme_group = QButtonGroup(self)
         current = ui.read_choice()
         for key, label in THEMES:
@@ -47,6 +48,10 @@ class Personalize(QMainWindow):
             radio.toggled.connect(lambda on, k=key: on and self.cli(['theme', k]))
             self.theme_group.addButton(radio)
             box.addWidget(radio)
+        box.addWidget(ui.make_button('Все стили, живые обои и эффекты…',
+                                     lambda: subprocess.Popen(['nova-styles'], start_new_session=True), 'primary'))
+        box.addWidget(ui.make_button('NEON//SYS: живые обои, виджеты, режимы…',
+                                     lambda: subprocess.Popen(['nova-neon-center'], start_new_session=True)))
         grid.add(frame)
 
         # Accent
@@ -113,6 +118,15 @@ class Personalize(QMainWindow):
             box.addWidget(radio)
         grid.add(frame)
 
+        # Own wallpapers (local only)
+        frame, box = ui.card('Свои обои', 'Добавьте свои картинки — они копируются только в вашу папку '
+                             '~/.local/share/wallpapers/NOVA-My и никуда не отправляются.')
+        row = QHBoxLayout()
+        row.addWidget(ui.make_button('Добавить картинки…', self.add_wallpapers, 'primary'))
+        row.addWidget(ui.make_button('Слайд-шоу из моих', lambda: self.cli(['wallpaper', 'slideshow', '--minutes', '10'])))
+        box.addLayout(row)
+        grid.add(frame)
+
         # Screen / input
         frame, box = ui.card('Экран, масштаб и ввод', 'Масштаб 100–200 %, частота, ночной режим, тачпад, сенсорный экран.')
         box.addWidget(ui.make_button('NOVA — дисплеи: частота (Гц) и второй монитор',
@@ -163,6 +177,16 @@ class Personalize(QMainWindow):
         self.state.setText('Применяется: ' + ' '.join(args))
         self.runner(['nova-layout', *args], on_finished=lambda code: self.state.setText(
             'Готово.' if code == 0 else f'Ошибка (код {code}). Подробности в журнале.'))
+
+    def add_wallpapers(self):
+        from PyQt6.QtWidgets import QFileDialog
+        files, _ = QFileDialog.getOpenFileNames(self, 'Картинки для рабочего стола', str(Path.home() / 'Pictures'),
+                                                'Изображения (*.jpg *.jpeg *.png *.webp *.avif *.bmp)')
+        if not files:
+            return
+        self.cli(['wallpaper', 'add', *files])
+        if ui.confirm(self, 'Свои обои', 'Поставить первую выбранную картинку на рабочий стол сейчас?', yes='Поставить'):
+            self.cli(['wallpaper', 'set', files[0]])
 
     def kcm(self, module):
         tool = 'kcmshell6' if shutil.which('kcmshell6') else 'systemsettings'

@@ -1,0 +1,13 @@
+{
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "NOVA OS community project"
+            }
+        ],
+        "Id": "NOVA-Signal",
+        "License": "CC-BY-SA-4.0",
+        "Name": "NOVA Signal",
+        "Name[ru]": "NOVA — сигнал"
+    }
+}

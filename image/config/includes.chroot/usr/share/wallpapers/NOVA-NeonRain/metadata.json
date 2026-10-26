@@ -1,0 +1,13 @@
+{
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "NOVA OS community project"
+            }
+        ],
+        "Id": "NOVA-NeonRain",
+        "License": "CC-BY-SA-4.0",
+        "Name": "NOVA Neon Rain",
+        "Name[ru]": "NOVA — неоновый дождь"
+    }
+}

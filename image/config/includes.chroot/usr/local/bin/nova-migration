@@ -45,7 +45,7 @@ class MigrationWindow(QMainWindow):
         root = QWidget()
         layout = QVBoxLayout(root)
         layout.setContentsMargins(22, 18, 22, 18)
-        title = QLabel('NOVA  /  MIGRATION')
+        title = QLabel('Перенос данных из Windows')
         title.setObjectName('brand')
         layout.addWidget(title)
         desc = QLabel('Переносите только то, что выбрали. Данные Windows не изменяются и не удаляются. '

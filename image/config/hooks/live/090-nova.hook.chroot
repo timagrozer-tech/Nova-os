@@ -10,7 +10,7 @@ chmod 0755 /usr/local/bin/nova-* /usr/local/lib/nova/nova-*
 find /usr/local/bin -name '__pycache__' -type d -prune -exec rm -rf {} + 2>/dev/null || true
 
 # --- Services -------------------------------------------------------------
-for unit in NetworkManager.service fstrim.timer bluetooth.service apparmor.service ufw.service; do
+for unit in NetworkManager.service fstrim.timer bluetooth.service apparmor.service ufw.service zramswap.service; do
 	systemctl enable "$unit" 2>/dev/null || log "could not enable $unit (package missing?)"
 done
 
@@ -72,6 +72,12 @@ if [ -f "$BR_SRC/branding.desc" ] && [ -f /etc/calamares/settings.conf ] && [ -f
 			cp "$ART/logo.png" "$BR_DST/$img"
 		fi
 	done
+	# NOVA slides: only when Debian's slideshow uses the same API (calamares.slideshow 1.0).
+	if [ -f /usr/share/nova/calamares/show.qml ] && [ -f "$BR_DST/show.qml" ] \
+	   && grep -q 'import calamares.slideshow 1.0' "$BR_DST/show.qml"; then
+		cp /usr/share/nova/calamares/show.qml "$BR_DST/show.qml"
+		log "Calamares slideshow: NOVA slides"
+	fi
 	if grep -q '^[[:space:]]*componentName:[[:space:]]*nova' "$desc" && grep -q 'NOVA OS' "$desc"; then
 		sed -i 's/^\([[:space:]]*branding:[[:space:]]*\).*/\1nova/' /etc/calamares/settings.conf
 		log "Calamares branding switched to NOVA"
@@ -105,7 +111,49 @@ if [ -d /usr/share/plasma/look-and-feel/org.nova.air.light.desktop ]; then
 	log "NOVA Air look-and-feel installed"
 fi
 # Icon cache for the NOVA logo.
-gtk-update-icon-cache -q -f /usr/share/icons/hicolor 2>/dev/null || true
+for theme in /usr/share/icons/hicolor /usr/share/icons/Fluent /usr/share/icons/Fluent-dark /usr/share/icons/Fluent-light; do
+	[ -d "$theme" ] && gtk-update-icon-cache -q -f "$theme" 2>/dev/null || true
+done
+# --- Performance: swap in compressed RAM (zram, zstd, up to 50 % of RAM) ----
+# Faster than any disk swap and saves SSD writes. nova-zram-tune (ExecStartPost)
+# raises swappiness only when zram is the only swap. Remove zram-tools to undo.
+if [ -f /etc/default/zramswap ]; then
+	sed -i -E 's/^#? *ALGO=.*/ALGO=zstd/; s/^#? *PERCENT=.*/PERCENT=50/; s/^#? *PRIORITY=.*/PRIORITY=100/' /etc/default/zramswap
+	grep -q '^ALGO=zstd' /etc/default/zramswap || echo 'ALGO=zstd' >> /etc/default/zramswap
+	grep -q '^PERCENT=' /etc/default/zramswap || echo 'PERCENT=50' >> /etc/default/zramswap
+	grep -q '^PRIORITY=' /etc/default/zramswap || echo 'PRIORITY=100' >> /etc/default/zramswap
+	log "zram swap configured (zstd, 50 %)"
+fi
+chmod 0755 /usr/local/lib/nova/nova-zram-tune 2>/dev/null || true
+
+# --- Boot splash: Plymouth theme "nova" (two-step like "spinner" + NOVA logo) --
+# Images of the stock spinner theme are reused; if anything is missing the
+# system keeps the distribution default and boots normally (Esc shows text).
+NOVA_PLY=/usr/share/plymouth/themes/nova
+if [ -d /usr/share/plymouth/themes/spinner ] && [ -f "$NOVA_PLY/nova.plymouth" ] && command -v plymouth-set-default-theme >/dev/null 2>&1; then
+	for f in /usr/share/plymouth/themes/spinner/*.png; do
+		[ -f "$f" ] || continue
+		[ -e "$NOVA_PLY/$(basename "$f")" ] || cp "$f" "$NOVA_PLY/"
+	done
+	if [ -f "$NOVA_PLY/throbber-0001.png" ] || [ -f "$NOVA_PLY/animation-0001.png" ]; then
+		if plymouth-set-default-theme nova; then
+			log "Plymouth theme: nova"
+			# The splash runs from the initramfs: rebuild it so the theme is inside (fail-soft).
+			update-initramfs -u -k all >/dev/null 2>&1 && log "initramfs updated for splash" || log "initramfs update failed (splash appears after root mount)"
+		else
+			log "could not set Plymouth theme"
+		fi
+	else
+		log "spinner images missing; keeping default Plymouth theme"
+	fi
+else
+	log "Plymouth/spinner theme not installed; text boot"
+fi
+
+# NEON//SYS: bundled OFL fonts (Orbitron, Share Tech Mono) for the NEON look, wallpaper and splash.
+if [ -d /usr/share/fonts/truetype/nova-neon ]; then
+	fc-cache -f /usr/share/fonts/truetype/nova-neon >/dev/null 2>&1 && log "NEON//SYS fonts cached" || log "fc-cache failed (fonts load on first use)"
+fi
 
 # Byte-compile NOVA Python modules so first start is faster (optional).
 python3 -m compileall -q /usr/local/bin >/dev/null 2>&1 || true

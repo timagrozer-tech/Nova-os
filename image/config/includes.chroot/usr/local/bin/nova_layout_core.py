@@ -32,9 +32,12 @@ LAUNCHERS = (
     'applications:org.kde.discover.desktop',
     'applications:org.kde.konsole.desktop',
 )
-WALLPAPER = 'file:///usr/share/wallpapers/NOVA/'
+WALLPAPER = 'file:///usr/share/wallpapers/NOVA-NeonRain/'   # default style: NOVA Air dark
 LAYOUT_FILES = ('plasma-org.kde.plasma.desktop-appletsrc', 'plasmashellrc')
-LNF = {'light': 'org.nova.air.light.desktop', 'dark': 'org.nova.air.dark.desktop'}
+LNF = {'light': 'org.nova.air.light.desktop', 'dark': 'org.nova.air.dark.desktop',
+       'neon': 'org.nova.neon.desktop',   # NEON//SYS: see nova_neon_core
+       'aurora': 'org.nova.aurora.desktop', 'sakura': 'org.nova.sakura.desktop',
+       'ocean': 'org.nova.ocean.desktop', 'signal': 'org.nova.signal.desktop'}   # NOVA styles: see nova_styles_core
 KDE_DEFAULT_LNF = 'org.kde.breeze.desktop'
 
 # Accent palette: (name, light-theme hex, dark-theme hex). Light values keep
@@ -143,7 +146,7 @@ def plasma_script(mode: str, density: str = 'standard', *, remove_existing: bool
             'var p = new Panel;',
             'novaTry(function () { p.location = "bottom"; });',
             f'novaTry(function () {{ p.height = {h}; }});',
-            'novaTry(function () { p.floating = false; });',
+            'novaTry(function () { p.floating = false; });',     # Windows 11: full-width taskbar along the edge
             'novaTry(function () { p.lengthMode = "fill"; });',
             'novaTry(function () { p.hiding = "none"; });',
             'novaSpacer(p);',
@@ -165,7 +168,9 @@ def plasma_script(mode: str, density: str = 'standard', *, remove_existing: bool
             'novaWidget(bar, "org.kde.plasma.appmenu");',
             'novaSpacer(bar);',
             'novaWidget(bar, "org.kde.plasma.systemtray");',
-            'novaWidget(bar, "org.kde.plasma.digitalclock");',
+            'var clock = novaWidget(bar, "org.kde.plasma.digitalclock");',      # macOS: «Пн 26 окт. 15:46»
+            'if (clock) { novaTry(function () { clock.currentConfigGroup = ["Appearance"]; '
+            'clock.writeConfig("showDate", true); clock.writeConfig("dateDisplayFormat", 1); }); }',
             'var dock = new Panel;',
             'novaTry(function () { dock.location = "bottom"; });',
             f'novaTry(function () {{ dock.height = {h + 8}; }});',
@@ -174,6 +179,8 @@ def plasma_script(mode: str, density: str = 'standard', *, remove_existing: bool
             'novaTry(function () { dock.floating = true; });',
             'novaTry(function () { dock.hiding = "dodgewindows"; });',
             f'novaTasks(dock, {launchers});',
+            'novaWidget(dock, "org.kde.plasma.marginsseparator");',
+            'novaWidget(dock, "org.kde.plasma.trash");',                         # like the macOS dock
         ]
     else:  # hybrid
         js += [
@@ -268,7 +275,7 @@ def lookandfeel_command(variant: str, reset_layout: bool = False) -> list[str]:
     elif variant in LNF:
         package = LNF[variant]
     else:
-        raise ValueError('variant must be light, dark or kde-default')
+        raise ValueError('variant must be light, dark, neon, aurora, sakura, ocean or kde-default')
     argv = ['plasma-apply-lookandfeel', '--apply', package]
     if reset_layout:
         argv.append('--resetLayout')
@@ -283,7 +290,8 @@ def accent_commands(color: str) -> list[list[str]]:
     ]
 
 
-ICON_THEMES = {'breeze': 'Breeze (стандарт KDE)', 'breeze-dark': 'Breeze тёмные',
+ICON_THEMES = {'Fluent': 'Fluent (как Windows 11, проект с GitHub)', 'Fluent-dark': 'Fluent тёмные',
+               'breeze': 'Breeze (стандарт KDE)', 'breeze-dark': 'Breeze тёмные',
                'Papirus': 'Papirus (проект с GitHub, пакет Debian)', 'Papirus-Dark': 'Papirus тёмные'}
 CHANGEICONS = ('/usr/lib/x86_64-linux-gnu/libexec/plasma-changeicons', '/usr/libexec/plasma-changeicons')
 
@@ -342,3 +350,58 @@ def load_preferences(home: str | Path | None = None) -> dict:
     if isinstance(data.get('accent'), str) and HEX.match(data['accent']):
         result['accent'] = data['accent'].lower()
     return result
+
+
+# ---------------------------------------------------------------------------
+# User wallpapers (local only: copied into ~/.local/share/wallpapers/NOVA-My)
+# ---------------------------------------------------------------------------
+
+IMAGE_EXT = ('.jpg', '.jpeg', '.png', '.webp', '.avif', '.bmp')
+
+
+def user_wallpaper_dir(home=None) -> Path:
+    return (Path(home) if home else Path.home()) / '.local/share/wallpapers/NOVA-My'
+
+
+def add_user_wallpapers(files, home=None) -> list[Path]:
+    """Copy picture files into the user's NOVA wallpaper folder (never overwrites)."""
+    target = user_wallpaper_dir(home)
+    target.mkdir(parents=True, exist_ok=True)
+    added = []
+    for f in files:
+        src = Path(f).expanduser()
+        if src.suffix.lower() not in IMAGE_EXT:
+            raise ValueError(f'Не картинка: {src.name} (подходят {", ".join(IMAGE_EXT)})')
+        if not src.is_file():
+            raise ValueError(f'Файл не найден: {src}')
+        stem = re.sub(r'[^\w.-]+', '_', src.stem, flags=re.UNICODE)[:60] or 'wallpaper'
+        dest = target / f'{stem}{src.suffix.lower()}'
+        n = 2
+        while dest.exists():
+            dest = target / f'{stem}-{n}{src.suffix.lower()}'
+            n += 1
+        shutil.copy2(src, dest)
+        added.append(dest)
+    return added
+
+
+def list_user_wallpapers(home=None) -> list[Path]:
+    d = user_wallpaper_dir(home)
+    return sorted(p for p in d.iterdir() if p.suffix.lower() in IMAGE_EXT) if d.is_dir() else []
+
+
+def slideshow_script(folder: str, minutes: int = 10) -> str:
+    """Plasma script: slideshow from `folder` on every desktop."""
+    if not 1 <= int(minutes) <= 1440:
+        raise ValueError('интервал: 1–1440 минут')
+    url = json.dumps('file://' + str(folder))
+    return _JS_HELPERS.replace('%WALLPAPER%', WALLPAPER).strip() + f"""
+var ds = desktops();
+for (var i = 0; i < ds.length; i++) {{ var d = ds[i]; novaTry(function () {{
+  d.wallpaperPlugin = "org.kde.slideshow";
+  d.currentConfigGroup = ["Wallpaper", "org.kde.slideshow", "General"];
+  d.writeConfig("SlidePaths", [{url}]);
+  d.writeConfig("SlideInterval", {int(minutes) * 60});
+  d.writeConfig("FillMode", 2);
+}}); }}
+"""

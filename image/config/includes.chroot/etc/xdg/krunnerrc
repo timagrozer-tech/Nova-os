@@ -1,0 +1,5 @@
+# NOVA OS: search opens in the middle of the screen (like Spotlight / Windows search)
+[General]
+FreeFloating=true
+ActivateWhenTypingOnDesktop=true
+historyBehavior=CompletionSuggestion
