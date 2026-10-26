@@ -1,0 +1,137 @@
+{
+ "wallpaper-synth": {
+  "errors": [],
+  "messages": [],
+  "image": "wallpaper-synth.png",
+  "size": [
+   1280,
+   720
+  ]
+ },
+ "wallpaper-city": {
+  "errors": [],
+  "messages": [],
+  "image": "wallpaper-city.png",
+  "size": [
+   1280,
+   720
+  ]
+ },
+ "wallpaper-rain": {
+  "errors": [],
+  "messages": [],
+  "image": "wallpaper-rain.png",
+  "size": [
+   1280,
+   720
+  ]
+ },
+ "wallpaper-circuit": {
+  "errors": [],
+  "messages": [],
+  "image": "wallpaper-circuit.png",
+  "size": [
+   1280,
+   720
+  ]
+ },
+ "splash": {
+  "errors": [],
+  "messages": [],
+  "image": "splash.png",
+  "size": [
+   1280,
+   720
+  ]
+ },
+ "neon-stats": {
+  "errors": [],
+  "messages": [],
+  "image": "neon-stats.png",
+  "size": [
+   1280,
+   720
+  ]
+ },
+ "live-aurora": {
+  "errors": [],
+  "messages": [],
+  "image": "live-aurora.png",
+  "size": [
+   1280,
+   720
+  ]
+ },
+ "live-sakura": {
+  "errors": [],
+  "messages": [],
+  "image": "live-sakura.png",
+  "size": [
+   1280,
+   720
+  ]
+ },
+ "live-ocean": {
+  "errors": [],
+  "messages": [],
+  "image": "live-ocean.png",
+  "size": [
+   1280,
+   720
+  ]
+ },
+ "live-sky": {
+  "errors": [],
+  "messages": [],
+  "image": "live-sky.png",
+  "size": [
+   1280,
+   720
+  ]
+ },
+ "sky-night": {
+  "errors": [],
+  "messages": [],
+  "image": "sky-night.png",
+  "size": [
+   1280,
+   720
+  ]
+ },
+ "sky-dawn": {
+  "errors": [],
+  "messages": [],
+  "image": "sky-dawn.png",
+  "size": [
+   1280,
+   720
+  ]
+ },
+ "sky-day": {
+  "errors": [],
+  "messages": [],
+  "image": "sky-day.png",
+  "size": [
+   1280,
+   720
+  ]
+ },
+ "sky-sunset": {
+  "errors": [],
+  "messages": [],
+  "image": "sky-sunset.png",
+  "size": [
+   1280,
+   720
+  ]
+ },
+ "installer-slides": {
+  "errors": [],
+  "messages": [],
+  "image": "installer-slides.png",
+  "size": [
+   1280,
+   720
+  ]
+ }
+}
