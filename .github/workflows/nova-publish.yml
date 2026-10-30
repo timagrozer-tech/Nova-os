@@ -1,0 +1,77 @@
+name: Publish NOVA OS for DroidVM
+
+# Берёт самый свежий ISO NOVA OS из артефактов сборок и выкладывает его в релиз nova-os-latest,
+# чтобы приложение DroidVM могло скачать его без входа в GitHub. ISO режется на части < 2 ГБ.
+on:
+  push:
+    branches: [ droidvm ]
+    paths: [ '.github/workflows/nova-publish.yml' ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Скачать последний ISO из артефактов
+        env:
+          GH_TOKEN: ${{ github.token }}
+          R: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          sudo mkdir -p /mnt/n && sudo chown $USER /mnt/n && cd /mnt/n
+          gh api "repos/$R/actions/artifacts?per_page=100" --paginate \
+            --jq '.artifacts[] | select(.expired==false and (.name|test("^NOVA-OS-.*-ISO$"))) | "\(.created_at) \(.id) \(.name) \(.workflow_run.head_branch)"' \
+            | sort -r > list.txt
+          cat list.txt
+          read -r CREATED ID NAME BRANCH < list.txt
+          echo "Берём $NAME ($CREATED, ветка $BRANCH)"
+          echo "::notice title=ISO::$NAME от $CREATED, ветка $BRANCH"
+          gh api "repos/$R/actions/artifacts/$ID/zip" > a.zip
+          unzip -q a.zip -d iso && rm a.zip
+          ISO=$(find iso -name '*.iso' | head -1)
+          [ -n "$ISO" ] || { echo "::error::в артефакте нет .iso"; ls -R iso; exit 1; }
+          mv "$ISO" nova-os.iso && rm -rf iso
+          VER=$(echo "$NAME" | sed -E 's/^NOVA-OS-(.*)-ISO$/\1/')
+          echo "VER=$VER" >> $GITHUB_ENV
+          echo "CREATED=${CREATED%%T*}" >> $GITHUB_ENV
+          ls -la nova-os.iso
+
+      - name: Разрезать и описать
+        run: |
+          set -euo pipefail
+          cd /mnt/n
+          split -b 1900M -d -a 2 nova-os.iso nova-os.iso.part
+          rm nova-os.iso
+          python3 - <<'PY'
+          import json, os
+          parts = sorted(p for p in os.listdir('.') if p.startswith('nova-os.iso.part'))
+          m = {
+            'name': 'NOVA OS', 'version': os.environ['VER'] + ' (' + os.environ['CREATED'] + ')',
+            'arch': 'x86_64', 'about': 'Debian 13 + KDE Plasma 6',
+            'parts': [{'name': p, 'size': os.path.getsize(p)} for p in parts],
+          }
+          m['size'] = sum(p['size'] for p in m['parts'])
+          json.dump(m, open('nova-os.json', 'w'), ensure_ascii=False, indent=1)
+          print(m)
+          PY
+          for p in nova-os.iso.part*; do echo "::notice title=Часть::$p $(stat -c %s $p) байт"; done
+
+      - name: Выложить в nova-os-latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          R: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          cd /mnt/n
+          gh release view nova-os-latest -R $R >/dev/null 2>&1 || \
+            gh release create nova-os-latest -R $R --title "NOVA OS для DroidVM" --notes "ISO NOVA OS для приложения DroidVM (разрезан на части)."
+          # убрать старые части, если их было больше
+          for a in $(gh release view nova-os-latest -R $R --json assets -q '.assets[].name'); do
+            [ -f "$a" ] || gh release delete-asset nova-os-latest "$a" -R $R -y
+          done
+          gh release upload nova-os-latest -R $R --clobber nova-os.iso.part* nova-os.json
+          gh release edit nova-os-latest -R $R --notes "NOVA OS $VER ($CREATED) для приложения DroidVM. ISO разрезан на части; приложение склеивает их само."
