@@ -116,6 +116,7 @@ object VmRunner {
                 log("QEMU завершился, код $code")
                 process = null
                 current = null
+                paused = false
                 setState(State.IDLE)
             }, "qemu-wait").start()
         } catch (e: Throwable) {
@@ -144,7 +145,7 @@ object VmRunner {
         runCatching { org.json.JSONObject(stateFile(ctx, cfg.id).readText()).optLong("time") }.getOrDefault(0L)
 
     /** Всё, что влияет на совместимость снимка с командной строкой QEMU. */
-    private fun signature(cfg: VmConfig) = listOf(cfg.arch, cfg.ramMb, cfg.cpus, cfg.gpu, cfg.input, cfg.net,
+    private fun signature(cfg: VmConfig) = listOf("v2-balloon", cfg.arch, cfg.ramMb, cfg.cpus, cfg.gpu, cfg.input, cfg.net,
         cfg.resolution, cfg.density, cfg.iso, cfg.disks.joinToString("|"), cfg.bootMode, cfg.machine).joinToString(";")
 
     private fun qcowFiles(cfg: VmConfig, vmDir: File): List<File> =
@@ -277,6 +278,44 @@ object VmRunner {
         log("→ ACPI: system_powerdown")
         monitor(ctx, "system_powerdown")
     }.start()
+
+    // ---------------- пауза и память ----------------
+
+    @Volatile var paused = false; private set
+
+    /** Пауза: процессор гостя замирает (не греет телефон, не тратит батарею). Вызывать в фоне. */
+    fun setPaused(ctx: Context, p: Boolean) {
+        if (state != State.RUNNING) return
+        if (monitorWait(ctx, if (p) "stop" else "cont", 10_000) != null) {
+            paused = p
+            main.post { listeners.forEach { it.onStateChanged(state) } }
+        }
+    }
+
+    /**
+     * «Сжать» память гостя: временно надуть balloon, чтобы гость сбросил кэш, и вернуть обратно.
+     * Освобождённые страницы возвращаются телефону. Возвращает сколько МБ гость отдал, или null.
+     */
+    fun compactGuest(ctx: Context, progress: (String) -> Unit): Int? {
+        val cfg = current ?: return null
+        if (state != State.RUNNING || paused) return null
+        val info = monitorWait(ctx, "info balloon", 5_000) ?: return null
+        val actual = Regex("actual=(\\d+)").find(info)?.groupValues?.get(1)?.toIntOrNull() ?: return null
+        val target = maxOf(1024, cfg.ramMb * 55 / 100)
+        if (target >= actual) return 0
+        progress("Сжимаю память ВМ: $actual → $target МБ…")
+        monitorWait(ctx, "balloon $target", 5_000)
+        var reached = actual
+        for (i in 0 until 12) {
+            Thread.sleep(1000)
+            val now = monitorWait(ctx, "info balloon", 3_000)?.let { Regex("actual=(\\d+)").find(it)?.groupValues?.get(1)?.toIntOrNull() }
+            if (now != null) reached = now
+            if (reached <= target + 16) break
+        }
+        progress("Возвращаю память ВМ…")
+        monitorWait(ctx, "balloon ${cfg.ramMb}", 5_000)
+        return (actual - reached).coerceAtLeast(0)
+    }
 
     fun reset(ctx: Context) = Thread {
         log("→ system_reset")

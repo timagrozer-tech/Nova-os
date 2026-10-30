@@ -234,6 +234,8 @@ class ScreenActivity : Activity(), RfbClient.Callback, VmRunner.Listener {
             if (vnc.stretch) "Вписать с сохранением пропорций" else "Растянуть на весь экран",
             "Ctrl+Alt+Del", "Перезагрузить ВМ", "Выключить (как кнопкой питания)", "Остановить принудительно",
             "Журнал QEMU", "Свернуть (ВМ продолжит работу)",
+            if (VmRunner.paused) "Продолжить работу ВМ" else "Пауза (процессор ВМ замрёт)",
+            "Ввести текст из буфера обмена",
         )
         AlertDialog.Builder(this).setItems(items) { _, i ->
             when (i) {
@@ -247,8 +249,22 @@ class ScreenActivity : Activity(), RfbClient.Callback, VmRunner.Listener {
                     .setNegativeButton("Отмена", null).show()
                 5 -> startActivity(Intent(this, LogActivity::class.java))
                 6 -> finish()
+                7 -> Thread { VmRunner.setPaused(this, !VmRunner.paused) }.start()
+                8 -> pasteText()
             }
         }.show()
+    }
+
+    /** Набрать в госте текст из буфера обмена телефона (латиница, цифры, знаки, Enter). */
+    private fun pasteText() {
+        val cm = getSystemService(android.content.ClipboardManager::class.java)
+        val text = cm.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(this)?.toString().orEmpty()
+        if (text.isEmpty()) { Toast.makeText(this, "Буфер обмена пуст", Toast.LENGTH_SHORT).show(); return }
+        val c = client ?: return
+        val skipped = text.count { KeyMap.forChar(it) == null }
+        text.forEach { ch -> if (KeyMap.forChar(ch) != null) c.typeChar(ch) }
+        Toast.makeText(this, "Набрано ${text.length - skipped} симв." +
+            if (skipped > 0) " Пропущено $skipped (кириллица и спецсимволы набираются клавиатурой внутри ВМ)." else "", Toast.LENGTH_LONG).show()
     }
 
     private fun toggleKeyboard() {

@@ -50,6 +50,9 @@ object QemuCommand {
 
         // Источник случайных чисел — ускоряет загрузку Android
         a += listOf("-device", "virtio-rng-pci")
+        // Memory balloon: освобождённая гостем память возвращается телефону (free page reporting),
+        // а кнопка «Почистить ОЗУ» может временно забрать у гостя кэш
+        a += listOf("-device", "virtio-balloon-pci,id=balloon0,free-page-reporting=on,deflate-on-oom=on")
 
         // Сеть (user-mode, без root)
         if (cfg.net != "none") {

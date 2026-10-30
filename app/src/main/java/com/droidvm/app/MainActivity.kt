@@ -35,6 +35,26 @@ class MainActivity : ImageActivityBase(), VmRunner.Listener {
     /** Живая строка нагрузки у работающей ВМ */
     private var liveStats: TextView? = null
 
+    companion object { const val EXTRA_LAUNCH = "launch_vm" }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleLaunch()
+    }
+
+    /** Запуск машины с ярлыка на рабочем столе. */
+    private fun handleLaunch() {
+        val id = intent?.getStringExtra(EXTRA_LAUNCH) ?: return
+        intent.removeExtra(EXTRA_LAUNCH)
+        val vm = VmStore.get(this, id) ?: run { Ui.alert(this, "Машина не найдена", "Возможно, она была удалена."); return }
+        when {
+            VmRunner.current?.id == vm.id && VmRunner.isActive -> openScreen()
+            VmRunner.isActive -> Ui.alert(this, "Уже работает другая машина", "Сначала остановите «${VmRunner.current?.name}».")
+            else -> start(vm, resume = VmRunner.hasState(this, vm))
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.decorView.setBackgroundColor(Ui.BG)
@@ -51,6 +71,12 @@ class MainActivity : ImageActivityBase(), VmRunner.Listener {
         header.addView(Ui.iconAction(this, Icon.FOLDER, "Образы") { startActivity(Intent(this, ImagesActivity::class.java)) })
         header.addView(Ui.iconAction(this, Icon.LOG, "Журнал QEMU") { startActivity(Intent(this, LogActivity::class.java)) })
         root.addView(header)
+
+        // Инструменты
+        val tools = Ui.hbox(this)
+        tools.addView(Ui.button(this, "Почистить ОЗУ") { cleanRam() }, Ui.weight())
+        tools.addView(Ui.button(this, "Освободить место") { freeSpace() }, Ui.weight().apply { leftMargin = dp(8) })
+        root.addView(tools, Ui.lp(top = 16, ctx = this))
 
         hero = Ui.card(this)
         root.addView(hero, Ui.lp(top = 20, ctx = this))
@@ -75,6 +101,7 @@ class MainActivity : ImageActivityBase(), VmRunner.Listener {
         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
         }
+        handleLaunch()
     }
 
     override fun onResume() {
@@ -106,7 +133,12 @@ class MainActivity : ImageActivityBase(), VmRunner.Listener {
                 val st = if (pid > 0) VmStats.read(pid, VmRunner.startedAt) else null
                 val up = (System.currentTimeMillis() - VmRunner.startedAt) / 1000
                 val upText = String.format(Locale.US, "%d:%02d:%02d", up / 3600, up / 60 % 60, up % 60)
-                tv.text = if (st != null) "Работает $upText · ЦП ${st.cpuPercent}% · ОЗУ ${humanSize(st.rssBytes)}" else "Работает $upText"
+                val temp = Tools.batteryTemp(this@MainActivity)
+                val hot = temp != null && temp >= 45f
+                val tText = if (temp != null) " · ${temp.toInt()}°C" + (if (hot) " — телефон греется, поставьте паузу" else "") else ""
+                tv.text = if (VmRunner.paused) "На паузе · $upText$tText"
+                else if (st != null) "Работает $upText · ЦП ${st.cpuPercent}% · ОЗУ ${humanSize(st.rssBytes)}$tText" else "Работает $upText$tText"
+                tv.setTextColor(if (hot) Ui.WARN else Ui.ACCENT)
             }
             ui.postDelayed(this, 2000)
         }
@@ -249,7 +281,7 @@ class MainActivity : ImageActivityBase(), VmRunner.Listener {
 
         when {
             running -> {
-                val s = Ui.chip(this, "● ${stateText()}")
+                val s = Ui.chip(this, if (VmRunner.paused) "На паузе" else "● ${stateText()}")
                 card.addView(s, Ui.lp(-2, ctx = this, top = 12))
                 if (VmRunner.state == VmRunner.State.RUNNING) liveStats = s
             }
@@ -263,6 +295,9 @@ class MainActivity : ImageActivityBase(), VmRunner.Listener {
         when {
             running -> {
                 row.addView(Ui.button(this, "Открыть экран", primary = true) { openScreen() }, Ui.weight())
+                row.addView(Ui.iconAction(this, if (VmRunner.paused) Icon.PLAY else Icon.PAUSE, if (VmRunner.paused) "Продолжить" else "Пауза") {
+                    Thread { VmRunner.setPaused(this, !VmRunner.paused) }.start()
+                })
                 row.addView(Ui.iconAction(this, Icon.POWER, "Выключить") { VmRunner.powerDown(this) })
                 row.addView(Ui.iconAction(this, Icon.STOP, "Остановить принудительно") {
                     AlertDialog.Builder(this).setTitle("Остановить «${vm.name}»?")
@@ -282,6 +317,55 @@ class MainActivity : ImageActivityBase(), VmRunner.Listener {
         card.addView(row, Ui.lp(top = 14, ctx = this))
         card.setOnLongClickListener { vmMenu(vm, running); true }
         return card
+    }
+
+    // ---------------- инструменты ----------------
+
+    private fun cleanRam() {
+        val (dlg, upd) = Ui.progress(this, "Очистка ОЗУ")
+        upd(-1, "Начинаю…")
+        Thread {
+            val r = runCatching { Tools.cleanRam(this) { upd(-1, it) } }
+            runOnUiThread {
+                dlg.dismiss(); refresh()
+                r.onSuccess { res ->
+                    val vmLine = when (res.vmMb) {
+                        null -> if (VmRunner.isActive) "\nМашина на паузе или ещё загружается — её память не трогали." else ""
+                        0 -> "\nМашине нечего отдавать: кэш уже минимальный."
+                        else -> "\nМашина отдала телефону ${res.vmMb} МБ кэша (сама система в ней не пострадала)."
+                    }
+                    AlertDialog.Builder(this).setTitle("Готово")
+                        .setMessage("Освобождено: ${humanSize(res.freedBytes)}\nСвободно сейчас: ${humanSize(res.availAfter)} из ${humanSize(res.total)}\n" +
+                            "Проверено фоновых приложений: ${res.apps}$vmLine\n\nСовет: память, которую машина освобождает сама, возвращается телефону автоматически.")
+                        .setPositiveButton("OK", null).show()
+                }.onFailure { Ui.alert(this, "Не получилось", it.message ?: it.toString()) }
+            }
+        }.start()
+    }
+
+    private fun freeSpace() {
+        val (dlg, upd) = Ui.progress(this, "Освободить место")
+        upd(-1, "Ищу ненужные файлы…")
+        Thread {
+            val junk = runCatching { Tools.findJunk(this) }.getOrDefault(emptyList())
+            runOnUiThread {
+                dlg.dismiss()
+                if (junk.isEmpty()) { Ui.alert(this, "Всё чисто", "Ненужных файлов не найдено. Свободно ${humanSize(VmStore.imagesDir(this).usableSpace)}."); return@runOnUiThread }
+                val checked = BooleanArray(junk.size) { junk[it].safe }
+                AlertDialog.Builder(this).setTitle("Можно удалить")
+                    .setMultiChoiceItems(junk.map { "${it.title} — ${humanSize(it.bytes)}" }.toTypedArray(), checked) { _, i, v -> checked[i] = v }
+                    .setPositiveButton("Удалить отмеченное") { _, _ ->
+                        val sel = junk.filterIndexed { i, _ -> checked[i] }
+                        Thread {
+                            sel.forEach { Tools.delete(it) }
+                            runOnUiThread {
+                                refresh()
+                                Toast.makeText(this, "Освобождено ${humanSize(sel.sumOf { it.bytes })}", Toast.LENGTH_LONG).show()
+                            }
+                        }.start()
+                    }.setNegativeButton("Отмена", null).show()
+            }
+        }.start()
     }
 
     // ---------------- каталог GSI ----------------
@@ -384,6 +468,9 @@ class MainActivity : ImageActivityBase(), VmRunner.Listener {
         if (vm.adbPort > 0 && vm.net != "none") items += "Скопировать команду ADB" to {
             getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("adb", "adb connect 127.0.0.1:${vm.adbPort}"))
             Toast.makeText(this, "Скопировано: adb connect 127.0.0.1:${vm.adbPort} (выполните в Termux)", Toast.LENGTH_LONG).show()
+        }
+        items += "Ярлык на рабочий стол" to {
+            if (!Tools.pinShortcut(this, vm)) Toast.makeText(this, "Лаунчер не поддерживает ярлыки", Toast.LENGTH_SHORT).show()
         }
         items += "Журнал и консоль" to { startActivity(Intent(this, LogActivity::class.java)) }
         items += "Команда QEMU" to { edit(vm.id, showCommand = true) }
