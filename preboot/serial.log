@@ -1,4 +1,51 @@
 UEFI firmware (version 2024.02-2ubuntu0.10 built at 15:40:28 on Sep 23 2026)
 [2J[01;01H[=3h[2J[01;01H[2J[01;01H[=3h[2J[01;01HBdsDxe: loading Boot0001 "UEFI Misc Device" from PciRoot(0x0)/Pci(0x5,0x0)
 BdsDxe: starting Boot0001 "UEFI Misc Device" from PciRoot(0x0)/Pci(0x5,0x0)
+[0m[30m[40m[2J[01;01H[0m[37m[40m[   86.260308][    T1] sysrq: Terminate All Tasks
+[   86.266624][    T1] init: Service 'ueventd' (pid 102) received SIGTERM
+[   86.267181][    T1] init: Sending SIGKILL to service 'ueventd' (pid 102) process group...
+[   86.269043][    T1] libprocessgroup: Removed cgroup /sys/fs/cgroup/system/uid_0/pid_102
+[   86.274987][    T1] init: Service 'servicemanager' (pid 232) received SIGTERM
+[   86.275624][    T1] init: Sending SIGKILL to service 'servicemanager' (pid 232) process group...
+[   86.277431][    T1] libprocessgroup: Removed cgroup /sys/fs/cgroup/system/uid_1000/pid_232
+[   86.281533][    T1] init: waitid failed: No child processes
+[   86.286788][    T1] init: Unmounting /dev/block/dm-54:/data_mirror/data_ce/null/0 opts rw,seclabel,nosuid,nodev,noatime,discard
+[   86.291505][    T1] init: Umounted /dev/block/dm-54:/data_mirror/data_ce/null/0 opts rw,seclabel,nosuid,nodev,noatime,discard
+[   86.292872][    T1] init: Unmounting /dev/block/dm-54:/data/user/0 opts rw,seclabel,nosuid,nodev,noatime,discard
+[   86.294606][    T1] init: Cannot umount /dev/block/dm-54:/data/user/0 opts rw,seclabel,nosuid,nodev,noatime,discard: Invalid argument
+[   86.295796][    T1] init: Unmounting /dev/block/dm-54:/data_mirror/ref_profiles opts rw,seclabel,nosuid,nodev,noatime,discard
+[   86.297797][    T1] init: Umounted /dev/block/dm-54:/data_mirror/ref_profiles opts rw,seclabel,nosuid,nodev,noatime,discard
+[   86.299283][    T1] init: Unmounting /dev/block/dm-54:/data_mirror/cur_profiles opts rw,seclabel,nosuid,nodev,noatime,discard
+[   86.302147][    T1] init: Umounted /dev/block/dm-54:/data_mirror/cur_profiles opts rw,seclabel,nosuid,nodev,noatime,discard
+[   86.304057][    T1] init: Unmounting /dev/block/dm-54:/data_mirror/storage_area opts rw,seclabel,nosuid,nodev,noatime,discard
+[   86.305643][    T1] init: Umounted /dev/block/dm-54:/data_mirror/storage_area opts rw,seclabel,nosuid,nodev,noatime,discard
+[   86.307355][    T1] init: Unmounting /dev/block/dm-54:/data_mirror/misc_de/null opts rw,seclabel,nosuid,nodev,noatime,discard
+[   86.309048][    T1] init: Umounted /dev/block/dm-54:/data_mirror/misc_de/null opts rw,seclabel,nosuid,nodev,noatime,discard
+[   86.310731][    T1] init: Unmounting /dev/block/dm-54:/data_mirror/misc_ce/null opts rw,seclabel,nosuid,nodev,noatime,discard
+[   86.312227][    T1] init: Umounted /dev/block/dm-54:/data_mirror/misc_ce/null opts rw,seclabel,nosuid,nodev,noatime,discard
+[   86.313364][    T1] init: Unmounting /dev/block/dm-54:/data_mirror/data_de/null opts rw,seclabel,nosuid,nodev,noatime,discard
+[   86.315296][    T1] init: Umounted /dev/block/dm-54:/data_mirror/data_de/null opts rw,seclabel,nosuid,nodev,noatime,discard
+[   86.316038][    T1] init: Unmounting /dev/block/dm-54:/data_mirror/data_ce/null opts rw,seclabel,nosuid,nodev,noatime,discard
+[   86.317442][    T1] init: Umounted /dev/block/dm-54:/data_mirror/data_ce/null opts rw,seclabel,nosuid,nodev,noatime,discard
+[   86.319158][    T1] init: Unmounting /dev/block/dm-54:/data opts rw,seclabel,nosuid,nodev,noatime,discard
+[   86.786000][    T1] EXT4-fs (dm-54): unmounting filesystem 0754d04c-a462-4b1c-9b01-21c109378477.
+[   86.905026][    T1] init: Umounted /dev/block/dm-54:/data opts rw,seclabel,nosuid,nodev,noatime,discard
+[   86.905784][    T1] init: Unmounting /dev/block/vda5:/cache opts rw,seclabel,nosuid,nodev,noatime,discard
+[   86.911398][    T1] EXT4-fs (vda5): unmounting filesystem 22b74bf8-ed3e-5458-bc6a-53779012d742.
+[   86.922377][    T1] init: Umounted /dev/block/vda5:/cache opts rw,seclabel,nosuid,nodev,noatime,discard
+[   86.923492][    T1] init: Unmounting /dev/block/vda9:/mnt/vendor/persist opts rw,sync,context=u:object_r:persist_file:s0,relatime,uid=1000,gid=1000,fmask=0117,dmask=0007,allow_utime=0020,codepage=437,iocharset=iso8859-1,shortname=lower,errors=remount-ro
+[   86.928322][    T1] init: Umounted /dev/block/vda9:/mnt/vendor/persist opts rw,sync,context=u:object_r:persist_file:s0,relatime,uid=1000,gid=1000,fmask=0117,dmask=0007,allow_utime=0020,codepage=437,iocharset=iso8859-1,shortname=lower,errors=remount-ro
+[   86.930298][    T1] init: Unmounting /dev/block/vda4:/metadata opts rw,seclabel,nosuid,nodev,noatime,nodioread_nolock,discard,nodelalloc,commit=1,data=journal
+[   86.941283][    T1] EXT4-fs (vda4): unmounting filesystem 1128454e-052d-4536-8c01-ec9dbbd6092f.
+[   86.948113][    T1] init: Umounted /dev/block/vda4:/metadata opts rw,seclabel,nosuid,nodev,noatime,nodioread_nolock,discard,nodelalloc,commit=1,data=journal
+[   86.948902][    T1] init: Unmounting /dev/block/vda1:/mnt/vendor/EFI opts rw,context=u:object_r:efi_file:s0,relatime,fmask=0117,dmask=0007,allow_utime=0020,codepage=437,iocharset=iso8859-1,shortname=lower,errors=remount-ro,discard
+[   86.952263][    T1] init: Umounted /dev/block/vda1:/mnt/vendor/EFI opts rw,context=u:object_r:efi_file:s0,relatime,fmask=0117,dmask=0007,allow_utime=0020,codepage=437,iocharset=iso8859-1,shortname=lower,errors=remount-ro,discard
+[   86.955631][    T1] init: sync() after umount...
+[   86.957155][    T1] init: sync() after umount took1ms
+[   87.060394][    T1] init: powerctl_shutdown_time_ms:6508:0
+[   87.069007][    T1] init: Reboot ending, jumping to kernel
+[   87.085323][    T1] reboot: Restarting system with command 'recovery'
+UEFI firmware (version 2024.02-2ubuntu0.10 built at 15:40:28 on Sep 23 2026)
+[2J[01;01H[=3h[2J[01;01H[2J[01;01H[=3h[2J[01;01HBdsDxe: loading Boot0001 "UEFI Misc Device" from PciRoot(0x0)/Pci(0x5,0x0)
+BdsDxe: starting Boot0001 "UEFI Misc Device" from PciRoot(0x0)/Pci(0x5,0x0)
 [0m[30m[40m[2J[01;01H[0m[37m[40m

@@ -248,12 +248,12 @@ debugfs 1.47.0 (5-Feb-2023)
 4-aurora-store.apk: com.aurora.store 4.8.4 (9140 КБ)
 129M	payload
 total 130980
-drwxr-xr-x 2 runner runner      4096 Oct 30 12:31 .
-drwxr-xr-x 4 runner runner      4096 Oct 30 12:28 ..
--rw-r--r-- 1 runner runner 108113833 Oct 30 12:29 1-microg-services.apk
--rw-r--r-- 1 runner runner   4210169 Oct 30 12:29 2-microg-companion.apk
--rw-r--r-- 1 runner runner  12426276 Oct 30 12:30 3-fdroid.apk
--rw-r--r-- 1 runner runner   9360088 Oct 30 12:31 4-aurora-store.apk
+drwxr-xr-x 2 runner runner      4096 Oct 30 12:36 .
+drwxr-xr-x 4 runner runner      4096 Oct 30 12:34 ..
+-rw-r--r-- 1 runner runner 108113833 Oct 30 12:35 1-microg-services.apk
+-rw-r--r-- 1 runner runner   4210169 Oct 30 12:36 2-microg-companion.apk
+-rw-r--r-- 1 runner runner  12426276 Oct 30 12:36 3-fdroid.apk
+-rw-r--r-- 1 runner runner   9360088 Oct 30 12:36 4-aurora-store.apk
 == раздел droidvm в свободном месте диска
 Warning: The kernel is still using the old partition table.
 The new table will be used at the next reboot or after you
