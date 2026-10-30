@@ -117,3 +117,22 @@ scripts/fetch_qemu.py   встраивание QEMU из Termux
 
 Интерфейс написан без AndroidX и XML-разметки — только платформенный API, поэтому проект
 лёгкий и собирается быстро.
+
+## DroidVM OS — своя прошивка
+
+Готовая прошивка для DroidVM собирается workflow `Build DroidVM OS` (`os/`) и публикуется в Releases
+с тегом `droidvm-os-*`. В приложении она ставится кнопкой «Установить DroidVM OS».
+
+- Основа: [LineageOS for QEMU](https://github.com/jqssun/android-lineage-qemu), ARM64 (LineageOS 23.2, Android 16).
+- Root: Magisk, вшит в boot-раздел (`os/patch-boot.sh`); `adb shell su` без подтверждения.
+- microG вместо сервисов Google: microG Services + Companion, подмена подписи включена патчем
+  `ComputerEngine.isDebuggable()` в `libandroid_servers.so` (`os/patch_servers.py`), подключается
+  bind-mount'ом при загрузке. Защита: только если библиотека совпадает с системной; после трёх
+  неудачных загрузок подряд патч отключается сам (`/data/adb/droidvm/no-spoof`).
+- Приложения: F-Droid, Aurora Store (Google Play без Google-аккаунта на устройстве).
+- Русский язык, Москва, тёмная тема, анимации 0,5×, мастер настройки пропущен, ADB по сети.
+
+Приложения и библиотека лежат в отдельном разделе `droidvm` диска vda; свои APK можно добавить в `os/apps/`.
+
+Настройка microG после первой загрузки: откройте «Настройки microG» → «Самопроверка», выдайте отмеченные
+разрешения, включите «Регистрация устройства в Google» и «Cloud Messaging», затем войдите в аккаунт Google.
