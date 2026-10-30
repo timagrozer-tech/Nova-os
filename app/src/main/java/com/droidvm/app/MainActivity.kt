@@ -265,7 +265,7 @@ class MainActivity : ImageActivityBase(), VmRunner.Listener {
                 .setMessage("Образ скачивается напрямую с серверов Google. Перед загрузкой нужно принять лицензионное соглашение " +
                     "Google для Android 16 GSI (бета-версия, только для разработки и тестирования).")
                 .setNeutralButton("Прочитать") { _, _ -> startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(e.licenseUrl))) }
-                .setPositiveButton("Принимаю") { _, _ -> runGsi(e.title) { c, upd ->
+                .setPositiveButton("Принимаю") { _, _ -> runGsi(e.title, e.homepage) { c, upd ->
                     upd(-1, "Ищу последнюю версию…")
                     val r = GsiCatalog.resolve(e)
                     GsiInstaller.install(this, "${e.title}", GsiInstaller.download(this, r, c, upd), true, c, upd)
@@ -273,7 +273,7 @@ class MainActivity : ImageActivityBase(), VmRunner.Listener {
                 .setNegativeButton("Отмена", null).show()
             return
         }
-        runGsi(e.title) { c, upd ->
+        runGsi(e.title, e.homepage) { c, upd ->
             upd(-1, "Ищу последнюю версию…")
             val r = GsiCatalog.resolve(e)
             GsiInstaller.install(this, "${e.title} · ${r.version}", GsiInstaller.download(this, r, c, upd), true, c, upd)
@@ -287,7 +287,7 @@ class MainActivity : ImageActivityBase(), VmRunner.Listener {
         }
     }
 
-    private fun runGsi(title: String, job: (java.util.concurrent.atomic.AtomicBoolean, (Int, String) -> Unit) -> VmConfig) {
+    private fun runGsi(title: String, homepage: String? = null, job: (java.util.concurrent.atomic.AtomicBoolean, (Int, String) -> Unit) -> VmConfig) {
         if (VmRunner.isActive) { Ui.alert(this, "Сначала остановите машину", "Пока работает ВМ, телефону не хватит сил на распаковку прошивки."); return }
         val cancelled = java.util.concurrent.atomic.AtomicBoolean(false)
         val (dlg, upd) = Ui.progress(this, title) { cancelled.set(true) }
@@ -302,7 +302,14 @@ class MainActivity : ImageActivityBase(), VmRunner.Listener {
                             "Если система не стартует — значит, эта GSI несовместима; попробуйте другую из каталога.")
                         .setPositiveButton("Запустить") { _, _ -> start(vm) }.setNegativeButton("Позже", null).show()
                 }.onFailure { e ->
-                    if (e !is InterruptedException) Ui.alert(this, "Не удалось установить", e.message ?: e.toString())
+                    if (e is InterruptedException) return@onFailure
+                    val b = AlertDialog.Builder(this).setTitle("Не удалось установить").setMessage(
+                        (e.message ?: e.toString()) + if (homepage != null) "\n\nМожно скачать прошивку вручную в браузере и поставить её кнопкой «Свой GSI из файла»." else "")
+                        .setPositiveButton("OK", null)
+                    if (homepage != null) b.setNeutralButton("Открыть страницу") { _, _ ->
+                        startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(homepage)))
+                    }
+                    b.show()
                 }
             }
         }.start()
