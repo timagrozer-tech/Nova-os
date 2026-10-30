@@ -42,13 +42,15 @@ jobs:
           print(m)
           PY
 
-      - uses: softprops/action-gh-release@v2
-        with:
-          tag_name: droidvm-os-latest
-          name: DroidVM OS (последняя версия)
-          overwrite_files: true
-          body: Всегда последняя сборка DroidVM OS. Отсюда её скачивает приложение.
-          files: |
-            /mnt/w/droidvm-os-vda.qcow2
-            /mnt/w/droidvm-os-vdb.qcow2
-            /mnt/w/droidvm-os.json
+      - name: Выложить в droidvm-os-latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          cd /mnt/w && ls -la
+          gh release view droidvm-os-latest -R ${{ github.repository }} >/dev/null 2>&1 || \
+            gh release create droidvm-os-latest -R ${{ github.repository }} --title "DroidVM OS (последняя версия)" \
+              --notes "Всегда последняя сборка DroidVM OS. Отсюда её скачивает приложение."
+          gh release upload droidvm-os-latest -R ${{ github.repository }} --clobber \
+            droidvm-os-vda.qcow2 droidvm-os-vdb.qcow2 droidvm-os.json || { echo "::error::загрузка не удалась"; exit 1; }
+          gh release view droidvm-os-latest -R ${{ github.repository }} --json assets -q '.assets[] | "\(.name) \(.size)"' | while read l; do echo "::notice::$l"; done
