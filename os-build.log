@@ -235,16 +235,46 @@ Create directory [.backup] (0000)
 Add file [.backup/.magisk] (100000)
 Dumping cpio: [ramdisk.cpio]
 boot пропатчен: 67108864 байт, приложений внутри: 0
+== microG: подмена подписи и приложения
+system: 1081044992 байт -> system.img
+system: ext4
+debugfs 1.47.0 (5-Feb-2023)
+релокаций RELATIVE: 2232
+кандидаты isDebuggable: ['0xb2dd4']
+пропатчено: isDebuggable @ 0xb2dd4 -> return true
+1-microg-services.apk: com.google.android.gms 0.3.17.252432 (105579 КБ)
+2-microg-companion.apk: com.android.vending 0.3.17.40226 (4111 КБ)
+3-fdroid.apk: org.fdroid.fdroid 1.23.2 (12135 КБ)
+4-aurora-store.apk: com.aurora.store 4.8.4 (9140 КБ)
+129M	payload
+total 130980
+drwxr-xr-x 2 runner runner      4096 Oct 30 11:43 .
+drwxr-xr-x 4 runner runner      4096 Oct 30 11:42 ..
+-rw-r--r-- 1 runner runner 108113833 Oct 30 11:43 1-microg-services.apk
+-rw-r--r-- 1 runner runner   4210169 Oct 30 11:43 2-microg-companion.apk
+-rw-r--r-- 1 runner runner  12426276 Oct 30 11:43 3-fdroid.apk
+-rw-r--r-- 1 runner runner   9360088 Oct 30 11:43 4-aurora-store.apk
+== раздел droidvm в свободном месте диска
+Warning: The kernel is still using the old partition table.
+The new table will be used at the next reboot or after you
+run partprobe(8) or kpartx(8)
+The operation has completed successfully.
+No problems found. 303037 free sectors (148.0 MiB) available in 2
+segments, the largest of which is 301023 (147.0 MiB) in size.
+   9         9609216         9641983   16.0 MiB    8300  persist
+  10         9641984         9650175   4.0 MiB     EF02  BIOS
+  11         9650176         9854975   100.0 MiB   8300  vendor_boot
+  12         9854976        10184703   161.0 MiB   8300  droidvm
 == упаковка
-total 1132208
-drwxr-xr-x 2 runner runner       4096 Oct 30 11:29 .
-drwxr-xr-x 4 runner runner       4096 Oct 30 11:29 ..
--rw-r--r-- 1 runner runner        226 Oct 30 11:29 droidvm-os.json
--rw-r--r-- 1 runner runner     334848 Oct 30 11:29 efi_vars.fd
--rw-r--r-- 1 runner runner 1161558016 Oct 30 11:29 vda.qcow2
--rw-r--r-- 1 runner runner     196864 Oct 30 11:29 vdb.qcow2
-total 1200400
-drwxr-xr-x 2 runner runner       4096 Oct 30 11:30 .
-drwxr-xr-x 4 runner root         4096 Oct 30 11:28 ..
--rw-r--r-- 1 runner runner 1162090576 Oct 30 11:30 droidvm-os-arm64.zip
--rw-r--r-- 1 runner runner   67108864 Oct 30 11:28 droidvm_boot_arm64.img
+total 1253268
+drwxr-xr-x 2 runner runner       4096 Oct 30 11:44 .
+drwxr-xr-x 5 runner runner       4096 Oct 30 11:44 ..
+-rw-r--r-- 1 runner runner        226 Oct 30 11:44 droidvm-os.json
+-rw-r--r-- 1 runner runner     334848 Oct 30 11:44 efi_vars.fd
+-rw-r--r-- 1 runner runner 1286361600 Oct 30 11:44 vda.qcow2
+-rw-r--r-- 1 runner runner     196864 Oct 30 11:44 vdb.qcow2
+total 1322280
+drwxr-xr-x 2 runner runner       4096 Oct 30 11:44 .
+drwxr-xr-x 4 runner root         4096 Oct 30 11:41 ..
+-rw-r--r-- 1 runner runner 1286894160 Oct 30 11:44 droidvm-os-arm64.zip
+-rw-r--r-- 1 runner runner   67108864 Oct 30 11:42 droidvm_boot_arm64.img
