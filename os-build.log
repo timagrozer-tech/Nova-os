@@ -248,12 +248,12 @@ debugfs 1.47.0 (5-Feb-2023)
 4-aurora-store.apk: com.aurora.store 4.8.4 (9140 КБ)
 129M	payload
 total 130980
-drwxr-xr-x 2 runner runner      4096 Oct 30 11:43 .
-drwxr-xr-x 4 runner runner      4096 Oct 30 11:42 ..
--rw-r--r-- 1 runner runner 108113833 Oct 30 11:43 1-microg-services.apk
--rw-r--r-- 1 runner runner   4210169 Oct 30 11:43 2-microg-companion.apk
--rw-r--r-- 1 runner runner  12426276 Oct 30 11:43 3-fdroid.apk
--rw-r--r-- 1 runner runner   9360088 Oct 30 11:43 4-aurora-store.apk
+drwxr-xr-x 2 runner runner      4096 Oct 30 12:23 .
+drwxr-xr-x 4 runner runner      4096 Oct 30 12:22 ..
+-rw-r--r-- 1 runner runner 108113833 Oct 30 12:23 1-microg-services.apk
+-rw-r--r-- 1 runner runner   4210169 Oct 30 12:23 2-microg-companion.apk
+-rw-r--r-- 1 runner runner  12426276 Oct 30 12:23 3-fdroid.apk
+-rw-r--r-- 1 runner runner   9360088 Oct 30 12:23 4-aurora-store.apk
 == раздел droidvm в свободном месте диска
 Warning: The kernel is still using the old partition table.
 The new table will be used at the next reboot or after you
@@ -265,16 +265,103 @@ segments, the largest of which is 301023 (147.0 MiB) in size.
   10         9641984         9650175   4.0 MiB     EF02  BIOS
   11         9650176         9854975   100.0 MiB   8300  vendor_boot
   12         9854976        10184703   161.0 MiB   8300  droidvm
+== тихая загрузка (без текста ядра на экране)
+ Volume in drive : is BOOT       
+ Volume Serial Number is 182C-6822
+Directory for ::/
+
+EFI          <DIR>     2026-10-19  12:39 
+boot         <DIR>     2026-10-19  12:39 
+GRUB_K~1 CFG       102 2026-10-19  12:39  .grub_kernel_version.cfg
+        3 files                 102 bytes
+
+Directory for ::/EFI
+
+.            <DIR>     2026-10-19  12:39 
+..           <DIR>     2026-10-19  12:39 
+BOOT         <DIR>     2026-10-19  12:39 
+        3 files                   0 bytes
+
+Directory for ::/EFI/BOOT
+
+.            <DIR>     2026-10-19  12:39 
+..           <DIR>     2026-10-19  12:39 
+BOOTAA64 EFI   6479872 2026-10-19  12:39 
+        3 files           6 479 872 bytes
+
+Directory for ::/boot
+
+.            <DIR>     2026-10-19  12:39 
+..           <DIR>     2026-10-19  12:39 
+grub         <DIR>     2026-10-19  12:39 
+        3 files                   0 bytes
+
+Directory for ::/boot/grub
+
+.            <DIR>     2026-10-19  12:39 
+..           <DIR>     2026-10-19  12:39 
+IS_ESP~1             0 2026-10-19  12:39  .is_esp_part_on_android_boot_device
+themes       <DIR>     2026-10-19  12:39 
+fonts        <DIR>     2026-10-19  12:39 
+ARM64-~1     <DIR>     2026-10-19  12:39  arm64-efi
+grub     cfg     27600 2026-10-19  12:39 
+        7 files              27 600 bytes
+
+Directory for ::/boot/grub/themes
+
+.            <DIR>     2026-10-19  12:39 
+..           <DIR>     2026-10-19  12:39 
+lineage      <DIR>     2026-10-19  12:39 
+        3 files                   0 bytes
+
+Directory for ::/boot/grub/themes/lineage
+
+.            <DIR>     2026-10-19  12:39 
+..           <DIR>     2026-10-19  12:39 
+images       <DIR>     2026-10-19  12:39 
+dark         <DIR>     2026-10-19  12:39 
+theme    cfg       610 2026-10-19  12:39 
+light        <DIR>     2026-10-19  12:39 
+        6 files                 610 bytes
+
+Directory for ::/boot/grub/themes/lineage/images
+
+--- ::/.grub_kernel_version.cfg
+--- ::/boot/grub/grub.cfg
+376:	set default=1
+377:	set timeout=$grub_timeout
+383:	set default=$grub_android_default
+384:	set timeout=$grub_timeout
+424:		set timeout=30
+449:	linux ${boot_partition}/kernel $android_boot_img_cmdline $android_vendor_boot_img_cmdline $kernel_cmdline_dynamic $@ 
+461:	linux ${recovery_partition}/kernel $android_boot_img_cmdline $android_vendor_boot_img_cmdline $kernel_cmdline_dynamic $@ 
+466:menuentry "LineageOS 23.2${kernel_version_display_mainmenu}" --class android --id android {
+471:menuentry "LineageOS 23.2${kernel_version_display_mainmenu} Recovery" --class tools {
+487:		menuentry "Show details" --class text {
+515:		menuentry "Disable automatic slot switching" --class close-circle {
+522:		menuentry "Enable automatic slot switching" --class check-circle {
+529:		menuentry "Switch active slot" --class swap-horizontal-circle {
+539:		menuentry "Show current setting" --class text {
+548:		menuentry "Enable boot animation" --class check-circle {
+551:		menuentry "Disable boot animation" --class close-circle {
+556:		menuentry "Show current setting" --class text {
+565:		menuentry "Unset (use default)" {
+568:		menuentry "360x640 (9:16)" {
+571:		menuentry "576x1024 (9:16)" {
+449:	linux ${boot_partition}/kernel $android_boot_img_cmdline $android_vendor_boot_img_cmdline $kernel_cmdline_dynamic $@  quiet loglevel=3 vt.global_cursor_default=0 droidvm-quiet
+461:	linux ${recovery_partition}/kernel $android_boot_img_cmdline $android_vendor_boot_img_cmdline $kernel_cmdline_dynamic $@  quiet loglevel=3 vt.global_cursor_default=0 droidvm-quiet
+--- ::/boot/grub/themes/lineage/theme.cfg
+загрузчик: включена тихая загрузка
 == упаковка
-total 1253268
-drwxr-xr-x 2 runner runner       4096 Oct 30 11:44 .
-drwxr-xr-x 5 runner runner       4096 Oct 30 11:44 ..
--rw-r--r-- 1 runner runner        226 Oct 30 11:44 droidvm-os.json
--rw-r--r-- 1 runner runner     334848 Oct 30 11:44 efi_vars.fd
--rw-r--r-- 1 runner runner 1286361600 Oct 30 11:44 vda.qcow2
--rw-r--r-- 1 runner runner     196864 Oct 30 11:44 vdb.qcow2
+total 1253272
+drwxr-xr-x 2 runner runner       4096 Oct 30 12:25 .
+drwxr-xr-x 5 runner runner       4096 Oct 30 12:25 ..
+-rw-r--r-- 1 runner runner        226 Oct 30 12:25 droidvm-os.json
+-rw-r--r-- 1 runner runner     334848 Oct 30 12:25 efi_vars.fd
+-rw-r--r-- 1 runner runner 1286361600 Oct 30 12:25 vda.qcow2
+-rw-r--r-- 1 runner runner     196864 Oct 30 12:25 vdb.qcow2
 total 1322280
-drwxr-xr-x 2 runner runner       4096 Oct 30 11:44 .
-drwxr-xr-x 4 runner root         4096 Oct 30 11:41 ..
--rw-r--r-- 1 runner runner 1286894160 Oct 30 11:44 droidvm-os-arm64.zip
--rw-r--r-- 1 runner runner   67108864 Oct 30 11:42 droidvm_boot_arm64.img
+drwxr-xr-x 2 runner runner       4096 Oct 30 12:25 .
+drwxr-xr-x 4 runner root         4096 Oct 30 12:21 ..
+-rw-r--r-- 1 runner runner 1286894160 Oct 30 12:25 droidvm-os-arm64.zip
+-rw-r--r-- 1 runner runner   67108864 Oct 30 12:22 droidvm_boot_arm64.img
