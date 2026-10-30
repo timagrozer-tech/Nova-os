@@ -28,6 +28,33 @@ if [ ! -f $D/.locale ]; then
   rp -p persist.sys.country RU
   touch $D/.locale
 fi
+# --- Раздел droidvm (приложения + библиотека для microG) ---
+P=/mnt/droidvm
+DEV=""
+for u in /sys/class/block/*/uevent; do
+  if grep -q '^PARTNAME=droidvm$' "$u" 2>/dev/null; then DEV=$(sed -n 's/^DEVNAME=//p' "$u"); break; fi
+done
+if [ -n "$DEV" ] && ! grep -q " $P " /proc/mounts; then
+  mkdir -p $P
+  mount -t ext4 -o ro,context=u:object_r:system_lib_file:s0 /dev/block/$DEV $P
+fi
+
+# --- microG: подмена подписи (пропатченная libandroid_servers.so) ---
+# Защита: применяется, только если библиотека совпадает с исходной системной,
+# и отключается сама, если Android трижды подряд не догрузился.
+N=$(cat $D/bootcount 2>/dev/null || echo 0); N=$((N+1)); echo $N > $D/bootcount
+SYS=/system/lib64/libandroid_servers.so
+if [ -f $P/lib64/libandroid_servers.so ] && [ ! -f $D/no-spoof ]; then
+  if [ "$N" -ge 3 ]; then
+    touch $D/no-spoof
+    echo "spoof отключён после $N неудачных загрузок" > $D/spoof.log
+  elif [ "$(sha256sum $SYS | cut -d' ' -f1)" = "$(cat $P/lib64/orig.sha256)" ]; then
+    mount -o bind $P/lib64/libandroid_servers.so $SYS && echo "spoof включён" > $D/spoof.log
+  else
+    echo "системная библиотека изменилась (обновление?) — spoof не применён" > $D/spoof.log
+  fi
+fi
+
 # ADB по сети (порт 5555 пробрасывается на телефон-хозяин)
 rp persist.adb.tcp.port 5555
 rp service.adb.tcp.port 5555

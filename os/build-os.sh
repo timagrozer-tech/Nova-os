@@ -60,6 +60,47 @@ dd if=/dev/zero of=vda.raw bs=$SECT seek="$FIRST" count=$(( LAST - FIRST + 1 )) 
 dd if=droidvm_boot.img of=vda.raw bs=$SECT seek="$FIRST" conv=notrunc status=none
 cp droidvm_boot.img "$OUT/droidvm_boot_arm64.img"
 
+echo "== microG: подмена подписи и приложения"
+rm -rf payload && mkdir -p payload/lib64 payload/apps
+SUPER=$(sgdisk -p vda.raw | awk '$7=="super" {print $1; exit}')
+read -r SF SL < <(sgdisk -i "$SUPER" vda.raw | awk '/First sector/{f=$3} /Last sector/{l=$3} END{print f, l}')
+dd if=vda.raw of=super.img bs=$SECT skip="$SF" count=$(( SL - SF + 1 )) status=none
+python3 "$HERE/lpextract.py" super.img system system.img
+rm -f super.img
+LIB=system/lib64/libandroid_servers.so
+if python3 - <<'PY'
+import sys; d=open('system.img','rb'); d.seek(1024); sys.exit(0 if d.read(4)==bytes.fromhex('e2e1f5e0') else 1)
+PY
+then
+  echo "system: EROFS"
+  rm -rf sysx && mkdir sysx
+  fsck.erofs --extract=sysx system.img >/dev/null
+  cp "sysx/$LIB" orig_servers.so
+  rm -rf sysx
+else
+  echo "system: ext4"
+  debugfs -R "dump /$LIB orig_servers.so" system.img
+fi
+rm -f system.img
+python3 "$HERE/patch_servers.py" orig_servers.so payload/lib64/libandroid_servers.so
+sha256sum orig_servers.so | cut -d' ' -f1 > payload/lib64/orig.sha256
+python3 "$HERE/fetch_apps.py" payload/apps
+for a in "$HERE"/apps/*.apk; do [ -f "$a" ] && cp "$a" payload/apps/; done
+du -sh payload; ls -la payload/apps
+
+echo "== раздел droidvm в свободном месте диска"
+PSZ_MB=$(( $(du -sm payload | cut -f1) + 32 ))
+truncate -s "${PSZ_MB}M" droidvm.ext4
+mke2fs -q -t ext4 -L droidvm -d payload droidvm.ext4
+LASTEND=$(sgdisk -p vda.raw | awk '$1 ~ /^[0-9]+$/ && NF>=7 {if ($3>m) m=$3} END{print m}')
+START=$(( (LASTEND + 1 + 2047) / 2048 * 2048 ))
+sgdisk -n 0:$START:+${PSZ_MB}M -c 0:droidvm -t 0:8300 vda.raw
+NEWP=$(sgdisk -p vda.raw | awk '$7=="droidvm" {print $1; exit}')
+DF=$(sgdisk -i "$NEWP" vda.raw | awk '/First sector/{print $3}')
+dd if=droidvm.ext4 of=vda.raw bs=$SECT seek="$DF" conv=notrunc status=none
+sgdisk -v vda.raw | tail -2
+sgdisk -p vda.raw | tail -4
+
 echo "== упаковка"
 rm -rf pkg && mkdir pkg
 qemu-img convert -c -O qcow2 vda.raw pkg/vda.qcow2

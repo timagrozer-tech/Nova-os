@@ -7,6 +7,9 @@ mkdir -p $D
 exec >>$LOG 2>&1
 echo "=== $(date) boot_completed"
 
+# Android загрузился — сбросить счётчик неудачных загрузок
+echo 0 > $D/bootcount
+
 # дождаться готовности менеджера пакетов
 for i in $(seq 1 60); do pm path android >/dev/null 2>&1 && break; sleep 2; done
 
@@ -37,15 +40,19 @@ if [ ! -f $D/.configured ]; then
   # Root для `adb shell` без запроса подтверждения (uid 2000 = shell)
   "$MT/magisk" --sqlite "REPLACE INTO policies (uid,policy,until,logging,notification) VALUES(2000,2,0,1,0)"
 
-  # Предустановленные приложения из boot-образа
+  # Предустановленные приложения (раздел droidvm и boot-образ)
   mkdir -p /data/local/tmp/droidvm
-  for apk in "$MT"/droidvm-app-*.apk; do
+  for apk in /mnt/droidvm/apps/*.apk "$MT"/droidvm-app-*.apk; do
     [ -f "$apk" ] || continue
     cp "$apk" /data/local/tmp/droidvm/a.apk
     chmod 644 /data/local/tmp/droidvm/a.apk
     echo "установка $(basename $apk): $(pm install -r -g /data/local/tmp/droidvm/a.apk 2>&1)"
   done
   rm -rf /data/local/tmp/droidvm
+
+  # microG: не усыплять в фоне (нужно для push-уведомлений)
+  cmd deviceidle whitelist +com.google.android.gms >/dev/null 2>&1
+  cmd deviceidle whitelist +com.android.vending >/dev/null 2>&1
 
   touch $D/.configured
   am start -a android.intent.action.MAIN -c android.intent.category.HOME >/dev/null 2>&1
