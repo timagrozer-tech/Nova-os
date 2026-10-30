@@ -1,0 +1,11 @@
+.gradle/
+build/
+app/build/
+local.properties
+.idea/
+*.iml
+# генерируются scripts/fetch_qemu.py
+app/src/main/jniLibs/
+app/src/main/assets/qemu-data.zip
+app/src/main/assets/qemu-modules.txt
+app/src/main/assets/qemu-version.txt

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#121417" android:pathData="M0,0h108v108h-108z" />
+    <!-- рамка «экрана» -->
+    <path android:fillColor="#4CAF50"
+        android:pathData="M24,28h60a6,6 0,0 1,6 6v38a6,6 0,0 1,-6 6h-60a6,6 0,0 1,-6 -6v-38a6,6 0,0 1,6 -6zM26,36v34h56v-34z" />
+    <!-- голова робота внутри -->
+    <path android:fillColor="#4CAF50"
+        android:pathData="M38,64a16,14 0,0 1,32 0z" />
+    <path android:fillColor="#121417" android:pathData="M47,57m-2,0a2,2 0,1 1,4 0a2,2 0,1 1,-4 0" />
+    <path android:fillColor="#121417" android:pathData="M61,57m-2,0a2,2 0,1 1,4 0a2,2 0,1 1,-4 0" />
+    <path android:fillColor="#4CAF50" android:pathData="M42,84h24v4h-24z" />
+</vector>

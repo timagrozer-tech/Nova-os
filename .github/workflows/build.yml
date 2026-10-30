@@ -1,0 +1,58 @@
+name: Build APK
+
+on:
+  push:
+    branches: [ main, master, droidvm ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+    inputs:
+      with_x86_64:
+        description: 'Добавить QEMU и для x86_64-устройств (Chromebook, эмуляторы)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Встроить QEMU из пакетов Termux
+        run: |
+          pip install zstandard
+          ABIS="--abi arm64-v8a"
+          if [ "${{ github.event.inputs.with_x86_64 }}" = "true" ]; then ABIS="$ABIS --abi x86_64"; fi
+          python3 scripts/fetch_qemu.py $ABIS
+
+      - name: Собрать APK
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleRelease
+          mkdir -p dist
+          cp app/build/outputs/apk/release/*.apk dist/DroidVM.apk
+          ls -la dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DroidVM-apk
+          path: dist/DroidVM.apk
+
+      - name: Релиз (для тегов v*)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/DroidVM.apk
