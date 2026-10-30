@@ -1,0 +1,250 @@
+== базовая прошивка
+релиз jqssun/android-lineage-qemu v2026.10.18
+boot_arm64only.img  46219264
+boot_x86_64.img  25841664
+lineage_virtio_arm64only-ota.zip  1017919674
+lineage_virtio_x86_64-ota.zip  1088203264
+recovery_arm64only-userdebug.img  60923904
+recovery_arm64only.img  60825600
+recovery_x86_64-userdebug.img  41152512
+recovery_x86_64.img  41054208
+UTM-VM-lineage-23.2-20261019-jqssun-virtio_arm64only.zip  1121501784
+UTM-VM-lineage-23.2-20261019-jqssun-virtio_x86_64.zip  1194082582
+utm
+utm/LineageOS_on_arm64.utm
+utm/LineageOS_on_arm64.utm/Data
+utm/LineageOS_on_arm64.utm/Data/vda.qcow2
+utm/LineageOS_on_arm64.utm/Data/efi_vars.fd
+utm/LineageOS_on_arm64.utm/Data/vdb.qcow2
+utm/LineageOS_on_arm64.utm/config.plist
+--- config.plist (фрагмент)
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Backend</key>
+	<string>QEMU</string>
+	<key>ConfigurationVersion</key>
+	<integer>4</integer>
+	<key>Display</key>
+	<array>
+		<dict>
+			<key>DownscalingFilter</key>
+			<string>Linear</string>
+			<key>DynamicResolution</key>
+			<true/>
+			<key>Hardware</key>
+			<string>virtio-gpu-gl-pci</string>
+			<key>NativeResolution</key>
+			<false/>
+			<key>UpscalingFilter</key>
+			<string>Nearest</string>
+		</dict>
+	</array>
+	<key>Drive</key>
+	<array>
+		<dict>
+			<key>Identifier</key>
+			<string>vda</string>
+			<key>ImageName</key>
+			<string>vda.qcow2</string>
+			<key>ImageType</key>
+			<string>Disk</string>
+			<key>Interface</key>
+			<string>VirtIO</string>
+			<key>InterfaceVersion</key>
+			<integer>1</integer>
+			<key>ReadOnly</key>
+			<false/>
+		</dict>
+		<dict>
+			<key>Identifier</key>
+			<string>vdb</string>
+			<key>ImageName</key>
+			<string>vdb.qcow2</string>
+			<key>ImageType</key>
+			<string>Disk</string>
+			<key>Interface</key>
+			<string>VirtIO</string>
+			<key>InterfaceVersion</key>
+			<integer>1</integer>
+			<key>ReadOnly</key>
+			<false/>
+		</dict>
+	</array>
+	<key>Information</key>
+	<dict>
+		<key>Icon</key>
+		<string>android</string>
+		<key>IconCustom</key>
+		<false/>
+		<key>Name</key>
+		<string>LineageOS on arm64</string>
+		<key>Notes</key>
+		<string>Product name: lineage_virtio_arm64only 
+Initial version: 23.2-20261019-jqssun-virtio_arm64only 
+Partition scheme: non-A/B 
+Super partition size: 4294967296</string>
+		<key>UUID</key>
+		<string>BF7171CE-D891-4747-9BF0-A43F006E559B</string>
+	</dict>
+	<key>Input</key>
+	<dict>
+		<key>MaximumUsbShare</key>
+		<integer>2</integer>
+		<key>UsbBusSupport</key>
+		<string>3.0</string>
+		<key>UsbSharing</key>
+		<true/>
+	</dict>
+	<key>Network</key>
+	<array>
+		<dict>
+			<key>Hardware</key>
+			<string>virtio-net-pci</string>
+			<key>IsolateFromHost</key>
+			<false/>
+			<key>MacAddress</key>
+			<string>96:83:1B:E4:B4:2B</string>
+			<key>Mode</key>
+			<string>Emulated</string>
+			<key>PortForward</key>
+			<array>
+				<dict>
+					<key>GuestPort</key>
+					<integer>5555</integer>
+					<key>HostAddress</key>
+					<string>0.0.0.0</string>
+					<key>HostPort</key>
+					<integer>5555</integer>
+					<key>Protocol</key>
+					<string>TCP</string>
+				</dict>
+				<dict>
+					<key>GuestPort</key>
+					<integer>5554</integer>
+					<key>HostAddress</key>
+					<string>0.0.0.0</string>
+					<key>HostPort</key>
+					<integer>5554</integer>
+					<key>Protocol</key>
+					<string>TCP</string>
+				</dict>
+			</array>
+		</dict>
+	</array>
+	<key>QEMU</key>
+	<dict>
+		<key>AdditionalArguments</key>
+		<array/>
+		<key>BalloonDevice</key>
+		<false/>
+		<key>DebugLog</key>
+		<false/>
+		<key>Hypervisor</key>
+		<true/>
+		<key>PS2Controller</key>
+		<false/>
+		<key>RNGDevice</key>
+		<true/>
+		<key>RTCLocalTime</key>
+		<false/>
+		<key>TPMDevice</key>
+		<false/>
+		<key>TSO</key>
+		<false/>
+		<key>UEFIBoot</key>
+		<true/>
+	</dict>
+	<key>Serial</key>
+	<array/>
+	<key>Sharing</key>
+	<dict>
+		<key>ClipboardSharing</key>
+		<false/>
+		<key>DirectoryShareMode</key>
+		<string>VirtFS</string>
+		<key>DirectoryShareReadOnly</key>
+		<false/>
+	</dict>
+	<key>Sound</key>
+== Magisk
+Magisk v31.1
+== диск vda
+image: utm/LineageOS_on_arm64.utm/Data/vda.qcow2
+file format: qcow2
+virtual size: 5 GiB (5368709120 bytes)
+disk size: 2.1 GiB
+cluster_size: 65536
+Format specific information:
+    compat: 1.1
+    compression type: zlib
+    lazy refcounts: false
+    refcount bits: 16
+    corrupt: false
+    extended l2: false
+Child node '/file':
+    filename: utm/LineageOS_on_arm64.utm/Data/vda.qcow2
+    protocol type: file
+    file length: 2.1 GiB (2255945728 bytes)
+    disk size: 2.1 GiB
+Disk vda.raw: 10485760 sectors, 5.0 GiB
+Sector size (logical): 512 bytes
+Disk identifier (GUID): 8545F2CE-D5AC-4ADF-BE88-5EC0118B5619
+Partition table holds up to 128 entries
+Main partition table begins at sector 2 and ends at sector 33
+First usable sector is 34, last usable sector is 10485726
+Partitions will be aligned on 2048-sector boundaries
+Total free space is 632765 sectors (309.0 MiB)
+
+Number  Start (sector)    End (sector)  Size       Code  Name
+   1            2048          526335   256.0 MiB   EF00  EFI
+   2          526336         8914943   4.0 GiB     8300  super
+   3         8914944         8916991   1024.0 KiB  8300  misc
+   4         8916992         8982527   32.0 MiB    8300  metadata
+   5         8982528         9084927   50.0 MiB    8300  cache
+   6         9084928         9215999   64.0 MiB    8300  boot
+   7         9216000         9347071   64.0 MiB    8300  recovery
+   8         9347072         9609215   128.0 MiB   8300  firmware
+   9         9609216         9641983   16.0 MiB    8300  persist
+  10         9641984         9650175   4.0 MiB     EF02  BIOS
+  11         9650176         9854975   100.0 MiB   8300  vendor_boot
+раздел boot #6: сектора 9084928..9215999, 67108864 байт
+== патч
+Loading cpio: [ramdisk.cpio]
+Loading cpio: [ramdisk.cpio]
+Add file [init] (100750)
+Create directory [overlay.d] (0750)
+Create directory [overlay.d/sbin] (0750)
+Add file [overlay.d/sbin/magisk.xz] (100644)
+Add file [overlay.d/sbin/init-ld.xz] (100644)
+Add file [overlay.d/droidvm.rc] (100644)
+Add file [overlay.d/sbin/droidvm-pfd.sh] (100755)
+Add file [overlay.d/sbin/droidvm-boot.sh] (100755)
+Patch with flag KEEPVERITY=[true] KEEPFORCEENCRYPT=[true]
+Loading cpio: [ramdisk.cpio.orig]
+Backup [init] -> [.backup/init.xz]
+Record new entry: [overlay.d] -> [.backup/.rmlist]
+Record new entry: [overlay.d/droidvm.rc] -> [.backup/.rmlist]
+Record new entry: [overlay.d/sbin] -> [.backup/.rmlist]
+Record new entry: [overlay.d/sbin/droidvm-boot.sh] -> [.backup/.rmlist]
+Record new entry: [overlay.d/sbin/droidvm-pfd.sh] -> [.backup/.rmlist]
+Record new entry: [overlay.d/sbin/init-ld.xz] -> [.backup/.rmlist]
+Record new entry: [overlay.d/sbin/magisk.xz] -> [.backup/.rmlist]
+Create directory [.backup] (0000)
+Add file [.backup/.magisk] (100000)
+Dumping cpio: [ramdisk.cpio]
+boot пропатчен: 67108864 байт, приложений внутри: 0
+== упаковка
+total 1132208
+drwxr-xr-x 2 runner runner       4096 Oct 30 11:29 .
+drwxr-xr-x 4 runner runner       4096 Oct 30 11:29 ..
+-rw-r--r-- 1 runner runner        226 Oct 30 11:29 droidvm-os.json
+-rw-r--r-- 1 runner runner     334848 Oct 30 11:29 efi_vars.fd
+-rw-r--r-- 1 runner runner 1161558016 Oct 30 11:29 vda.qcow2
+-rw-r--r-- 1 runner runner     196864 Oct 30 11:29 vdb.qcow2
+total 1200400
+drwxr-xr-x 2 runner runner       4096 Oct 30 11:30 .
+drwxr-xr-x 4 runner root         4096 Oct 30 11:28 ..
+-rw-r--r-- 1 runner runner 1162090576 Oct 30 11:30 droidvm-os-arm64.zip
+-rw-r--r-- 1 runner runner   67108864 Oct 30 11:28 droidvm_boot_arm64.img
