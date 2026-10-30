@@ -28,6 +28,7 @@ import java.util.Locale
 class MainActivity : ImageActivityBase(), VmRunner.Listener {
 
     private lateinit var hero: LinearLayout
+    private lateinit var nova: LinearLayout
     private lateinit var list: LinearLayout
     private lateinit var footer: TextView
     private val ui = Handler(Looper.getMainLooper())
@@ -53,6 +54,8 @@ class MainActivity : ImageActivityBase(), VmRunner.Listener {
 
         hero = Ui.card(this)
         root.addView(hero, Ui.lp(top = 20, ctx = this))
+        nova = Ui.card(this)
+        root.addView(nova, Ui.lp(top = 12, ctx = this))
 
         val secRow = Ui.hbox(this)
         secRow.addView(Ui.sectionTitle(this, "МОИ МАШИНЫ"), Ui.weight())
@@ -80,7 +83,10 @@ class MainActivity : ImageActivityBase(), VmRunner.Listener {
         refresh()
         ui.post(ticker)
         // Проверка новой версии прошивки в фоне
-        Thread { OsInstaller.latestCached(); runOnUiThread { if (!isFinishing) buildHero() } }.start()
+        Thread {
+            OsInstaller.latestCached(); NovaInstaller.latestCached()
+            runOnUiThread { if (!isFinishing) { buildHero(); buildNova() } }
+        }.start()
     }
 
     override fun onPause() {
@@ -108,6 +114,7 @@ class MainActivity : ImageActivityBase(), VmRunner.Listener {
 
     private fun refresh() {
         buildHero()
+        buildNova()
         buildList()
         val mi = ActivityManager.MemoryInfo().also { (getSystemService(ACTIVITY_SERVICE) as ActivityManager).getMemoryInfo(it) }
         val free = VmStore.imagesDir(this).usableSpace
@@ -150,6 +157,56 @@ class MainActivity : ImageActivityBase(), VmRunner.Listener {
         hero.addView(btn, Ui.lp(top = 14, ctx = this))
         if (needInstall) hero.addView(Ui.label(this, "Загрузка в несколько потоков, с докачкой. Распаковывать ничего не нужно.", 12f),
             Ui.lp(top = 8, ctx = this))
+    }
+
+    private fun buildNova() {
+        nova.removeAllViews()
+        val top = Ui.hbox(this)
+        top.addView(Ui.iconTile(this, Icon.SCREEN, Ui.INFO, Ui.INFO_SOFT, 52))
+        val t = Ui.vbox(this, 0)
+        t.addView(Ui.title(this, "NOVA OS", 19f))
+        t.addView(Ui.label(this, "Ваш дистрибутив · Debian 13 + KDE Plasma 6 · x86_64", 13f))
+        top.addView(t, Ui.weight().apply { leftMargin = dp(14) })
+        nova.addView(top)
+        val rel = NovaInstaller.cached
+        val iso = NovaInstaller.installedIso(this)
+        val chips = Ui.hbox(this)
+        val upToDate = iso != null && rel != null && iso.name.contains(rel.tag)
+        chips.addView(when {
+            upToDate -> Ui.chip(this, "Скачана ${rel!!.version}")
+            rel != null -> Ui.chip(this, "Доступна ${rel.version} · ${humanSize(rel.total)}", Ui.INFO, Ui.INFO_SOFT)
+            iso != null -> Ui.chip(this, "Скачана")
+            else -> Ui.chip(this, "Проверяю наличие…", Ui.MUTED, Ui.CARD2)
+        })
+        nova.addView(chips, Ui.lp(top = 14, ctx = this))
+        nova.addView(Ui.button(this, if (upToDate) "Создать ещё одну машину NOVA OS" else "Установить NOVA OS", primary = !upToDate) { installNova() },
+            Ui.lp(top = 14, ctx = this))
+        nova.addView(Ui.label(this, "Собрана под ПК, поэтому на телефоне процессор эмулируется целиком: загрузка займёт минуты, " +
+            "интерфейс будет медленнее, чем на компьютере. Для установки на виртуальный диск выберите в меню загрузки установщик.", 12f),
+            Ui.lp(top = 8, ctx = this))
+    }
+
+    private fun installNova() {
+        if (VmRunner.isActive) { Ui.alert(this, "Сначала остановите машину", "Пока работает ВМ, телефону не хватит сил на загрузку и сборку ISO."); return }
+        val cancelled = java.util.concurrent.atomic.AtomicBoolean(false)
+        val (dlg, upd) = Ui.progress(this, "NOVA OS") { cancelled.set(true) }
+        upd(-1, "Ищу последнюю версию…")
+        Thread {
+            val res = runCatching {
+                val rel = NovaInstaller.latest()
+                runOnUiThread { dlg.setTitle("NOVA OS ${rel.version} · ${humanSize(rel.total)}") }
+                NovaInstaller.install(this, rel, cancelled, upd)
+            }
+            runOnUiThread {
+                dlg.dismiss(); refresh()
+                res.onSuccess { vm ->
+                    AlertDialog.Builder(this).setTitle("Готово")
+                        .setMessage("Создана машина «${vm.name}»: x86_64, ${vm.ramMb} МБ, экран 1280×800, диск 32 ГБ для установки.\n\n" +
+                            "Запуск с ISO в режиме Live; установить на диск можно из меню загрузки или установщиком на рабочем столе.")
+                        .setPositiveButton("Запустить") { _, _ -> start(vm) }.setNegativeButton("Позже", null).show()
+                }.onFailure { e -> if (e !is InterruptedException) Ui.alert(this, "Не удалось установить NOVA OS", e.message ?: e.toString()) }
+            }
+        }.start()
     }
 
     private fun buildList() {
