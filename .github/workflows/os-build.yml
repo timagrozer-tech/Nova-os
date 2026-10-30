@@ -1,0 +1,68 @@
+name: Build DroidVM OS
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_tag:
+        description: 'Тег релиза LineageOS for QEMU (пусто = последний)'
+        required: false
+        default: ''
+  push:
+    branches: [ droidvm ]
+    paths: [ 'os/**', '.github/workflows/os-build.yml' ]
+
+permissions:
+  contents: write
+
+jobs:
+  os:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Инструменты и место на диске
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qemu-utils gdisk zip unzip >/dev/null
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
+          sudo mkdir -p /mnt/w && sudo chown $USER /mnt/w
+          df -h / /mnt
+
+      - name: Собрать образ
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_TAG: ${{ github.event.inputs.base_tag }}
+          WORK: /mnt/w/work
+          OUT: /mnt/w/out
+        run: |
+          export VERSION="$(date +%Y.%m.%d)-${{ github.run_number }}"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          [ -n "$BASE_TAG" ] || unset BASE_TAG
+          set -o pipefail
+          bash os/build-os.sh 2>&1 | tee /mnt/w/os-build.log
+
+      - name: Журнал сборки в ветку droidvm-logs
+        if: always()
+        run: |
+          cd /mnt/w
+          rm -rf logs && git clone -q --depth 1 -b droidvm-logs "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" logs 2>/dev/null || \
+            (git init -q logs && cd logs && git checkout -q --orphan droidvm-logs && git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}")
+          cd logs
+          cp ../os-build.log os-build.log 2>/dev/null || echo "нет журнала" > os-build.log
+          echo "run ${{ github.run_id }} status ${{ job.status }}" > os-build.status
+          git add -A
+          git -c user.name=ci -c user.email=ci@localhost commit -qm "os-build log ${{ github.run_id }}" || true
+          git push -q origin HEAD:droidvm-logs
+
+      - name: Релиз
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: droidvm-os-${{ env.VERSION }}
+          name: DroidVM OS ${{ env.VERSION }}
+          body: |
+            Прошивка для DroidVM: LineageOS для QEMU (ARM64) + Magisk (root) + функции DroidVM OS.
+            Установка: в приложении DroidVM → «Установить DroidVM OS», или вручную: распакуйте
+            droidvm-os-arm64.zip и создайте ВМ ARM64/UEFI с дисками vda.qcow2 и vdb.qcow2.
+          files: |
+            /mnt/w/out/droidvm-os-arm64.zip
+            /mnt/w/out/droidvm_boot_arm64.img
