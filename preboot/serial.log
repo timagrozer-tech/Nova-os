@@ -1,54 +1,7 @@
 UEFI firmware (version 2024.02-2ubuntu0.10 built at 15:40:28 on Sep 23 2026)
 [2J[01;01H[=3h[2J[01;01H[2J[01;01H[=3h[2J[01;01HBdsDxe: loading Boot0001 "UEFI Misc Device" from PciRoot(0x0)/Pci(0x5,0x0)
 BdsDxe: starting Boot0001 "UEFI Misc Device" from PciRoot(0x0)/Pci(0x5,0x0)
-[0m[30m[40m[2J[01;01H[0m[37m[40m[  335.985078][  T922] sysrq: Show Blocked State
-[  335.993751][  T922] sysrq: Show Memory
-[  336.007176][  T922] sysrq: Show backtrace of all active CPUs
-[  459.384540][ T2616] droidvm: boot completed (ci=1) spoof: 
-[  494.752590][ T2616] droidvm: packages: 0 of 4 extra apps
-[  495.700480][ T2616] droidvm: locale: ru-RU,en-US density: Override density: 320
-[  586.613846][ T2616] droidvm: firstboot complete
-[  597.482096][    T1] sysrq: Terminate All Tasks
-[  597.483684][    T1] init: Service 'ueventd' (pid 102) received SIGTERM
-[  597.484907][    T1] init: Sending SIGKILL to service 'ueventd' (pid 102) process group...
-[  597.487207][    T1] libprocessgroup: Removed cgroup /sys/fs/cgroup/system/uid_0/pid_102
-[  597.491182][    T1] init: Service 'servicemanager' (pid 232) received SIGTERM
-[  597.492498][    T1] init: Sending SIGKILL to service 'servicemanager' (pid 232) process group...
-[  597.494725][    T1] libprocessgroup: Removed cgroup /sys/fs/cgroup/system/uid_1000/pid_232
-[  597.499102][    T1] init: waitid failed: No child processes
-[  597.502486][    T1] init: Unmounting /dev/block/dm-54:/data_mirror/data_ce/null/0 opts rw,seclabel,nosuid,nodev,noatime,discard
-[  597.504734][    T1] init: Umounted /dev/block/dm-54:/data_mirror/data_ce/null/0 opts rw,seclabel,nosuid,nodev,noatime,discard
-[  597.506057][    T1] init: Unmounting /dev/block/dm-54:/data/user/0 opts rw,seclabel,nosuid,nodev,noatime,discard
-[  597.507419][    T1] init: Cannot umount /dev/block/dm-54:/data/user/0 opts rw,seclabel,nosuid,nodev,noatime,discard: Invalid argument
-[  597.509128][    T1] init: Unmounting /dev/block/dm-54:/data_mirror/ref_profiles opts rw,seclabel,nosuid,nodev,noatime,discard
-[  597.510887][    T1] init: Umounted /dev/block/dm-54:/data_mirror/ref_profiles opts rw,seclabel,nosuid,nodev,noatime,discard
-[  597.512507][    T1] init: Unmounting /dev/block/dm-54:/data_mirror/cur_profiles opts rw,seclabel,nosuid,nodev,noatime,discard
-[  597.514285][    T1] init: Umounted /dev/block/dm-54:/data_mirror/cur_profiles opts rw,seclabel,nosuid,nodev,noatime,discard
-[  597.515515][    T1] init: Unmounting /dev/block/dm-54:/data_mirror/storage_area opts rw,seclabel,nosuid,nodev,noatime,discard
-[  597.517533][    T1] init: Umounted /dev/block/dm-54:/data_mirror/storage_area opts rw,seclabel,nosuid,nodev,noatime,discard
-[  597.518707][    T1] init: Unmounting /dev/block/dm-54:/data_mirror/misc_de/null opts rw,seclabel,nosuid,nodev,noatime,discard
-[  597.520595][    T1] init: Umounted /dev/block/dm-54:/data_mirror/misc_de/null opts rw,seclabel,nosuid,nodev,noatime,discard
-[  597.521826][    T1] init: Unmounting /dev/block/dm-54:/data_mirror/misc_ce/null opts rw,seclabel,nosuid,nodev,noatime,discard
-[  597.523476][    T1] init: Umounted /dev/block/dm-54:/data_mirror/misc_ce/null opts rw,seclabel,nosuid,nodev,noatime,discard
-[  597.525300][    T1] init: Unmounting /dev/block/dm-54:/data_mirror/data_de/null opts rw,seclabel,nosuid,nodev,noatime,discard
-[  597.527228][    T1] init: Umounted /dev/block/dm-54:/data_mirror/data_de/null opts rw,seclabel,nosuid,nodev,noatime,discard
-[  597.528687][    T1] init: Unmounting /dev/block/dm-54:/data_mirror/data_ce/null opts rw,seclabel,nosuid,nodev,noatime,discard
-[  597.530376][    T1] init: Umounted /dev/block/dm-54:/data_mirror/data_ce/null opts rw,seclabel,nosuid,nodev,noatime,discard
-[  597.531162][    T1] init: Unmounting /dev/block/dm-54:/data opts rw,seclabel,nosuid,nodev,noatime,discard
-[  598.113578][    T1] EXT4-fs (dm-54): unmounting filesystem 5b5cf93e-d1d3-4c0c-927b-4c910b1ab952.
-[  598.270192][    T1] init: Umounted /dev/block/dm-54:/data opts rw,seclabel,nosuid,nodev,noatime,discard
-[  598.271759][    T1] init: Unmounting /dev/block/vda5:/cache opts rw,seclabel,nosuid,nodev,noatime,discard
-[  598.274868][    T1] EXT4-fs (vda5): unmounting filesystem 22b74bf8-ed3e-5458-bc6a-53779012d742.
-[  598.282288][    T1] init: Umounted /dev/block/vda5:/cache opts rw,seclabel,nosuid,nodev,noatime,discard
-[  598.283408][    T1] init: Unmounting /dev/block/vda9:/mnt/vendor/persist opts rw,sync,context=u:object_r:persist_file:s0,relatime,uid=1000,gid=1000,fmask=0117,dmask=0007,allow_utime=0020,codepage=437,iocharset=iso8859-1,shortname=lower,errors=remount-ro
-[  598.287385][    T1] init: Umounted /dev/block/vda9:/mnt/vendor/persist opts rw,sync,context=u:object_r:persist_file:s0,relatime,uid=1000,gid=1000,fmask=0117,dmask=0007,allow_utime=0020,codepage=437,iocharset=iso8859-1,shortname=lower,errors=remount-ro
-[  598.290008][    T1] init: Unmounting /dev/block/vda4:/metadata opts rw,seclabel,nosuid,nodev,noatime,nodioread_nolock,discard,nodelalloc,commit=1,data=journal
-[  598.301091][    T1] EXT4-fs (vda4): unmounting filesystem 9fb0f678-ca77-4914-85af-6a57fd776bb2.
-[  598.309551][    T1] init: Umounted /dev/block/vda4:/metadata opts rw,seclabel,nosuid,nodev,noatime,nodioread_nolock,discard,nodelalloc,commit=1,data=journal
-[  598.310327][    T1] init: Unmounting /dev/block/vda1:/mnt/vendor/EFI opts rw,context=u:object_r:efi_file:s0,relatime,fmask=0117,dmask=0007,allow_utime=0020,codepage=437,iocharset=iso8859-1,shortname=lower,errors=remount-ro,discard
-[  598.325811][    T1] init: Umounted /dev/block/vda1:/mnt/vendor/EFI opts rw,context=u:object_r:efi_file:s0,relatime,fmask=0117,dmask=0007,allow_utime=0020,codepage=437,iocharset=iso8859-1,shortname=lower,errors=remount-ro,discard
-[  598.348980][    T1] init: sync() after umount...
-[  598.356452][    T1] init: sync() after umount took7ms
-[  598.465846][    T1] init: powerctl_shutdown_time_ms:7207:0
-[  598.473241][    T1] init: Reboot ending, jumping to kernel
-[  598.488801][    T1] reboot: Power down
+[0m[30m[40m[2J[01;01H[0m[37m[40m[  112.860503][  T497] droidvm-pfd: раздел droidvm: vda12 (id: u:r:magisk:s0)
+[  113.611590][  T497] droidvm-pfd: mount с context не удался: mount: '/dev/block/vda12'->'/mnt/droidvm': Permission denied
+[  114.379991][  T497] droidvm-pfd: смонтирован: 1 файлов: 1-microg-services.apk 2-microg-companion.apk 3-fdroid.apk 4-aurora-store.apk 
+[  115.617705][  T497] droidvm-pfd: spoof: spoof включён

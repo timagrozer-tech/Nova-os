@@ -248,12 +248,12 @@ debugfs 1.47.0 (5-Feb-2023)
 4-aurora-store.apk: com.aurora.store 4.8.4 (9140 КБ)
 129M	payload
 total 130980
-drwxr-xr-x 2 runner runner      4096 Oct 30 14:42 .
-drwxr-xr-x 4 runner runner      4096 Oct 30 14:40 ..
--rw-r--r-- 1 runner runner 108113833 Oct 30 14:42 1-microg-services.apk
--rw-r--r-- 1 runner runner   4210169 Oct 30 14:42 2-microg-companion.apk
--rw-r--r-- 1 runner runner  12426276 Oct 30 14:42 3-fdroid.apk
--rw-r--r-- 1 runner runner   9360088 Oct 30 14:42 4-aurora-store.apk
+drwxr-xr-x 2 runner runner      4096 Oct 30 15:01 .
+drwxr-xr-x 4 runner runner      4096 Oct 30 15:00 ..
+-rw-r--r-- 1 runner runner 108113833 Oct 30 15:01 1-microg-services.apk
+-rw-r--r-- 1 runner runner   4210169 Oct 30 15:01 2-microg-companion.apk
+-rw-r--r-- 1 runner runner  12426276 Oct 30 15:01 3-fdroid.apk
+-rw-r--r-- 1 runner runner   9360088 Oct 30 15:01 4-aurora-store.apk
 == раздел droidvm в свободном месте диска
 Warning: The kernel is still using the old partition table.
 The new table will be used at the next reboot or after you
@@ -354,28 +354,8 @@ Directory for ::/boot/grub/themes/lineage/images
 загрузчик: включена тихая загрузка
 == первая загрузка на сервере (прогрев образа)
 $ qemu-system-aarch64 -M virt -cpu max,pauth-impdef=on -accel tcg,thread=multi,tb-size=1024 -smp 4 -m 4096 -nodefaults -display none -vga none -drive if=pflash,format=raw,unit=0,readonly=on,file=/usr/share/AAVMF/AAVMF_CODE.fd -drive if=pflash,format=raw,unit=1,file=/mnt/w/out/preboot/vars.fd -device virtio-gpu-pci,xres=720,yres=1280 -device qemu-xhci,id=xhci -device usb-tablet -device usb-kbd -device virtio-rng-pci -netdev user,id=net0 -device virtio-net-pci,netdev=net0 -drive file=run_vda.qcow2,if=none,id=hd0,format=qcow2,cache=unsafe -device virtio-blk-pci,drive=hd0,bootindex=1 -drive file=run_vdb.qcow2,if=none,id=hd1,format=qcow2,cache=unsafe -device virtio-blk-pci,drive=hd1,bootindex=2 -device pci-testdev -rtc base=utc -monitor unix:/mnt/w/out/preboot/mon.sock,server=on,wait=off -serial file:/mnt/w/out/preboot/serial.log
-[8:00] [  459.384540][ T2616] droidvm: boot completed (ci=1) spoof:
-[8:40] [  494.752590][ T2616] droidvm: packages: 0 of 4 extra apps
-[8:40] [  495.700480][ T2616] droidvm: locale: ru-RU,en-US density: Override density: 320
-[10:00] [  586.613846][ T2616] droidvm: firstboot complete
-Гость выключился сам через 10 мин 20 с, код QEMU 0
-== упаковка
-virtual size: 16 GiB (17179869184 bytes)
-disk size: 981 MiB
-    disk size: 981 MiB
-total 2258276
-drwxr-xr-x 2 runner runner       4096 Oct 30 14:54 .
-drwxr-xr-x 5 runner runner       4096 Oct 30 14:54 ..
--rw-r--r-- 1 runner runner        266 Oct 30 14:54 droidvm-os.json
--rw-r--r-- 1 runner runner     334848 Oct 30 14:54 efi_vars.fd
--rw-r--r-- 1 runner runner 1286623744 Oct 30 14:54 vda.qcow2
--rw-r--r-- 1 runner runner 1032454144 Oct 30 14:54 vdb.qcow2
-{"name": "DroidVM OS", "version": "2026.10.30-7", "base": "LineageOS for QEMU v2026.10.18", "magisk": "v31.1", "arch": "aarch64", "ramMb": 3072, "disks": ["droidvm-os-vda.qcow2", "droidvm-os-vdb.qcow2"], "prebooted": 1, "efiVars": "efi_vars.fd", "files": [{"name": "droidvm-os-vda.qcow2", "size": 1286623744}, {"name": "droidvm-os-vdb.qcow2", "size": 1032454144}]}
-total 2323492
-drwxr-xr-x 3 runner runner       4096 Oct 30 14:54 .
-drwxr-xr-x 4 runner root         4096 Oct 30 14:40 ..
--rw-r--r-- 1 runner runner 1286623744 Oct 30 14:54 droidvm-os-vda.qcow2
--rw-r--r-- 1 runner runner 1032454144 Oct 30 14:54 droidvm-os-vdb.qcow2
--rw-r--r-- 1 runner runner        410 Oct 30 14:54 droidvm-os.json
--rw-r--r-- 1 runner runner   67108864 Oct 30 14:40 droidvm_boot_arm64.img
-drwxr-xr-x 3 runner runner       4096 Oct 30 14:53 preboot
+[2:20] [  112.860503][  T497] droidvm-pfd: раздел droidvm: vda12 (id: u:r:magisk:s0)
+[2:20] [  113.611590][  T497] droidvm-pfd: mount с context не удался: mount: '/dev/block/vda12'->'/mnt/droidvm': Permission denied
+[2:20] [  114.379991][  T497] droidvm-pfd: смонтирован: 1 файлов: 1-microg-services.apk 2-microg-companion.apk 3-fdroid.apk 4-aurora-store.apk
+[2:20] [  115.617705][  T497] droidvm-pfd: spoof: spoof включён
+ТАЙМАУТ: гость не выключился за 110 мин
