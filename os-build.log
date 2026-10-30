@@ -248,12 +248,12 @@ debugfs 1.47.0 (5-Feb-2023)
 4-aurora-store.apk: com.aurora.store 4.8.4 (9140 КБ)
 129M	payload
 total 130980
-drwxr-xr-x 2 runner runner      4096 Oct 30 12:36 .
-drwxr-xr-x 4 runner runner      4096 Oct 30 12:34 ..
--rw-r--r-- 1 runner runner 108113833 Oct 30 12:35 1-microg-services.apk
--rw-r--r-- 1 runner runner   4210169 Oct 30 12:36 2-microg-companion.apk
--rw-r--r-- 1 runner runner  12426276 Oct 30 12:36 3-fdroid.apk
--rw-r--r-- 1 runner runner   9360088 Oct 30 12:36 4-aurora-store.apk
+drwxr-xr-x 2 runner runner      4096 Oct 30 12:45 .
+drwxr-xr-x 4 runner runner      4096 Oct 30 12:44 ..
+-rw-r--r-- 1 runner runner 108113833 Oct 30 12:44 1-microg-services.apk
+-rw-r--r-- 1 runner runner   4210169 Oct 30 12:45 2-microg-companion.apk
+-rw-r--r-- 1 runner runner  12426276 Oct 30 12:45 3-fdroid.apk
+-rw-r--r-- 1 runner runner   9360088 Oct 30 12:45 4-aurora-store.apk
 == раздел droidvm в свободном месте диска
 Warning: The kernel is still using the old partition table.
 The new table will be used at the next reboot or after you
@@ -354,3 +354,4 @@ Directory for ::/boot/grub/themes/lineage/images
 загрузчик: включена тихая загрузка
 == первая загрузка на сервере (прогрев образа)
 $ qemu-system-aarch64 -M virt -cpu max,pauth-impdef=on -accel tcg,thread=multi,tb-size=1024 -smp 4 -m 4096 -nodefaults -display none -vga none -drive if=pflash,format=raw,unit=0,readonly=on,file=/usr/share/AAVMF/AAVMF_CODE.fd -drive if=pflash,format=raw,unit=1,file=/mnt/w/out/preboot/vars.fd -device virtio-gpu-pci,xres=720,yres=1280 -device qemu-xhci,id=xhci -device usb-tablet -device usb-kbd -device virtio-rng-pci -netdev user,id=net0 -device virtio-net-pci,netdev=net0 -drive file=run_vda.qcow2,if=none,id=hd0,format=qcow2,cache=unsafe -device virtio-blk-pci,drive=hd0,bootindex=1 -drive file=run_vdb.qcow2,if=none,id=hd1,format=qcow2,cache=unsafe -device virtio-blk-pci,drive=hd1,bootindex=2 -device pci-testdev -rtc base=utc -monitor unix:/mnt/w/out/preboot/mon.sock,server=on,wait=off -serial file:/mnt/w/out/preboot/serial.log
+ТАЙМАУТ: гость не выключился за 110 мин
