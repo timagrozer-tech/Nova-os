@@ -16,7 +16,7 @@ cp lib/arm64-v8a/libmagiskinit.so magiskinit
 cp lib/arm64-v8a/libmagisk.so magisk
 cp lib/arm64-v8a/libinit-ld.so init-ld
 sed "s/@DROIDVM_VERSION@/$VERSION/" "$HERE/overlay/droidvm-pfd.sh" > droidvm-pfd.sh
-cp "$HERE/overlay/droidvm-boot.sh" "$HERE/overlay/droidvm.rc" .
+cp "$HERE/overlay/droidvm-boot.sh" "$HERE/overlay/droidvm.rc" "$HERE/overlay/droidvm-watchdog.sh" .
 
 build() { # $1 = сколько доп. APK включить
   rm -rf b && mkdir b && cd b
@@ -36,6 +36,7 @@ build() { # $1 = сколько доп. APK включить
     "add 0644 overlay.d/droidvm.rc ../droidvm.rc"
     "add 0755 overlay.d/sbin/droidvm-pfd.sh ../droidvm-pfd.sh"
     "add 0755 overlay.d/sbin/droidvm-boot.sh ../droidvm-boot.sh"
+    "add 0755 overlay.d/sbin/droidvm-watchdog.sh ../droidvm-watchdog.sh"
   )
   local i=0
   for a in "${EXTRA[@]:0:$1}"; do

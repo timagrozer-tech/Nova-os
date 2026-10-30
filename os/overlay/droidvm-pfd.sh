@@ -45,10 +45,7 @@ pl "раздел droidvm: ${DEV:-не найден} (id: $(id -Z 2>/dev/null))"
 if [ -n "$DEV" ] && ! grep -q " $P " /proc/mounts; then
   [ -b /dev/block/$DEV ] || pl "нет узла /dev/block/$DEV"
   mkdir -p $P || pl "mkdir $P не удался"
-  ERR=$(mount -t ext4 -o ro,context=u:object_r:system_lib_file:s0 /dev/block/$DEV $P 2>&1) || {
-    pl "mount с context не удался: $ERR"
-    ERR=$(mount -t ext4 -o ro /dev/block/$DEV $P 2>&1) || pl "mount без context тоже не удался: $ERR"
-  }
+  ERR=$(mount -t ext4 -o ro /dev/block/$DEV $P 2>&1) || pl "mount не удался: $ERR"
 fi
 pl "смонтирован: $(grep -c " $P " /proc/mounts) файлов: $(ls $P/apps 2>&1 | tr '\n' ' ')"
 
@@ -62,7 +59,18 @@ if [ -f $P/lib64/libandroid_servers.so ] && [ ! -f $D/no-spoof ]; then
     touch $D/no-spoof
     echo "spoof отключён после $N неудачных загрузок" > $D/spoof.log
   elif [ "$(sha256sum $SYS | cut -d' ' -f1)" = "$(cat $P/lib64/orig.sha256)" ]; then
-    ERR=$(mount -o bind $P/lib64/libandroid_servers.so $SYS 2>&1) && echo "spoof включён" > $D/spoof.log || echo "bind не удался: $ERR" > $D/spoof.log
+    # Копия в /data с ТОЙ ЖЕ меткой SELinux, что у системной библиотеки — иначе system_server её не загрузит
+    L=$D/lib/libandroid_servers.so
+    mkdir -p $D/lib
+    cmp -s $P/lib64/libandroid_servers.so $L 2>/dev/null || cp $P/lib64/libandroid_servers.so $L
+    chmod 644 $L; chown 0:0 $L
+    LBL=$(ls -Z $SYS | awk '{print $1}')
+    chcon "$LBL" $L 2>/dev/null; chcon "$LBL" $D/lib 2>/dev/null
+    if [ "$(ls -Z $L | awk '{print $1}')" != "$LBL" ]; then
+      echo "не удалось выставить метку $LBL — spoof не применён" > $D/spoof.log
+    else
+      ERR=$(mount -o bind $L $SYS 2>&1) && echo "spoof включён ($LBL)" > $D/spoof.log || echo "bind не удался: $ERR" > $D/spoof.log
+    fi
   else
     echo "системная библиотека изменилась (обновление?) — spoof не применён" > $D/spoof.log
   fi
