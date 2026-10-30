@@ -69,9 +69,93 @@ class VncView(context: Context) : View(context) {
     private var lastX = 0
     private var lastY = 0
 
+    /** Режим тачпада: экран как тачпад ноутбука (для настольных систем, например NOVA OS). */
+    var touchpad = false
+
+    // состояние тачпада
+    private var curX = -1f
+    private var curY = -1f
+    private var downAt = 0L
+    private var downX = 0f
+    private var downY = 0f
+    private var lastTx = 0f
+    private var lastTy = 0f
+    private var moved = false
+    private var multi = false
+    private var multiScrolled = false
+    private var dragging = false
+    private var lastTapUp = 0L
+    private var longFired = false
+    private val longPress = Runnable {
+        val c = client ?: return@Runnable
+        if (!moved && !multi) {
+            longFired = true
+            performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+            c.pointer(4, curX.toInt(), curY.toInt()); c.pointer(0, curX.toInt(), curY.toInt())
+        }
+    }
+
+    private fun handleTouchpad(e: MotionEvent, c: RfbClient): Boolean {
+        val fbw = c.fbWidth.coerceAtLeast(1); val fbh = c.fbHeight.coerceAtLeast(1)
+        if (curX < 0) { curX = fbw / 2f; curY = fbh / 2f }
+        // скорость курсора: проход по ширине экрана ≈ 1.3 ширины гостя
+        val speed = fbw / width.coerceAtLeast(1).toFloat() * 1.3f
+        val slop = 10 * resources.displayMetrics.density
+        when (e.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                requestFocus()
+                downAt = System.currentTimeMillis(); downX = e.x; downY = e.y; lastTx = e.x; lastTy = e.y
+                moved = false; multi = false; multiScrolled = false; longFired = false
+                // двойной тап с удержанием — перетаскивание (левая кнопка зажата)
+                dragging = downAt - lastTapUp < 300
+                if (dragging) c.pointer(1, curX.toInt(), curY.toInt()) else postDelayed(longPress, 550)
+            }
+            MotionEvent.ACTION_POINTER_DOWN -> {
+                multi = true; removeCallbacks(longPress)
+                scrollAccum = 0f; lastScrollY = (e.getY(0) + e.getY(1)) / 2
+            }
+            MotionEvent.ACTION_MOVE -> {
+                if (multi && e.pointerCount >= 2) {
+                    val my = (e.getY(0) + e.getY(1)) / 2
+                    scrollAccum += my - lastScrollY; lastScrollY = my
+                    val step = 30 * resources.displayMetrics.density
+                    while (abs(scrollAccum) >= step) {
+                        multiScrolled = true
+                        val mask = if (scrollAccum > 0) 8 else 16
+                        c.pointer(mask, curX.toInt(), curY.toInt()); c.pointer(0, curX.toInt(), curY.toInt())
+                        scrollAccum -= if (scrollAccum > 0) step else -step
+                    }
+                } else if (!multi) {
+                    if (abs(e.x - downX) > slop || abs(e.y - downY) > slop) { moved = true; removeCallbacks(longPress) }
+                    curX = (curX + (e.x - lastTx) * speed).coerceIn(0f, fbw - 1f)
+                    curY = (curY + (e.y - lastTy) * speed).coerceIn(0f, fbh - 1f)
+                    lastTx = e.x; lastTy = e.y
+                    c.pointer(if (dragging) 1 else 0, curX.toInt(), curY.toInt())
+                }
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                removeCallbacks(longPress)
+                val quick = System.currentTimeMillis() - downAt < 250
+                when {
+                    dragging -> { c.pointer(0, curX.toInt(), curY.toInt()); dragging = false; lastTapUp = 0 }
+                    multi -> if (!multiScrolled && quick) { // тап двумя пальцами — правый клик
+                        performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+                        c.pointer(4, curX.toInt(), curY.toInt()); c.pointer(0, curX.toInt(), curY.toInt())
+                    }
+                    !moved && !longFired && quick -> { // тап — левый клик
+                        c.pointer(1, curX.toInt(), curY.toInt()); c.pointer(0, curX.toInt(), curY.toInt())
+                        lastTapUp = System.currentTimeMillis()
+                    }
+                }
+            }
+        }
+        return true
+    }
+
     override fun onTouchEvent(e: MotionEvent): Boolean {
         val c = client ?: return true
         if (e.isFromSource(InputDevice.SOURCE_MOUSE)) return handleMouse(e, c)
+        if (touchpad) return handleTouchpad(e, c)
         when (e.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 requestFocus()

@@ -224,7 +224,15 @@ class RfbClient(private val socketPath: String, private val callback: Callback) 
     }
 
     /** Клавиша: keysym X11 + XT скан-код (с битом 0x80 для префикса E0). */
-    fun key(down: Boolean, keysym: Int, scancode: Int) = send {
+    /** Вызывается после отпускания любой клавиши (для «залипающих» Ctrl/Alt). */
+    @Volatile var onKeyUp: ((Int) -> Unit)? = null
+
+    fun key(down: Boolean, keysym: Int, scancode: Int) {
+        sendKey(down, keysym, scancode)
+        if (!down) onKeyUp?.invoke(scancode)
+    }
+
+    private fun sendKey(down: Boolean, keysym: Int, scancode: Int) = send {
         if (extKeys && scancode != 0) {
             writeByte(255); writeByte(0); writeShort(if (down) 1 else 0)
             writeInt(keysym); writeInt(scancode)

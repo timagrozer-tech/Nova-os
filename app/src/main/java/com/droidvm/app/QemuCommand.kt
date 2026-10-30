@@ -101,6 +101,14 @@ object QemuCommand {
         }
         if (!cfg.isArm && cfg.bootMode != VmConfig.BOOT_KERNEL) a += listOf("-boot", "menu=on,splash-time=3000")
 
+        // Общая папка телефон → ВМ: виден в госте как USB-флешка (FAT, только чтение)
+        if (cfg.shareFolder) {
+            val dir = VmStore.sharedDir(env.ctx)
+            if (cfg.input == "virtio") a += listOf("-device", "qemu-xhci,id=xhci")
+            a += listOf("-drive", "file=fat:16:${esc(dir.absolutePath)},format=raw,if=none,id=shared,readonly=on")
+            a += listOf("-device", "usb-storage,drive=shared,removable=on")
+        }
+
         if (cfg.snapshot) a += "-snapshot"
         a += listOf("-rtc", "base=localtime")
         a += listOf("-vnc", "unix:${env.vncSocket.absolutePath}")

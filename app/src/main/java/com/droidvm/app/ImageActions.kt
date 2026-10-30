@@ -18,8 +18,18 @@ import java.io.File
 abstract class ImageActivityBase : Activity() {
 
     private var pendingImport: ((File) -> Unit)? = null
+    private var importTarget: File? = null
+
+    /** Скопировать файл с телефона в заданную папку (например, общую папку ВМ). */
+    fun importInto(dir: File, onDone: (File) -> Unit) {
+        importTarget = dir
+        pendingImport = onDone
+        val i = Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*")
+        startActivityForResult(i, REQ_IMPORT)
+    }
 
     fun importFromDevice(onDone: (File) -> Unit) {
+        importTarget = null
         pendingImport = onDone
         val i = Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*")
         startActivityForResult(i, REQ_IMPORT)
@@ -51,7 +61,11 @@ abstract class ImageActivityBase : Activity() {
             Ui.alert(this, "Недостаточно места", "Файл ${humanSize(size)}, свободно ${humanSize(free)}.")
             return
         }
-        val target = VmStore.uniqueImageFile(this, name)
+        val target = importTarget?.let { d ->
+            var f = File(d, name.replace(Regex("[/\\\\:*?\"<>|]"), "_")); var k = 2
+            while (f.exists()) { f = File(d, "${name.substringBeforeLast('.')} ($k).${name.substringAfterLast('.', "bin")}"); k++ }
+            f
+        } ?: VmStore.uniqueImageFile(this, name)
         val cancelled = java.util.concurrent.atomic.AtomicBoolean(false)
         val (dlg, upd) = Ui.progress(this, "Импорт: $name") { cancelled.set(true) }
         Thread {

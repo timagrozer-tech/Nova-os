@@ -42,6 +42,10 @@ data class VmConfig(
     var resolution: String = "720x1280",
     /** Плотность экрана (dpi) для гостя DroidVM OS, 0 — не задавать */
     var density: Int = 320,
+    /** Управление касаниями: "touch" — сенсор (тап в точку), "touchpad" — как тачпад ноутбука */
+    var pointer: String = "touch",
+    /** Общая папка телефон → ВМ (USB-флешка в госте, только чтение) */
+    var shareFolder: Boolean = false,
 ) {
     val isArm get() = arch == ARCH_ARM
 
@@ -65,6 +69,7 @@ data class VmConfig(
         put("snapshot", snapshot); put("tbSizeMb", tbSizeMb); put("multiThread", multiThread)
         put("extraArgs", extraArgs)
         put("resolution", resolution); put("density", density)
+        put("pointer", pointer); put("shareFolder", shareFolder)
     }
 
     companion object {
@@ -104,6 +109,8 @@ data class VmConfig(
                 extraArgs = o.optString("extraArgs", ""),
                 resolution = o.optString("resolution", ""),
                 density = o.optInt("density", 0),
+                pointer = o.optString("pointer", if (o.optString("arch") == ARCH_X86) "touchpad" else "touch"),
+                shareFolder = o.optBoolean("shareFolder", false),
             )
         }
 

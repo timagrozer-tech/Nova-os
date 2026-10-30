@@ -68,14 +68,15 @@ class MainActivity : ImageActivityBase(), VmRunner.Listener {
         titles.addView(Ui.title(this, "DroidVM", 28f))
         titles.addView(Ui.label(this, "Android внутри Android", 13f))
         header.addView(titles, Ui.weight())
-        header.addView(Ui.iconAction(this, Icon.FOLDER, "Образы") { startActivity(Intent(this, ImagesActivity::class.java)) })
+        header.addView(Ui.iconAction(this, Icon.FOLDER, "Файлы и экспорт на USB") { startActivity(Intent(this, ImagesActivity::class.java)) })
         header.addView(Ui.iconAction(this, Icon.LOG, "Журнал QEMU") { startActivity(Intent(this, LogActivity::class.java)) })
         root.addView(header)
 
         // Инструменты
         val tools = Ui.hbox(this)
-        tools.addView(Ui.button(this, "Почистить ОЗУ") { cleanRam() }, Ui.weight())
-        tools.addView(Ui.button(this, "Освободить место") { freeSpace() }, Ui.weight().apply { leftMargin = dp(8) })
+        tools.addView(Ui.button(this, "Очистить ОЗУ") { cleanRam() }, Ui.weight())
+        tools.addView(Ui.button(this, "Место") { freeSpace() }, Ui.weight(0.7f).apply { leftMargin = dp(8) })
+        tools.addView(Ui.button(this, "Файлы и USB") { startActivity(Intent(this, ImagesActivity::class.java)) }, Ui.weight().apply { leftMargin = dp(8) })
         root.addView(tools, Ui.lp(top = 16, ctx = this))
 
         hero = Ui.card(this)
@@ -108,6 +109,7 @@ class MainActivity : ImageActivityBase(), VmRunner.Listener {
         super.onResume()
         VmRunner.addListener(this)
         refresh()
+        showCrash()
         ui.post(ticker)
         // Проверка новой версии прошивки в фоне
         Thread {
@@ -122,7 +124,19 @@ class MainActivity : ImageActivityBase(), VmRunner.Listener {
         super.onPause()
     }
 
-    override fun onStateChanged(state: VmRunner.State) = refresh()
+    override fun onStateChanged(state: VmRunner.State) {
+        refresh()
+        if (state == VmRunner.State.IDLE) showCrash()
+    }
+
+    private fun showCrash() {
+        val err = VmRunner.lastError ?: return
+        VmRunner.lastError = null
+        if (isFinishing) return
+        AlertDialog.Builder(this).setTitle("Машина остановилась с ошибкой").setMessage(err)
+            .setPositiveButton("OK", null)
+            .setNeutralButton("Журнал") { _, _ -> startActivity(Intent(this, LogActivity::class.java)) }.show()
+    }
 
     /** Раз в 2 секунды обновляет нагрузку работающей ВМ. */
     private val ticker = object : Runnable {
@@ -468,6 +482,19 @@ class MainActivity : ImageActivityBase(), VmRunner.Listener {
         if (vm.adbPort > 0 && vm.net != "none") items += "Скопировать команду ADB" to {
             getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("adb", "adb connect 127.0.0.1:${vm.adbPort}"))
             Toast.makeText(this, "Скопировано: adb connect 127.0.0.1:${vm.adbPort} (выполните в Termux)", Toast.LENGTH_LONG).show()
+        }
+        items += "Положить файл в общую папку" to {
+            importInto(VmStore.sharedDir(this)) { f ->
+                if (!vm.shareFolder) { vm.shareFolder = true; VmStore.save(this, vm) }
+                val total = VmStore.sharedDir(this).listFiles()?.sumOf { it.length() } ?: 0L
+                Ui.alert(this, "Файл в общей папке", "«${f.name}» появится в машине как USB-накопитель после её запуска" +
+                    (if (running) " (перезапустите машину)" else "") + ".\nВ папке сейчас ${humanSize(total)}" +
+                    if (total > 480L shl 20) " — это больше лимита ~500 МБ, уберите лишнее." else ".")
+            }
+        }
+        items += "Очистить общую папку" to {
+            VmStore.sharedDir(this).listFiles()?.forEach { it.deleteRecursively() }
+            Toast.makeText(this, "Общая папка очищена", Toast.LENGTH_SHORT).show()
         }
         items += "Ярлык на рабочий стол" to {
             if (!Tools.pinShortcut(this, vm)) Toast.makeText(this, "Лаунчер не поддерживает ярлыки", Toast.LENGTH_SHORT).show()

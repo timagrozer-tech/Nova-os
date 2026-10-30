@@ -41,6 +41,9 @@ class ScreenActivity : Activity(), RfbClient.Callback, VmRunner.Listener {
     private lateinit var panel: LinearLayout
     private lateinit var extras: LinearLayout
     private lateinit var mainBar: LinearLayout
+    private lateinit var keysRow: View
+    private val sticky = LinkedHashMap<KeyMap.Key, android.widget.TextView>()
+    private val modScancodes = setOf(KeyMap.CTRL.scancode, KeyMap.ALT.scancode, 0xdb, KeyMap.SHIFT.scancode)
     private lateinit var handle: View
     private lateinit var moreBtn: IconButton
     private lateinit var rotateBtn: IconButton
@@ -98,6 +101,9 @@ class ScreenActivity : Activity(), RfbClient.Callback, VmRunner.Listener {
         extras.icon(Icon.MORE, "Ещё") { showMenu() }
         panel.addView(extras, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(8) })
 
+        keysRow = buildKeysRow()
+        panel.addView(keysRow, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(8) })
+
         mainBar = row()
         mainBar.icon(Icon.KEYBOARD, "Клавиатура") { toggleKeyboard() }
         mainBar.icon(Icon.BACK, "Назад") { client?.tap(KeyMap.BACK) }
@@ -139,6 +145,59 @@ class ScreenActivity : Activity(), RfbClient.Callback, VmRunner.Listener {
             if (ev.rawY >= loc[1] - dp(48)) wakePanel()
         }
         return super.dispatchTouchEvent(ev)
+    }
+
+    // ---------- ряд дополнительных клавиш (показывается вместе с клавиатурой) ----------
+
+    private fun buildKeysRow(): View {
+        val r = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(4), dp(2), dp(4), dp(2)) }
+        fun keyView(label: String, onClick: (android.widget.TextView) -> Unit) = android.widget.TextView(this).apply {
+            text = label; textSize = 14f; setTextColor(0xFFEDEFF2.toInt()); gravity = Gravity.CENTER
+            minWidth = dp(44); setPadding(dp(10), dp(9), dp(10), dp(9))
+            typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+            background = android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x33FFFFFF),
+                GradientDrawable().apply { cornerRadius = dp(10).toFloat(); setColor(0xFF23282F.toInt()) }, null)
+            setOnClickListener { performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP); onClick(this) }
+            r.addView(this, LinearLayout.LayoutParams(-2, -2).apply { rightMargin = dp(4) })
+        }
+        fun tapKey(label: String, k: KeyMap.Key) = keyView(label) { client?.tap(k) }
+        fun stickyKey(label: String, k: KeyMap.Key) = keyView(label) { v ->
+            val c = client ?: return@keyView
+            if (sticky.containsKey(k)) { sticky.remove(k); c.key(false, k.keysym, k.scancode); mark(v, false) }
+            else { sticky[k] = v; c.key(true, k.keysym, k.scancode); mark(v, true) }
+        }
+        tapKey("Esc", KeyMap.ESC); tapKey("Tab", KeyMap.TAB)
+        stickyKey("Ctrl", KeyMap.CTRL); stickyKey("Alt", KeyMap.ALT); stickyKey("Win", KeyMap.Key(0xffeb, 0xdb))
+        tapKey("←", KeyMap.Key(0xff51, 0xcb)); tapKey("↑", KeyMap.Key(0xff52, 0xc8))
+        tapKey("↓", KeyMap.Key(0xff54, 0xd0)); tapKey("→", KeyMap.Key(0xff53, 0xcd))
+        tapKey("Home", KeyMap.Key(0xff50, 0xc7)); tapKey("End", KeyMap.Key(0xff57, 0xcf))
+        tapKey("PgUp", KeyMap.Key(0xff55, 0xc9)); tapKey("PgDn", KeyMap.Key(0xff56, 0xd1))
+        tapKey("Del", KeyMap.Key(0xffff, 0xd3))
+        for (i in 1..12) tapKey("F$i", KeyMap.forKeyCode(android.view.KeyEvent.KEYCODE_F1 + i - 1)!!)
+        return android.widget.HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            background = pill(0xE015181C.toInt())
+            addView(r)
+            visibility = View.GONE
+            layoutParams = LinearLayout.LayoutParams(-2, -2)
+        }.also { hs -> hs.post { (hs.layoutParams as? LinearLayout.LayoutParams)?.width = minOf(hs.width, resources.displayMetrics.widthPixels - dp(16)) } }
+    }
+
+    private fun mark(v: android.widget.TextView, on: Boolean) {
+        (v.background as? android.graphics.drawable.RippleDrawable)?.let { rd ->
+            (rd.getDrawable(0) as? GradientDrawable)?.setColor(if (on) Ui.ACCENT else 0xFF23282F.toInt())
+        }
+        v.setTextColor(if (on) Ui.ON_ACCENT else 0xFFEDEFF2.toInt())
+    }
+
+    /** После обычной клавиши «залипшие» Ctrl/Alt/Win отпускаются. */
+    private fun releaseSticky(scancode: Int) {
+        if (scancode in modScancodes || sticky.isEmpty()) return
+        ui.post {
+            val c = client ?: return@post
+            for ((k, v) in sticky) { c.key(false, k.keysym, k.scancode); mark(v, false) }
+            sticky.clear()
+        }
     }
 
     private fun toggleExtras() {
@@ -236,6 +295,7 @@ class ScreenActivity : Activity(), RfbClient.Callback, VmRunner.Listener {
             "Журнал QEMU", "Свернуть (ВМ продолжит работу)",
             if (VmRunner.paused) "Продолжить работу ВМ" else "Пауза (процессор ВМ замрёт)",
             "Ввести текст из буфера обмена",
+            if (vnc.touchpad) "Управление: сенсор (тап в точку)" else "Управление: тачпад (как на ноутбуке)",
         )
         AlertDialog.Builder(this).setItems(items) { _, i ->
             when (i) {
@@ -251,6 +311,12 @@ class ScreenActivity : Activity(), RfbClient.Callback, VmRunner.Listener {
                 6 -> finish()
                 7 -> Thread { VmRunner.setPaused(this, !VmRunner.paused) }.start()
                 8 -> pasteText()
+                9 -> {
+                    vnc.touchpad = !vnc.touchpad
+                    VmRunner.current?.let { cfg -> cfg.pointer = if (vnc.touchpad) "touchpad" else "touch"; VmStore.save(this, cfg) }
+                    Toast.makeText(this, if (vnc.touchpad) "Тачпад: тап — клик, два пальца — правый клик и прокрутка, двойной тап с удержанием — перетаскивание"
+                        else "Сенсор: касание попадает в точку экрана", Toast.LENGTH_LONG).show()
+                }
             }
         }.show()
     }
@@ -270,6 +336,8 @@ class ScreenActivity : Activity(), RfbClient.Callback, VmRunner.Listener {
     private fun toggleKeyboard() {
         val imm = getSystemService(InputMethodManager::class.java)
         vnc.requestFocus()
+        keysRow.visibility = if (keysRow.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+        wakePanel()
         @Suppress("DEPRECATION")
         imm.toggleSoftInput(InputMethodManager.SHOW_FORCED, 0)
     }
@@ -342,8 +410,10 @@ class ScreenActivity : Activity(), RfbClient.Callback, VmRunner.Listener {
         }
         showOverlay("Подключение к экрану ВМ…")
         val c = RfbClient(QemuEnv(this).vncSocket.absolutePath, this)
+        c.onKeyUp = { releaseSticky(it) }
         client = c
         vnc.client = c
+        vnc.touchpad = VmRunner.current?.pointer == "touchpad"
         c.start()
     }
 
@@ -370,7 +440,9 @@ class ScreenActivity : Activity(), RfbClient.Callback, VmRunner.Listener {
     // VmRunner.Listener
     override fun onStateChanged(state: VmRunner.State) {
         if (state == VmRunner.State.IDLE) {
-            showOverlay("ВМ остановлена" + (VmRunner.lastExitCode?.let { " (код $it)" } ?: ""))
+            val err = VmRunner.lastError
+            if (err != null) { VmRunner.lastError = null; showOverlay("Машина остановилась с ошибкой\n\n$err") }
+            else showOverlay("ВМ остановлена" + (VmRunner.lastExitCode?.let { " (код $it)" } ?: ""))
         }
     }
 

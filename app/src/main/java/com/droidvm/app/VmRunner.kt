@@ -114,6 +114,7 @@ object VmRunner {
                 val code = runCatching { p.waitFor() }.getOrDefault(-1)
                 lastExitCode = code
                 log("QEMU завершился, код $code")
+                lastError = if (code != 0 && state != State.STOPPING) explain(logText(), System.currentTimeMillis() - startedAt) else null
                 process = null
                 current = null
                 paused = false
@@ -278,6 +279,37 @@ object VmRunner {
         log("→ ACPI: system_powerdown")
         monitor(ctx, "system_powerdown")
     }.start()
+
+    // ---------------- понятные ошибки ----------------
+
+    /** Объяснение последнего аварийного завершения (null — завершилась штатно). Сбрасывается после показа. */
+    @Volatile var lastError: String? = null
+
+    fun explain(log: String, uptimeMs: Long): String {
+        val tail = log.lines().filter { it.isNotBlank() && !it.startsWith("$ ") }.takeLast(40)
+        val text = tail.joinToString("\n")
+        val hint = when {
+            Regex("(?i)snapshot.*(not exist|not found)|loadvm").containsMatchIn(text) ->
+                "Сохранённое состояние не подошло (обновилось приложение или настройки). Запустите машину заново — с нуля."
+            Regex("(?i)could not open|no such file").containsMatchIn(text) ->
+                "Не найден файл диска или образа. Проверьте в настройках машины, что все файлы на месте (раздел «Образы»)."
+            Regex("(?i)cannot allocate memory|out of memory|failed to allocate").containsMatchIn(text) ->
+                "Телефону не хватило памяти. Уменьшите ОЗУ машины (профиль «Экономно») или нажмите «Почистить ОЗУ»."
+            Regex("(?i)vvfat|fat:").containsMatchIn(text) ->
+                "Не удалось подключить общую папку (в ней больше ~500 МБ или неподходящие имена файлов). Отключите её в настройках или уберите лишнее."
+            Regex("(?i)does not support (snapshots|this feature)|not support snapshot").containsMatchIn(text) ->
+                "Диск в формате raw не поддерживает сохранение состояния. Используйте обычный запуск."
+            Regex("(?i)pflash|block backend provides").containsMatchIn(text) ->
+                "Не подошёл файл переменных UEFI. Удалите машину и создайте заново или смените способ загрузки на BIOS."
+            Regex("(?i)killed|signal 9").containsMatchIn(text) || (uptimeMs > 60_000 && !Regex("(?i)error").containsMatchIn(text)) ->
+                "Android закрыл QEMU — скорее всего, из-за нехватки памяти телефона. Закройте другие приложения, нажмите «Почистить ОЗУ» или уменьшите ОЗУ машины."
+            Regex("(?i)property .* not found|invalid parameter|unsupported|unknown option").containsMatchIn(text) ->
+                "QEMU не принял параметры запуска. Проверьте «Дополнительные аргументы» в настройках машины."
+            else -> "Причину видно в журнале ниже."
+        }
+        val errLines = tail.filter { Regex("(?i)error|fail|cannot|could not|qemu-system").containsMatchIn(it) }.takeLast(4)
+        return hint + if (errLines.isNotEmpty()) "\n\n" + errLines.joinToString("\n") { it.take(300) } else ""
+    }
 
     // ---------------- пауза и память ----------------
 

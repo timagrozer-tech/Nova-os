@@ -113,6 +113,7 @@ object NovaInstaller {
             gpu = "virtio", resolution = "1280x800", density = 0,
             input = "usb", net = "virtio", adbPort = 0,
             tbSizeMb = if (totalMb >= 7000) 1024 else 512, multiThread = true,
+            pointer = "touchpad",
         )
         val disk = File(VmStore.vmDir(ctx, cfg.id), "nova-disk.qcow2")
         env.createDisk(disk, 32, true)?.let { VmStore.delete(ctx, cfg.id); throw IOException("Диск: $it") }

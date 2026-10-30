@@ -22,6 +22,12 @@ object VmStore {
         return dir
     }
 
+    /** Общая папка «телефон → ВМ». */
+    fun sharedDir(ctx: Context): File {
+        val d = ctx.getExternalFilesDir("shared") ?: File(ctx.filesDir, "shared")
+        d.mkdirs(); return d
+    }
+
     fun list(ctx: Context): List<VmConfig> =
         vmsDir(ctx).listFiles()?.mapNotNull { dir ->
             val f = File(dir, "config.json")

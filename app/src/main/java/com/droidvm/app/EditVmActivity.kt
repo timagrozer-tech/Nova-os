@@ -104,6 +104,11 @@ class EditVmActivity : ImageActivityBase() {
             "usb" to "USB-планшет + USB-клавиатура",
             "virtio" to "virtio-tablet + virtio-keyboard",
         ), { cfg.input }) { cfg.input = it }
+        choice("Управление касаниями", listOf(
+            "touch" to "Сенсор — касание попадает в точку (Android)",
+            "touchpad" to "Тачпад — как на ноутбуке (настольные системы)",
+        ), { cfg.pointer }) { cfg.pointer = it }
+        check("Общая папка «телефон → ВМ» (USB-флешка в госте, до ~500 МБ)", { cfg.shareFolder }) { cfg.shareFolder = it }
         choice("Сеть", listOf(
             "virtio" to "virtio-net",
             "e1000" to "Intel e1000 (совместимость)",
