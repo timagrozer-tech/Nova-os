@@ -7,6 +7,7 @@ MT="$1"
 D=/data/local/droidvm
 [ -d /data/local ] && mkdir -p $D
 rp() { "$MT/magisk" resetprop "$@" 2>/dev/null; }
+pl() { echo "<2>droidvm-pfd: $*" > /dev/kmsg; }
 
 # Имя устройства в «О телефоне»
 for p in ro.product.model ro.product.system.model ro.product.vendor.model ro.product.product.model; do
@@ -40,10 +41,16 @@ DEV=""
 for u in /sys/class/block/*/uevent; do
   if grep -q '^PARTNAME=droidvm$' "$u" 2>/dev/null; then DEV=$(sed -n 's/^DEVNAME=//p' "$u"); break; fi
 done
+pl "раздел droidvm: ${DEV:-не найден} (id: $(id -Z 2>/dev/null))"
 if [ -n "$DEV" ] && ! grep -q " $P " /proc/mounts; then
-  mkdir -p $P
-  mount -t ext4 -o ro,context=u:object_r:system_lib_file:s0 /dev/block/$DEV $P
+  [ -b /dev/block/$DEV ] || pl "нет узла /dev/block/$DEV"
+  mkdir -p $P || pl "mkdir $P не удался"
+  ERR=$(mount -t ext4 -o ro,context=u:object_r:system_lib_file:s0 /dev/block/$DEV $P 2>&1) || {
+    pl "mount с context не удался: $ERR"
+    ERR=$(mount -t ext4 -o ro /dev/block/$DEV $P 2>&1) || pl "mount без context тоже не удался: $ERR"
+  }
 fi
+pl "смонтирован: $(grep -c " $P " /proc/mounts) файлов: $(ls $P/apps 2>&1 | tr '\n' ' ')"
 
 # --- microG: подмена подписи (пропатченная libandroid_servers.so) ---
 # Защита: применяется, только если библиотека совпадает с исходной системной,
@@ -55,11 +62,13 @@ if [ -f $P/lib64/libandroid_servers.so ] && [ ! -f $D/no-spoof ]; then
     touch $D/no-spoof
     echo "spoof отключён после $N неудачных загрузок" > $D/spoof.log
   elif [ "$(sha256sum $SYS | cut -d' ' -f1)" = "$(cat $P/lib64/orig.sha256)" ]; then
-    mount -o bind $P/lib64/libandroid_servers.so $SYS && echo "spoof включён" > $D/spoof.log
+    ERR=$(mount -o bind $P/lib64/libandroid_servers.so $SYS 2>&1) && echo "spoof включён" > $D/spoof.log || echo "bind не удался: $ERR" > $D/spoof.log
   else
     echo "системная библиотека изменилась (обновление?) — spoof не применён" > $D/spoof.log
   fi
 fi
+
+pl "spoof: $(cat $D/spoof.log 2>/dev/null || echo нет библиотеки в $P)"
 
 # ADB по сети (порт 5555 пробрасывается на телефон-хозяин)
 rp persist.adb.tcp.port 5555

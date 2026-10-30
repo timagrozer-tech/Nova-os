@@ -63,7 +63,9 @@ if [ ! -f $D/.configured ]; then
     [ -f "$apk" ] || continue
     cp "$apk" /data/local/tmp/droidvm/a.apk
     chmod 644 /data/local/tmp/droidvm/a.apk
-    echo "установка $(basename $apk): $(pm install -r -g /data/local/tmp/droidvm/a.apk 2>&1)"
+    R=$(pm install -r -g /data/local/tmp/droidvm/a.apk 2>&1)
+    echo "установка $(basename $apk): $R"
+    [ "$IS_CI" = 1 ] && klog "install $(basename $apk): $R"
   done
   rm -rf /data/local/tmp/droidvm
 

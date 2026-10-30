@@ -91,6 +91,8 @@ while qemu.poll() is None:
         for line in new.splitlines():
             if 'droidvm' in line.lower() or 'panic' in line.lower() or 'Restarting system' in line:
                 print(f'[{el // 60}:{el % 60:02d}] {line.strip()}', flush=True)
+        if 'droidvm: packages:' in new:
+            time.sleep(25); shot('home')  # снимок рабочего стола после первой настройки
         if "with command 'recovery'" in new:
             # Android ушёл в recovery («Can't load Android system») — ждать дальше бессмысленно
             time.sleep(60); shot('recovery')
