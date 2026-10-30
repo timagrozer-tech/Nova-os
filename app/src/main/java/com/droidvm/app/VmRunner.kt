@@ -35,6 +35,11 @@ object VmRunner {
     private val logLines = ArrayDeque<String>()
     private const val MAX_LOG = 3000
 
+    /** PID процесса QEMU (для статистики нагрузки), -1 если не запущен. */
+    val pid: Int get() = process?.let { p ->
+        runCatching { p.javaClass.getDeclaredField("pid").apply { isAccessible = true }.getInt(p) }.getOrDefault(-1)
+    } ?: -1
+
     fun addListener(l: Listener) { listeners += l }
     fun removeListener(l: Listener) { listeners -= l }
 

@@ -25,7 +25,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
-import com.droidvm.app.IconButton.Icon
+import com.droidvm.app.Icons.Icon
 import com.droidvm.app.Ui.dp
 import java.io.File
 import java.text.SimpleDateFormat
@@ -123,10 +123,29 @@ class ScreenActivity : Activity(), RfbClient.Callback, VmRunner.Listener {
         return panel
     }
 
+    // ---------- панель затухает, когда ею не пользуются ----------
+    private val dim = Runnable { if (extras.visibility != View.VISIBLE) panel.animate().alpha(0.35f).setDuration(400).start() }
+
+    private fun wakePanel() {
+        ui.removeCallbacks(dim)
+        panel.animate().cancel(); panel.alpha = 1f
+        ui.postDelayed(dim, 3500)
+    }
+
+    override fun dispatchTouchEvent(ev: android.view.MotionEvent): Boolean {
+        if (ev.actionMasked == android.view.MotionEvent.ACTION_DOWN) {
+            val loc = IntArray(2); panel.getLocationOnScreen(loc)
+            // касание рядом с панелью (с запасом 48dp сверху) — показать её полностью
+            if (ev.rawY >= loc[1] - dp(48)) wakePanel()
+        }
+        return super.dispatchTouchEvent(ev)
+    }
+
     private fun toggleExtras() {
         val show = extras.visibility != View.VISIBLE
         extras.visibility = if (show) View.VISIBLE else View.GONE
         moreBtn.active = show
+        wakePanel()
     }
 
     private fun collapse(c: Boolean) {
@@ -288,10 +307,12 @@ class ScreenActivity : Activity(), RfbClient.Callback, VmRunner.Listener {
         VmRunner.addListener(this)
         connect()
         ui.post(bootWatcher)
+        wakePanel()
     }
 
     override fun onPause() {
         ui.removeCallbacks(bootWatcher)
+        ui.removeCallbacks(dim)
         VmRunner.removeListener(this)
         client?.close(); client = null
         vnc.client = null

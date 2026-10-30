@@ -51,6 +51,23 @@ object OsInstaller {
         }
     }
 
+    /** Версии DroidVM OS, уже скачанные на телефон. */
+    fun installedVersions(ctx: Context): List<String> =
+        VmStore.imagesDir(ctx).listFiles()?.filter { it.isDirectory && it.name.startsWith("DroidVM-OS-") && File(it, "droidvm-os-vda.qcow2").exists() || File(it, "vda.qcow2").exists() && it.name.startsWith("DroidVM-OS-") }
+            ?.map { it.name.removePrefix("DroidVM-OS-") }?.sortedDescending() ?: emptyList()
+
+    @Volatile var cached: Release? = null; private set
+    @Volatile private var cachedAt = 0L
+
+    /** Последняя версия с кэшем на 10 минут; null — нет сети или ещё не опубликована. */
+    fun latestCached(): Release? {
+        if (System.currentTimeMillis() - cachedAt < 10 * 60_000) return cached
+        val r = runCatching { stable() }.getOrNull()
+        cachedAt = System.currentTimeMillis()
+        if (r != null) cached = r
+        return cached
+    }
+
     private fun stable(): Release {
         val c = open("$STABLE/droidvm-os.json")
         if (c.responseCode != 200) throw IOException("HTTP ${c.responseCode}")

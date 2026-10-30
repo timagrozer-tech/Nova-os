@@ -28,6 +28,22 @@ class EditVmActivity : ImageActivityBase() {
         form = Ui.vbox(this)
         form.addView(Ui.title(this, "Настройки ВМ"))
 
+        section("Профиль мощности")
+        val presets = Ui.hbox(this)
+        val cores = Runtime.getRuntime().availableProcessors()
+        val am = getSystemService(android.app.ActivityManager::class.java)
+        val totalMb = (android.app.ActivityManager.MemoryInfo().also { am.getMemoryInfo(it) }.totalMem / 1048576).toInt()
+        fun preset(name: String, ram: Int, cpu: Int, tb: Int) = Ui.button(this, name) {
+            cfg.ramMb = ram; cfg.cpus = cpu.coerceIn(1, cores); cfg.tbSizeMb = tb
+            save(); recreate()
+            android.widget.Toast.makeText(this, "$name: ${cfg.ramMb} МБ · ${cfg.cpus} ЦП", android.widget.Toast.LENGTH_SHORT).show()
+        }
+        presets.addView(preset("Экономно", 2048, 2, 256), Ui.weight())
+        presets.addView(preset("Баланс", minOf(3072, totalMb / 2 / 256 * 256).coerceAtLeast(2048), 4, 512), Ui.weight().apply { leftMargin = dp(6) })
+        presets.addView(preset("Максимум", minOf(6144, totalMb * 6 / 10 / 256 * 256).coerceAtLeast(2048), cores - 1, 1024), Ui.weight().apply { leftMargin = dp(6) })
+        form.addView(presets, Ui.lp(top = 8, ctx = this))
+        form.addView(Ui.label(this, "Память, ядра процессора и кэш трансляции подбираются под этот телефон. Тонкая настройка — ниже.", 12f), Ui.lp(top = 6, ctx = this))
+
         section("Основное")
         textField("Название", cfg.name, InputType.TYPE_CLASS_TEXT) { cfg.name = it.ifBlank { "ВМ" } }
         choice("Архитектура гостя", listOf(
@@ -109,8 +125,9 @@ class EditVmActivity : ImageActivityBase() {
         btns.addView(Ui.button(this, "Сохранить", primary = true) { save(); finish() }, Ui.weight().apply { leftMargin = dp(8) })
         form.addView(btns, Ui.lp(top = 20, ctx = this))
 
-        setContentView(ScrollView(this).apply { addView(form) })
+        setContentView(ScrollView(this).apply { addView(form); setBackgroundColor(Ui.BG) })
         refreshAll()
+        if (intent.getBooleanExtra("showCommand", false)) showCommand()
     }
 
     override fun onPause() { super.onPause(); save() }
