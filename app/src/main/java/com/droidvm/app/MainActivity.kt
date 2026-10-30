@@ -153,7 +153,7 @@ class MainActivity : Activity(), VmRunner.Listener {
         Thread {
             val res = runCatching {
                 val rel = OsInstaller.latest()
-                runOnUiThread { dlg.setTitle("DroidVM OS ${rel.tag}") }
+                runOnUiThread { dlg.setTitle("DroidVM OS ${rel.tag} · ${humanSize(rel.total)}") }
                 OsInstaller.install(this, rel, cancelled, upd)
             }
             runOnUiThread {

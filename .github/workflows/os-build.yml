@@ -23,7 +23,7 @@ jobs:
       - name: Инструменты и место на диске
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq qemu-utils gdisk zip unzip erofs-utils e2fsprogs llvm python3-pyelftools mtools >/dev/null
+          sudo apt-get install -y -qq qemu-utils gdisk zip unzip erofs-utils e2fsprogs llvm python3-pyelftools mtools qemu-system-arm qemu-efi-aarch64 imagemagick >/dev/null
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
           sudo mkdir -p /mnt/w && sudo chown $USER /mnt/w
           df -h / /mnt
@@ -49,6 +49,9 @@ jobs:
             (git init -q logs && cd logs && git checkout -q --orphan droidvm-logs && git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}")
           cd logs
           cp ../os-build.log os-build.log 2>/dev/null || echo "нет журнала" > os-build.log
+          rm -rf preboot && mkdir -p preboot
+          cp ../out/preboot/serial.log preboot/ 2>/dev/null || true
+          cp ../out/preboot/shots/*.png preboot/ 2>/dev/null || true
           echo "run ${{ github.run_id }} status ${{ job.status }}" > os-build.status
           git add -A
           git -c user.name=ci -c user.email=ci@localhost commit -qm "os-build log ${{ github.run_id }}" || true
@@ -61,8 +64,11 @@ jobs:
           name: DroidVM OS ${{ env.VERSION }}
           body: |
             Прошивка для DroidVM: LineageOS для QEMU (ARM64) + Magisk (root) + функции DroidVM OS.
-            Установка: в приложении DroidVM → «Установить DroidVM OS», или вручную: распакуйте
-            droidvm-os-arm64.zip и создайте ВМ ARM64/UEFI с дисками vda.qcow2 и vdb.qcow2.
+            Образ уже прошёл первую загрузку на сервере — у вас система стартует быстро.
+            Установка: в приложении DroidVM → «Установить DroidVM OS» (нужна версия приложения 1.1.10+),
+            или вручную: ВМ ARM64/UEFI с дисками droidvm-os-vda.qcow2 и droidvm-os-vdb.qcow2 (virtio), экран 720x1280.
           files: |
-            /mnt/w/out/droidvm-os-arm64.zip
+            /mnt/w/out/droidvm-os-vda.qcow2
+            /mnt/w/out/droidvm-os-vdb.qcow2
+            /mnt/w/out/droidvm-os.json
             /mnt/w/out/droidvm_boot_arm64.img

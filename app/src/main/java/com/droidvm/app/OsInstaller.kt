@@ -21,7 +21,12 @@ object OsInstaller {
     private const val TAG_PREFIX = "droidvm-os-"
     private const val ASSET = "droidvm-os-arm64.zip"
 
-    data class Release(val tag: String, val url: String, val size: Long)
+    data class Asset(val name: String, val url: String, val size: Long)
+    data class Release(val tag: String, val assets: List<Asset>) {
+        val total get() = assets.sumOf { it.size }
+    }
+
+    private val FILES = listOf("droidvm-os-vda.qcow2", "droidvm-os-vdb.qcow2", "droidvm-os.json")
 
     private fun open(url: String): HttpURLConnection {
         val c = URL(url).openConnection() as HttpURLConnection
@@ -33,7 +38,7 @@ object OsInstaller {
         return c
     }
 
-    /** Найти последний релиз прошивки. Вызывать в фоне. */
+    /** Найти последний релиз прошивки (с отдельными файлами дисков). Вызывать в фоне. */
     fun latest(): Release {
         val c = open("https://api.github.com/repos/$REPO/releases?per_page=30")
         if (c.responseCode != 200) throw IOException("GitHub ответил ${c.responseCode}")
@@ -42,78 +47,54 @@ object OsInstaller {
             val r = arr.getJSONObject(i)
             val tag = r.optString("tag_name")
             if (!tag.startsWith(TAG_PREFIX) || r.optBoolean("draft")) continue
-            val assets = r.optJSONArray("assets") ?: continue
-            for (j in 0 until assets.length()) {
-                val a = assets.getJSONObject(j)
-                if (a.optString("name") == ASSET) {
-                    return Release(tag.removePrefix(TAG_PREFIX), a.getString("browser_download_url"), a.optLong("size"))
-                }
-            }
+            val list = r.optJSONArray("assets") ?: continue
+            val found = (0 until list.length()).map { list.getJSONObject(it) }
+                .filter { it.optString("name") in FILES }
+                .map { Asset(it.getString("name"), it.getString("browser_download_url"), it.optLong("size")) }
+            if (found.size == FILES.size) return Release(tag.removePrefix(TAG_PREFIX), found.sortedBy { FILES.indexOf(it.name) })
         }
         throw IOException("Релиз DroidVM OS пока не опубликован")
     }
 
     /**
-     * Скачать и распаковать. progress(процент, текст). Возвращает созданную ВМ.
+     * Скачать диски прошивки в несколько потоков прямо в готовом виде (без распаковки) и создать ВМ.
+     * При обрыве и повторном нажатии загрузка продолжится с того же места.
      */
     fun install(ctx: Context, rel: Release, cancelled: AtomicBoolean, progress: (Int, String) -> Unit): VmConfig {
         val root = VmStore.imagesDir(ctx)
-        if (rel.size > 0 && root.usableSpace < rel.size + 512L * 1024 * 1024) {
-            throw IOException("Нужно ${humanSize(rel.size + 512L * 1024 * 1024)} свободного места, есть ${humanSize(root.usableSpace)}")
+        val dir = File(root, "DroidVM-OS-${rel.tag}").apply { mkdirs() }
+        val already = rel.assets.sumOf { a -> File(dir, a.name).let { if (it.exists() && it.length() == a.size) a.size else File(it.path + ".part").let { p -> if (p.exists()) p.length() else 0L } } }
+        val need = rel.total - already + 256L * 1024 * 1024
+        if (root.usableSpace < need) {
+            throw IOException("Нужно ${humanSize(need)} свободного места, есть ${humanSize(root.usableSpace)}")
         }
-        val dir = File(root, "DroidVM-OS-${rel.tag}")
-        val tmp = File(root, "DroidVM-OS-${rel.tag}.part")
-        tmp.deleteRecursively(); tmp.mkdirs()
-
-        val c = open(rel.url)
-        if (c.responseCode != 200) throw IOException("Загрузка: HTTP ${c.responseCode}")
-        val total = if (rel.size > 0) rel.size else c.contentLengthLong
-        var done = 0L
-        var last = 0L
-        val counting = object : java.io.FilterInputStream(c.inputStream.buffered(1 shl 20)) {
-            override fun read(b: ByteArray, off: Int, len: Int): Int {
-                if (cancelled.get()) throw InterruptedException("Отменено")
-                val n = super.read(b, off, len)
-                if (n > 0) {
-                    done += n
-                    val now = System.currentTimeMillis()
-                    if (now - last > 300) {
-                        last = now
-                        val p = if (total > 0) (done * 100 / total).toInt() else -1
-                        progress(p, "${humanSize(done)}${if (total > 0) " из ${humanSize(total)}" else ""}")
-                    }
+        var finished = 0L
+        val t0 = System.currentTimeMillis()
+        for (a in rel.assets) {
+            val d = Downloader(a.url, a.size, File(dir, a.name), if (a.size > (256L shl 20)) 6 else 2, cancelled)
+            val watcher = Thread {
+                while (!Thread.currentThread().isInterrupted) {
+                    val got = finished + d.done.get()
+                    val sec = (System.currentTimeMillis() - t0) / 1000.0
+                    val speed = if (sec > 1) got / sec else 0.0
+                    val left = if (speed > 0) ((rel.total - got) / speed).toLong() else -1
+                    val eta = if (left >= 0) " · осталось ${left / 60}:${String.format(java.util.Locale.US, "%02d", left % 60)}" else ""
+                    progress((got * 100 / rel.total).toInt(),
+                        "${humanSize(got)} из ${humanSize(rel.total)} · ${humanSize(speed.toLong())}/с$eta")
+                    try { Thread.sleep(400) } catch (e: InterruptedException) { break }
                 }
-                return n
-            }
+            }.apply { start() }
+            try { d.run() } finally { watcher.interrupt() }
+            finished += a.size
         }
-        try {
-            ZipInputStream(counting).use { zip ->
-                val buf = ByteArray(1 shl 20)
-                while (true) {
-                    val e = zip.nextEntry ?: break
-                    if (e.isDirectory || e.name.contains("..") || e.name.contains('/')) continue
-                    File(tmp, e.name).outputStream().use { out ->
-                        while (true) {
-                            val n = zip.read(buf); if (n < 0) break
-                            out.write(buf, 0, n)
-                        }
-                    }
-                }
-            }
-        } catch (t: Throwable) {
-            tmp.deleteRecursively(); throw t
-        } finally {
-            c.disconnect()
-        }
-        if (!File(tmp, "vda.qcow2").exists()) { tmp.deleteRecursively(); throw IOException("В архиве нет vda.qcow2") }
-        dir.deleteRecursively()
-        if (!tmp.renameTo(dir)) throw IOException("Не удалось сохранить образ")
         progress(100, "Создаю виртуальную машину…")
         return createVm(ctx, dir, rel.tag)
     }
 
     fun createVm(ctx: Context, dir: File, version: String): VmConfig {
         val meta = runCatching { JSONObject(File(dir, "droidvm-os.json").readText()) }.getOrNull()
+        // Удалить ВМ этой же версии, если ставим повторно
+        VmStore.list(ctx).filter { it.name == "DroidVM OS $version" && VmRunner.current?.id != it.id }.forEach { VmStore.delete(ctx, it.id) }
         val am = ctx.getSystemService(ActivityManager::class.java)
         val mi = ActivityManager.MemoryInfo().also { am.getMemoryInfo(it) }
         val totalMb = (mi.totalMem / 1024 / 1024).toInt()
@@ -121,7 +102,9 @@ object OsInstaller {
         val ram = minOf(wantRam, (totalMb / 2 / 256) * 256).coerceAtLeast(2048)
         val cores = Runtime.getRuntime().availableProcessors()
         val disks = mutableListOf("", "", "")
-        listOf("vda.qcow2", "vdb.qcow2").forEachIndexed { i, n -> File(dir, n).takeIf { it.exists() }?.let { disks[i] = it.absolutePath } }
+        val names = meta?.optJSONArray("disks")?.let { a -> (0 until a.length()).map { a.getString(it) } }
+            ?: listOf("droidvm-os-vda.qcow2", "droidvm-os-vdb.qcow2")
+        names.take(3).forEachIndexed { i, n -> File(dir, n).takeIf { it.exists() }?.let { disks[i] = it.absolutePath } }
         val cfg = VmConfig(
             name = "DroidVM OS $version",
             arch = VmConfig.ARCH_ARM,

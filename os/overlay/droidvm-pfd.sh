@@ -20,12 +20,15 @@ rp -n dalvik.vm.dex2oat-threads 2
 rp -n dalvik.vm.image-dex2oat-threads 2
 rp -n ro.config.avoid_gfx_accel true
 
+# Русский язык по умолчанию (для сброса настроек и новых пользователей)
+rp -n ro.product.locale ru-RU
+rp -n ro.product.locale.language ru
+rp -n ro.product.locale.region RU
 if [ ! -f $D/.locale ]; then
-  # Русский язык и московское время — только при первом запуске, дальше выбор пользователя
-  rp -p persist.sys.locale ru-RU
+  # Язык системы: русский, второй — английский (на клавиатуре обе раскладки).
+  # Только при первом запуске, дальше — выбор пользователя.
+  rp -p persist.sys.locale ru-RU,en-US
   rp -p persist.sys.timezone Europe/Moscow
-  rp -p persist.sys.language ru
-  rp -p persist.sys.country RU
   touch $D/.locale
 fi
 # --- Раздел droidvm (приложения + библиотека для microG) ---

@@ -6,6 +6,13 @@ LOG=$D/boot.log
 mkdir -p $D
 exec >>$LOG 2>&1
 echo "=== $(date) boot_completed"
+klog() { echo "<2>droidvm: $*" > /dev/kmsg; echo "$*"; }
+# Прогон первой загрузки на сервере сборки (QEMU с устройством pci-testdev 1b36:0005)
+IS_CI=0
+for p in /sys/bus/pci/devices/*; do
+  [ "$(cat $p/vendor 2>/dev/null)" = 0x1b36 ] && [ "$(cat $p/device 2>/dev/null)" = 0x0005 ] && IS_CI=1
+done
+klog "boot completed (ci=$IS_CI) spoof: $(cat $D/spoof.log 2>/dev/null)"
 
 # Android загрузился — сбросить счётчик неудачных загрузок
 echo 0 > $D/bootcount
@@ -64,8 +71,23 @@ if [ ! -f $D/.configured ]; then
   cmd deviceidle whitelist +com.google.android.gms >/dev/null 2>&1
   cmd deviceidle whitelist +com.android.vending >/dev/null 2>&1
 
+  # Клавиатура: русская и английская раскладки (берутся из языков системы)
+  settings put secure default_input_method com.android.inputmethod.latin/.LatinIME 2>/dev/null
+
   touch $D/.configured
   am start -a android.intent.action.MAIN -c android.intent.category.HOME >/dev/null 2>&1
   echo "первый запуск: готово"
+fi
+
+if [ "$IS_CI" = 1 ] && [ ! -f $D/.ci-done ]; then
+  klog "packages: $(pm list packages 2>/dev/null | grep -cE 'gms|vending|fdroid|aurora') of 4 extra apps"
+  klog "locale: $(getprop persist.sys.locale) density: $(wm density | tail -1)"
+  # Дать системе доделать фоновые задачи первого запуска, затем штатно выключиться
+  sleep 90
+  sync
+  touch $D/.ci-done
+  klog "firstboot complete"
+  sleep 3
+  setprop sys.powerctl shutdown
 fi
 exit 0

@@ -113,6 +113,7 @@ if [ -n "$EFIP" ]; then
     echo "--- $cfgf"; grep -nE '^\s*(linux|menuentry|set default|set timeout)' cfg.tmp | head -20 || true
     if grep -qE '^\s*linux' cfg.tmp && ! grep -q 'droidvm-quiet' cfg.tmp; then
       sed -i -E '/^\s*linux/ s/$/ quiet loglevel=3 vt.global_cursor_default=0 droidvm-quiet/' cfg.tmp
+      grep -qE '^\s*linux.*console=ttyAMA0' cfg.tmp || sed -i -E '/^\s*linux/ s/$/ console=ttyAMA0/' cfg.tmp
       sed -i -E 's/^(\s*set timeout=).*/\10/' cfg.tmp
       mcopy -o -i efi.img cfg.tmp "$cfgf"; CHANGED=1
       grep -nE '^\s*linux' cfg.tmp | head -5
@@ -127,11 +128,20 @@ if [ -n "$EFIP" ]; then
   rm -f efi.img cfg.tmp
 fi
 
-echo "== упаковка"
+echo "== первая загрузка на сервере (прогрев образа)"
 rm -rf pkg && mkdir pkg
-qemu-img convert -c -O qcow2 vda.raw pkg/vda.qcow2
+qemu-img convert -O qcow2 vda.raw run_vda.qcow2
 rm -f vda.raw
-cp "$DATA/vdb.qcow2" pkg/vdb.qcow2 2>/dev/null || true
+cp "$DATA/vdb.qcow2" run_vdb.qcow2
+if [ "${PREBOOT:-1}" = 1 ]; then
+  python3 "$HERE/preboot.py" run_vda.qcow2 run_vdb.qcow2 "$OUT/preboot" "${PREBOOT_TIMEOUT:-110}"
+fi
+
+echo "== упаковка"
+qemu-img convert -c -O qcow2 run_vda.qcow2 pkg/vda.qcow2
+qemu-img convert -c -O qcow2 run_vdb.qcow2 pkg/vdb.qcow2
+rm -f run_vda.qcow2 run_vdb.qcow2
+qemu-img info pkg/vdb.qcow2 | grep -E "virtual|disk size"
 EFI=$(find utm -name efi_vars.fd | head -1 || true)
 [ -n "$EFI" ] && cp "$EFI" pkg/efi_vars.fd
 cat > pkg/droidvm-os.json <<JSON
@@ -142,11 +152,15 @@ cat > pkg/droidvm-os.json <<JSON
   "magisk": "$MV",
   "arch": "aarch64",
   "ramMb": 3072,
-  "disks": ["vda.qcow2", "vdb.qcow2"],
+  "disks": ["droidvm-os-vda.qcow2", "droidvm-os-vdb.qcow2"],
+  "prebooted": ${PREBOOT:-1},
   "efiVars": "efi_vars.fd"
 }
 JSON
 ls -la pkg
-(cd pkg && zip -0 -q "$OUT/droidvm-os-arm64.zip" *)
+# Файлы выкладываются по отдельности: приложение качает их параллельно и без распаковки
+cp pkg/vda.qcow2 "$OUT/droidvm-os-vda.qcow2"
+cp pkg/vdb.qcow2 "$OUT/droidvm-os-vdb.qcow2"
+cp pkg/droidvm-os.json "$OUT/droidvm-os.json"
 ls -la "$OUT"
 echo "BASE_TAG=$BASE_TAG" > "$OUT/info.txt"; echo "MAGISK=$MV" >> "$OUT/info.txt"
