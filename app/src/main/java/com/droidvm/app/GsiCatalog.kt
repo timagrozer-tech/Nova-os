@@ -33,9 +33,13 @@ object GsiCatalog {
 
     private val arm64 = "(?i)arm64"
     val entries = listOf(
-        Entry("aosp-ponces", "AOSP 16 (TrebleDroid)", "Чистый Android от Google без лишнего, сборка ponces",
+        Entry("aosp-ponces-gapps", "AOSP 16 + Google Play", "Чистый Android с сервисами Google и Play Маркетом (сборка ponces)",
             Kind.GITHUB, "ponces/treble_aosp",
-            patterns = listOf(Regex("$arm64.*bvN.*\\.(img\\.xz|xz|zip|img\\.gz|7z)$"), Regex("$arm64.*\\.(img\\.xz|xz|zip|img\\.gz|7z)$")),
+            patterns = listOf(Regex("$arm64.*gapps.*\\.(img\\.xz|xz|zip|img\\.gz|7z)$")),
+            homepage = "https://github.com/ponces/treble_aosp"),
+        Entry("aosp-ponces", "AOSP 16 чистый", "Android без сервисов Google — максимально лёгкий (сборка ponces)",
+            Kind.GITHUB, "ponces/treble_aosp",
+            patterns = listOf(Regex("$arm64.*(vanilla|bvN).*\\.(img\\.xz|xz|zip|img\\.gz|7z)$"), Regex("$arm64(?!.*gapps).*\\.(img\\.xz|xz|zip|img\\.gz|7z)$")),
             homepage = "https://github.com/ponces/treble_aosp"),
         Entry("crdroid", "crDroid 12 (Android 16)", "Много настроек внешнего вида и жестов",
             Kind.GITHUB, "Doze-off/crdroid_gsi_treble",
@@ -83,7 +87,7 @@ object GsiCatalog {
             Resolved(e, name, "https://github.com/${e.source}/releases/download/$tag/${java.net.URLEncoder.encode(name, "UTF-8").replace("+", "%20")}", tag)
         }
         Kind.SOURCEFORGE -> {
-            val (_, rss) = get("https://sourceforge.net/projects/${e.source}/rss?path=${java.net.URLEncoder.encode(e.path, "UTF-8")}&limit=200")
+            val (_, rss) = get("https://sourceforge.net/projects/${e.source}/rss?path=${e.path}")
             val links = Regex("<link>(https://sourceforge\\.net/projects/[^<]+/download)</link>").findAll(rss).map { it.groupValues[1] }.toList()
             val byName = links.associateBy { java.net.URLDecoder.decode(it.removeSuffix("/download").substringAfterLast('/'), "UTF-8") }
             // RSS отсортирован от новых к старым — берём первый подходящий

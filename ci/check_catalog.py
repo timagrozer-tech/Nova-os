@@ -14,7 +14,8 @@ def size(u):
 A = '(?i)arm64'
 EXT = r'\.(img\.xz|xz|zip|img\.gz|7z)$'
 CAT = [
- ('AOSP 16 (ponces)', 'gh', 'ponces/treble_aosp', '/', [A + r'.*bvN.*' + EXT, A + r'.*' + EXT]),
+ ('AOSP 16 + Google Play (ponces)', 'gh', 'ponces/treble_aosp', '/', [A + r'.*gapps.*' + EXT]),
+ ('AOSP 16 чистый (ponces)', 'gh', 'ponces/treble_aosp', '/', [A + r'.*(vanilla|bvN).*' + EXT, A + r'(?!.*gapps).*' + EXT]),
  ('crDroid 12', 'gh', 'Doze-off/crdroid_gsi_treble', '/', [A + r'.*(bvN|vanilla).*' + EXT, A + r'.*' + EXT]),
  ('LineageOS 23 (Andy Yan)', 'sf', 'andyyan-gsi', '/', [r'(?i)lineage-2[3-9].*gsi_arm64\.img\.(gz|xz)$', r'(?i)lineage-2[3-9].*arm64.*\.(img\.gz|img\.xz|zip|7z)$']),
  ('LineageOS 23.2 (MisterZtr)', 'sf', 'misterztr-gsi', '/LineageOS', [r'(?i)lineage.*gsi_arm64_bvN.*\.(7z|xz|zip|gz)$']),
@@ -36,11 +37,11 @@ for title, kind, src, path, pats in CAT:
             if not n: raise Exception(f'нет подходящего файла среди {names}')
             url = f'https://github.com/{src}/releases/download/{tag}/' + urllib.parse.quote(n)
         elif kind == 'sf':
-            _, rss = get(f'https://sourceforge.net/projects/{src}/rss?path={urllib.parse.quote(path)}&limit=200')
+            _, rss = get(f'https://sourceforge.net/projects/{src}/rss?path={path}')
             links = re.findall(r'<link>(https://sourceforge\.net/projects/[^<]+/download)</link>', rss)
             by = {urllib.parse.unquote(l[:-len('/download')].rsplit('/', 1)[1]): l for l in links}
             n = pick(pats, list(by))
-            if not n: raise Exception(f'нет подходящего файла, всего {len(by)}')
+            if not n: raise Exception(f'нет подходящего файла, всего {len(by)}: {list(by)[:8]}')
             url = by[n]
         else:
             _, html = get(src)
