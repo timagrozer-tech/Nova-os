@@ -101,6 +101,19 @@ object OsInstaller {
      * При обрыве и повторном нажатии загрузка продолжится с того же места.
      */
     fun install(ctx: Context, rel: Release, cancelled: AtomicBoolean, progress: (Int, String) -> Unit): VmConfig {
+        val dir = downloadFiles(ctx, rel, cancelled, progress)
+        progress(100, "Создаю виртуальную машину…")
+        return createVm(ctx, dir, rel.tag)
+    }
+
+    /** Скачать только основу (ядро, драйверы) — для GSI, без создания машины DroidVM OS. */
+    fun ensureBase(ctx: Context, cancelled: AtomicBoolean, progress: (Int, String) -> Unit) {
+        if (installedVersions(ctx).isNotEmpty()) return
+        val rel = latest()
+        downloadFiles(ctx, rel, cancelled, progress)
+    }
+
+    private fun downloadFiles(ctx: Context, rel: Release, cancelled: AtomicBoolean, progress: (Int, String) -> Unit): File {
         val root = VmStore.imagesDir(ctx)
         val dir = File(root, "DroidVM-OS-${rel.tag}").apply { mkdirs() }
         val already = rel.assets.sumOf { a -> File(dir, a.name).let { if (it.exists() && it.length() == a.size) a.size else File(it.path + ".part").let { p -> if (p.exists()) p.length() else 0L } } }
@@ -131,8 +144,7 @@ object OsInstaller {
             try { d.run() } finally { watcher.interrupt() }
             finished += a.size
         }
-        progress(100, "Создаю виртуальную машину…")
-        return createVm(ctx, dir, rel.tag)
+        return dir
     }
 
     fun createVm(ctx: Context, dir: File, version: String): VmConfig {

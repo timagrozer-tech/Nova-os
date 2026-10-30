@@ -405,40 +405,52 @@ class MainActivity : ImageActivityBase(), VmRunner.Listener {
         return box
     }
 
-    private fun needBase(): Boolean {
-        if (OsInstaller.installedVersions(this).isNotEmpty()) return false
-        AlertDialog.Builder(this).setTitle("Сначала DroidVM OS")
-            .setMessage("GSI запускается на ядре и драйверах DroidVM OS. Установите её (кнопка вверху), затем возвращайтесь к каталогу.")
-            .setPositiveButton("Установить DroidVM OS") { _, _ -> installOs() }.setNegativeButton("Позже", null).show()
-        return true
+    /**
+     * GSI запускается на ядре и драйверах DroidVM OS. Если их ещё нет — они скачиваются автоматически
+     * (один раз) прямо перед выбранной прошивкой, без создания машины DroidVM OS.
+     */
+    private fun withBase(go: () -> Unit) {
+        if (OsInstaller.installedVersions(this).isNotEmpty()) { go(); return }
+        val size = OsInstaller.cached?.let { " (${humanSize(it.total)})" } ?: ""
+        AlertDialog.Builder(this).setTitle("Нужна основа для GSI")
+            .setMessage("GSI — это только система. Ядро и драйверы для виртуальной машины берутся из основы DroidVM OS$size. " +
+                "Она скачается один раз вместе с выбранной прошивкой, отдельная машина DroidVM OS при этом не создаётся.")
+            .setPositiveButton("Скачать обе") { _, _ -> go() }.setNegativeButton("Отмена", null).show()
+    }
+
+    private fun base(c: java.util.concurrent.atomic.AtomicBoolean, upd: (Int, String) -> Unit, title: String): (Int, String) -> Unit {
+        val needs = OsInstaller.installedVersions(this).isEmpty()
+        if (needs) OsInstaller.ensureBase(this, c) { p, t -> upd(p, "Шаг 1 из 2: основа (ядро и драйверы)\n$t") }
+        return if (needs) { p, t -> upd(p, "Шаг 2 из 2: $title\n$t") } else upd
     }
 
     private fun catalogInstall(e: GsiCatalog.Entry) {
-        if (needBase()) return
+        val job: (java.util.concurrent.atomic.AtomicBoolean, (Int, String) -> Unit) -> VmConfig = { c, upd0 ->
+            val upd = base(c, upd0, e.title)
+            upd(-1, "Ищу последнюю версию…")
+            val r = GsiCatalog.resolve(e)
+            GsiInstaller.install(this, "${e.title} · ${r.version}", GsiInstaller.download(this, r, c, upd), true, c, upd)
+        }
         if (e.licenseUrl != null) {
             AlertDialog.Builder(this).setTitle("Лицензия Google")
                 .setMessage("Образ скачивается напрямую с серверов Google. Перед загрузкой нужно принять лицензионное соглашение " +
                     "Google для Android 16 GSI (бета-версия, только для разработки и тестирования).")
                 .setNeutralButton("Прочитать") { _, _ -> startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(e.licenseUrl))) }
-                .setPositiveButton("Принимаю") { _, _ -> runGsi(e.title, e.homepage) { c, upd ->
-                    upd(-1, "Ищу последнюю версию…")
-                    val r = GsiCatalog.resolve(e)
-                    GsiInstaller.install(this, "${e.title}", GsiInstaller.download(this, r, c, upd), true, c, upd)
-                } }
+                .setPositiveButton("Принимаю") { _, _ -> withBase { runGsi(e.title, e.homepage, job) } }
                 .setNegativeButton("Отмена", null).show()
             return
         }
-        runGsi(e.title, e.homepage) { c, upd ->
-            upd(-1, "Ищу последнюю версию…")
-            val r = GsiCatalog.resolve(e)
-            GsiInstaller.install(this, "${e.title} · ${r.version}", GsiInstaller.download(this, r, c, upd), true, c, upd)
-        }
+        withBase { runGsi(e.title, e.homepage, job) }
     }
 
     private fun localGsi() {
-        if (needBase()) return
-        importFromDevice { f ->
-            runGsi(f.name) { c, upd -> GsiInstaller.install(this, f.name.substringBefore('.'), f, true, c, upd) }
+        withBase {
+            importFromDevice { f ->
+                runGsi(f.name) { c, upd0 ->
+                    val upd = base(c, upd0, f.name)
+                    GsiInstaller.install(this, f.name.substringBefore('.'), f, true, c, upd)
+                }
+            }
         }
     }
 
