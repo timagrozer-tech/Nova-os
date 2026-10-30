@@ -248,12 +248,12 @@ debugfs 1.47.0 (5-Feb-2023)
 4-aurora-store.apk: com.aurora.store 4.8.4 (9140 КБ)
 129M	payload
 total 130980
-drwxr-xr-x 2 runner runner      4096 Oct 30 12:23 .
-drwxr-xr-x 4 runner runner      4096 Oct 30 12:22 ..
--rw-r--r-- 1 runner runner 108113833 Oct 30 12:23 1-microg-services.apk
--rw-r--r-- 1 runner runner   4210169 Oct 30 12:23 2-microg-companion.apk
--rw-r--r-- 1 runner runner  12426276 Oct 30 12:23 3-fdroid.apk
--rw-r--r-- 1 runner runner   9360088 Oct 30 12:23 4-aurora-store.apk
+drwxr-xr-x 2 runner runner      4096 Oct 30 12:31 .
+drwxr-xr-x 4 runner runner      4096 Oct 30 12:28 ..
+-rw-r--r-- 1 runner runner 108113833 Oct 30 12:29 1-microg-services.apk
+-rw-r--r-- 1 runner runner   4210169 Oct 30 12:29 2-microg-companion.apk
+-rw-r--r-- 1 runner runner  12426276 Oct 30 12:30 3-fdroid.apk
+-rw-r--r-- 1 runner runner   9360088 Oct 30 12:31 4-aurora-store.apk
 == раздел droidvm в свободном месте диска
 Warning: The kernel is still using the old partition table.
 The new table will be used at the next reboot or after you
@@ -348,20 +348,9 @@ Directory for ::/boot/grub/themes/lineage/images
 565:		menuentry "Unset (use default)" {
 568:		menuentry "360x640 (9:16)" {
 571:		menuentry "576x1024 (9:16)" {
-449:	linux ${boot_partition}/kernel $android_boot_img_cmdline $android_vendor_boot_img_cmdline $kernel_cmdline_dynamic $@  quiet loglevel=3 vt.global_cursor_default=0 droidvm-quiet
-461:	linux ${recovery_partition}/kernel $android_boot_img_cmdline $android_vendor_boot_img_cmdline $kernel_cmdline_dynamic $@  quiet loglevel=3 vt.global_cursor_default=0 droidvm-quiet
+449:	linux ${boot_partition}/kernel $android_boot_img_cmdline $android_vendor_boot_img_cmdline $kernel_cmdline_dynamic $@  quiet loglevel=3 vt.global_cursor_default=0 droidvm-quiet console=ttyAMA0
+461:	linux ${recovery_partition}/kernel $android_boot_img_cmdline $android_vendor_boot_img_cmdline $kernel_cmdline_dynamic $@  quiet loglevel=3 vt.global_cursor_default=0 droidvm-quiet console=ttyAMA0
 --- ::/boot/grub/themes/lineage/theme.cfg
 загрузчик: включена тихая загрузка
-== упаковка
-total 1253272
-drwxr-xr-x 2 runner runner       4096 Oct 30 12:25 .
-drwxr-xr-x 5 runner runner       4096 Oct 30 12:25 ..
--rw-r--r-- 1 runner runner        226 Oct 30 12:25 droidvm-os.json
--rw-r--r-- 1 runner runner     334848 Oct 30 12:25 efi_vars.fd
--rw-r--r-- 1 runner runner 1286361600 Oct 30 12:25 vda.qcow2
--rw-r--r-- 1 runner runner     196864 Oct 30 12:25 vdb.qcow2
-total 1322280
-drwxr-xr-x 2 runner runner       4096 Oct 30 12:25 .
-drwxr-xr-x 4 runner root         4096 Oct 30 12:21 ..
--rw-r--r-- 1 runner runner 1286894160 Oct 30 12:25 droidvm-os-arm64.zip
--rw-r--r-- 1 runner runner   67108864 Oct 30 12:22 droidvm_boot_arm64.img
+== первая загрузка на сервере (прогрев образа)
+$ qemu-system-aarch64 -M virt -cpu max,pauth-impdef=on -accel tcg,thread=multi,tb-size=1024 -smp 4 -m 4096 -nodefaults -display none -vga none -drive if=pflash,format=raw,unit=0,readonly=on,file=/usr/share/AAVMF/AAVMF_CODE.fd -drive if=pflash,format=raw,unit=1,file=/mnt/w/out/preboot/vars.fd -device virtio-gpu-pci,xres=720,yres=1280 -device qemu-xhci,id=xhci -device usb-tablet -device usb-kbd -device virtio-rng-pci -netdev user,id=net0 -device virtio-net-pci,netdev=net0 -drive file=run_vda.qcow2,if=none,id=hd0,format=qcow2,cache=unsafe -device virtio-blk-pci,drive=hd0,bootindex=1 -drive file=run_vdb.qcow2,if=none,id=hd1,format=qcow2,cache=unsafe -device virtio-blk-pci,drive=hd1,bootindex=2 -device pci-testdev -rtc base=utc -monitor unix:/mnt/w/out/preboot/mon.sock,server=on,wait=off -serial file:/mnt/w/out/preboot/serial.log
