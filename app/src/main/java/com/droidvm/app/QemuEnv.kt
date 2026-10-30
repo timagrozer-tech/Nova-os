@@ -24,6 +24,30 @@ class QemuEnv(val ctx: Context) {
 
     fun binary(arch: String) = File(libDir, if (arch == VmConfig.ARCH_ARM) "libqemu-system-aarch64.so" else "libqemu-system-x86_64.so")
     val qemuImg get() = File(libDir, "libqemu-img.so")
+    val qemuIo get() = File(libDir, "libqemu-io.so")
+    val xz get() = File(libDir, "libxz.so")
+    val sevenZip get() = File(libDir, "lib7zz.so")
+
+    /** Запустить встроенную утилиту. Возвращает (код выхода, вывод). */
+    fun run(vararg args: String, outFile: File? = null, onLine: ((String) -> Unit)? = null): Pair<Int, String> {
+        val pb = ProcessBuilder(*args)
+        pb.environment().putAll(environment())
+        if (outFile != null) { pb.redirectOutput(outFile); pb.redirectError(ProcessBuilder.Redirect.PIPE) } else pb.redirectErrorStream(true)
+        val p = pb.start()
+        val src = if (outFile != null) p.errorStream else p.inputStream
+        val sb = StringBuilder()
+        val buf = ByteArray(4096)
+        val line = StringBuilder()
+        while (true) {
+            val n = src.read(buf); if (n < 0) break
+            val t = String(buf, 0, n)
+            if (sb.length < 20000) sb.append(t)
+            for (ch in t) {
+                if (ch == '\n' || ch == '\r') { if (line.isNotEmpty()) { onLine?.invoke(line.toString()); line.clear() } } else line.append(ch)
+            }
+        }
+        return p.waitFor() to sb.toString()
+    }
 
     fun hasBinary(arch: String) = binary(arch).exists()
 

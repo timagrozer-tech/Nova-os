@@ -25,7 +25,7 @@ import com.droidvm.app.Ui.dp
 import java.util.Locale
 
 /** Главный экран: DroidVM OS и список виртуальных машин. */
-class MainActivity : Activity(), VmRunner.Listener {
+class MainActivity : ImageActivityBase(), VmRunner.Listener {
 
     private lateinit var hero: LinearLayout
     private lateinit var list: LinearLayout
@@ -61,6 +61,9 @@ class MainActivity : Activity(), VmRunner.Listener {
 
         list = Ui.vbox(this, 0)
         root.addView(list, Ui.lp(top = 12, ctx = this))
+
+        root.addView(Ui.sectionTitle(this, "ДРУГИЕ ПРОШИВКИ (GSI)"), Ui.lp(top = 28, ctx = this))
+        root.addView(buildCatalog(), Ui.lp(top = 12, ctx = this))
 
         footer = Ui.label(this, "", 12f)
         root.addView(footer, Ui.lp(top = 16, ctx = this))
@@ -222,6 +225,87 @@ class MainActivity : Activity(), VmRunner.Listener {
         card.addView(row, Ui.lp(top = 14, ctx = this))
         card.setOnLongClickListener { vmMenu(vm, running); true }
         return card
+    }
+
+    // ---------------- каталог GSI ----------------
+
+    private fun buildCatalog(): View {
+        val box = Ui.card(this)
+        box.addView(Ui.label(this, "Готовые универсальные прошивки Android 16 для ARM64. Ставятся отдельной машиной поверх " +
+            "DroidVM OS (её ядро и драйверы), со своим чистым диском данных. Самые свежие версии находятся автоматически.", 12f))
+        for ((i, e) in GsiCatalog.entries.withIndex()) {
+            val row = Ui.hbox(this)
+            row.addView(Ui.iconTile(this, if (e.kind == GsiCatalog.Kind.GOOGLE) Icon.ROBOT else Icon.CHIP,
+                if (e.kind == GsiCatalog.Kind.GOOGLE) Ui.INFO else Ui.TEXT, if (e.kind == GsiCatalog.Kind.GOOGLE) Ui.INFO_SOFT else Ui.CARD2, 40))
+            val t = Ui.vbox(this, 0)
+            t.addView(Ui.title(this, e.title, 14f))
+            t.addView(Ui.label(this, e.about, 12f))
+            row.addView(t, Ui.weight().apply { leftMargin = dp(12) })
+            row.addView(Ui.iconAction(this, Icon.DOWNLOAD, "Скачать ${e.title}") { catalogInstall(e) })
+            box.addView(row, Ui.lp(top = if (i == 0) 14 else 12, ctx = this))
+        }
+        box.addView(Ui.button(this, "Свой GSI из файла…") { localGsi() }, Ui.lp(top = 16, ctx = this))
+        box.addView(Ui.label(this, "Подходят system.img и архивы .img.xz, .img.gz, .zip, .7z для arm64 (Android 16 и новее).", 12f),
+            Ui.lp(top = 6, ctx = this))
+        return box
+    }
+
+    private fun needBase(): Boolean {
+        if (OsInstaller.installedVersions(this).isNotEmpty()) return false
+        AlertDialog.Builder(this).setTitle("Сначала DroidVM OS")
+            .setMessage("GSI запускается на ядре и драйверах DroidVM OS. Установите её (кнопка вверху), затем возвращайтесь к каталогу.")
+            .setPositiveButton("Установить DroidVM OS") { _, _ -> installOs() }.setNegativeButton("Позже", null).show()
+        return true
+    }
+
+    private fun catalogInstall(e: GsiCatalog.Entry) {
+        if (needBase()) return
+        if (e.licenseUrl != null) {
+            AlertDialog.Builder(this).setTitle("Лицензия Google")
+                .setMessage("Образ скачивается напрямую с серверов Google. Перед загрузкой нужно принять лицензионное соглашение " +
+                    "Google для Android 16 GSI (бета-версия, только для разработки и тестирования).")
+                .setNeutralButton("Прочитать") { _, _ -> startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(e.licenseUrl))) }
+                .setPositiveButton("Принимаю") { _, _ -> runGsi(e.title) { c, upd ->
+                    upd(-1, "Ищу последнюю версию…")
+                    val r = GsiCatalog.resolve(e)
+                    GsiInstaller.install(this, "${e.title}", GsiInstaller.download(this, r, c, upd), true, c, upd)
+                } }
+                .setNegativeButton("Отмена", null).show()
+            return
+        }
+        runGsi(e.title) { c, upd ->
+            upd(-1, "Ищу последнюю версию…")
+            val r = GsiCatalog.resolve(e)
+            GsiInstaller.install(this, "${e.title} · ${r.version}", GsiInstaller.download(this, r, c, upd), true, c, upd)
+        }
+    }
+
+    private fun localGsi() {
+        if (needBase()) return
+        importFromDevice { f ->
+            runGsi(f.name) { c, upd -> GsiInstaller.install(this, f.name.substringBefore('.'), f, true, c, upd) }
+        }
+    }
+
+    private fun runGsi(title: String, job: (java.util.concurrent.atomic.AtomicBoolean, (Int, String) -> Unit) -> VmConfig) {
+        if (VmRunner.isActive) { Ui.alert(this, "Сначала остановите машину", "Пока работает ВМ, телефону не хватит сил на распаковку прошивки."); return }
+        val cancelled = java.util.concurrent.atomic.AtomicBoolean(false)
+        val (dlg, upd) = Ui.progress(this, title) { cancelled.set(true) }
+        Thread {
+            val res = runCatching { job(cancelled, upd) }
+            runOnUiThread {
+                dlg.dismiss()
+                refresh()
+                res.onSuccess { vm ->
+                    AlertDialog.Builder(this).setTitle("Готово")
+                        .setMessage("Создана машина «${vm.name}».\n\nПервая загрузка GSI в эмуляции займёт несколько минут. " +
+                            "Если система не стартует — значит, эта GSI несовместима; попробуйте другую из каталога.")
+                        .setPositiveButton("Запустить") { _, _ -> start(vm) }.setNegativeButton("Позже", null).show()
+                }.onFailure { e ->
+                    if (e !is InterruptedException) Ui.alert(this, "Не удалось установить", e.message ?: e.toString())
+                }
+            }
+        }.start()
     }
 
     private fun vmMenu(vm: VmConfig, running: Boolean) {

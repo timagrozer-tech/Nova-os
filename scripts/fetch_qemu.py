@@ -57,11 +57,17 @@ WANTED = [
     ["qemu-utils"],
     ["qemu-common"],
 ]
+# Необязательные пакеты: распаковка прошивок GSI (.xz, .7z)
+OPTIONAL = [["xz-utils"], ["7zip", "p7zip"]]
 
 BINARIES = {
     "bin/qemu-system-x86_64": "libqemu-system-x86_64.so",
     "bin/qemu-system-aarch64": "libqemu-system-aarch64.so",
     "bin/qemu-img": "libqemu-img.so",
+    "bin/qemu-io": "libqemu-io.so",
+    "bin/xz": "libxz.so",
+    "bin/7zz": "lib7zz.so",
+    "bin/7z": "lib7zz.so",
 }
 
 # Какие файлы из share/qemu нужны для x86_64 и aarch64
@@ -141,6 +147,12 @@ def resolve(pkgs):
             cands = sorted(p for p in pkgs if "qemu" in p)
             sys.exit(f"В репозитории нет пакета {alts}. Есть: {cands}")
         roots.append(found)
+    for alts in OPTIONAL:
+        found = next((a for a in alts if a in pkgs), None)
+        if found:
+            roots.append(found)
+        else:
+            log(f"  (необязательного пакета {alts} нет — пропущено)")
     seen, order, stack = set(), [], list(roots)
     while stack:
         p = stack.pop()
@@ -391,7 +403,12 @@ def build_abi(abi, data_written):
         if not real:
             log(f"  ! нет {src} — пропущено")
             continue
-        emit(real, dst)
+        if dst in emitted:
+            continue
+        try:
+            emit(real, dst)
+        except ValueError as e:
+            log(f"  ! {src}: не ELF-бинарник ({e}) — пропущено")
 
     modules = []
     for rel in sorted(tree.files):
