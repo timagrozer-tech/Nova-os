@@ -45,7 +45,10 @@ object OsInstaller {
      * (обычная загрузка файла, без GitHub API и его лимита 60 запросов/час на IP).
      */
     fun latest(): Release = runCatching { stable() }.getOrElse { e ->
-        runCatching { fromApi() }.getOrElse { throw IOException("Не удалось найти прошивку: ${e.message}") }
+        runCatching { fromApi() }.getOrElse {
+            if (e.message?.contains("404") == true) throw IOException("Прошивка ещё собирается и пока не опубликована. Попробуйте через несколько минут.")
+            throw IOException("Не удалось найти прошивку: ${e.message}")
+        }
     }
 
     private fun stable(): Release {

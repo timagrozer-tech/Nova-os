@@ -1,0 +1,48 @@
+name: Publish DroidVM OS from zip release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Тег релиза с droidvm-os-arm64.zip'
+        required: true
+        default: 'droidvm-os-2026.10.30-3'
+
+permissions:
+  contents: write
+
+jobs:
+  quick:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Разложить zip на отдельные файлы
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          mkdir -p /mnt/w && sudo chown $USER /mnt/w && cd /mnt/w
+          gh release download -R ${{ github.repository }} "${{ inputs.tag }}" -p droidvm-os-arm64.zip
+          unzip -q droidvm-os-arm64.zip -d pkg && rm droidvm-os-arm64.zip
+          mv pkg/vda.qcow2 droidvm-os-vda.qcow2
+          mv pkg/vdb.qcow2 droidvm-os-vdb.qcow2
+          V="${{ inputs.tag }}"; V="${V#droidvm-os-}"
+          python3 - "$V" <<'PY'
+          import json, os, sys
+          m = json.load(open('pkg/droidvm-os.json'))
+          m['version'] = sys.argv[1]
+          m['disks'] = ['droidvm-os-vda.qcow2', 'droidvm-os-vdb.qcow2']
+          m['files'] = [{'name': n, 'size': os.path.getsize(n)} for n in m['disks']]
+          json.dump(m, open('droidvm-os.json', 'w'), ensure_ascii=False, indent=1)
+          print(m)
+          PY
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: droidvm-os-latest
+          name: DroidVM OS (последняя версия)
+          overwrite_files: true
+          body: Всегда последняя сборка DroidVM OS. Отсюда её скачивает приложение.
+          files: |
+            /mnt/w/droidvm-os-vda.qcow2
+            /mnt/w/droidvm-os-vdb.qcow2
+            /mnt/w/droidvm-os.json
