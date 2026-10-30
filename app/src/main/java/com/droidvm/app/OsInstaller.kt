@@ -23,7 +23,7 @@ object OsInstaller {
 
     data class Asset(val name: String, val url: String, val size: Long)
     data class Release(val tag: String, val assets: List<Asset>) {
-        val total get() = assets.sumOf { it.size }
+        val total get() = assets.sumOf { maxOf(it.size, 0L) }
     }
 
     private val FILES = listOf("droidvm-os-vda.qcow2", "droidvm-os-vdb.qcow2", "droidvm-os.json")
@@ -38,8 +38,28 @@ object OsInstaller {
         return c
     }
 
-    /** Найти последний релиз прошивки (с отдельными файлами дисков). Вызывать в фоне. */
-    fun latest(): Release {
+    private const val STABLE = "https://github.com/$REPO/releases/download/droidvm-os-latest"
+
+    /**
+     * Найти последнюю прошивку. Основной путь — постоянная ссылка droidvm-os-latest
+     * (обычная загрузка файла, без GitHub API и его лимита 60 запросов/час на IP).
+     */
+    fun latest(): Release = runCatching { stable() }.getOrElse { e ->
+        runCatching { fromApi() }.getOrElse { throw IOException("Не удалось найти прошивку: ${e.message}") }
+    }
+
+    private fun stable(): Release {
+        val c = open("$STABLE/droidvm-os.json")
+        if (c.responseCode != 200) throw IOException("HTTP ${c.responseCode}")
+        val o = JSONObject(c.inputStream.bufferedReader().readText())
+        val files = o.getJSONArray("files")
+        val assets = (0 until files.length()).map { files.getJSONObject(it) }
+            .map { Asset(it.getString("name"), "$STABLE/${it.getString("name")}", it.getLong("size")) } +
+            Asset("droidvm-os.json", "$STABLE/droidvm-os.json", -1)
+        return Release(o.optString("version", "latest"), assets)
+    }
+
+    private fun fromApi(): Release {
         val c = open("https://api.github.com/repos/$REPO/releases?per_page=30")
         if (c.responseCode != 200) throw IOException("GitHub ответил ${c.responseCode}")
         val arr = JSONArray(c.inputStream.bufferedReader().readText())
@@ -71,6 +91,10 @@ object OsInstaller {
         var finished = 0L
         val t0 = System.currentTimeMillis()
         for (a in rel.assets) {
+            if (a.size < 0) { // маленький файл описания — просто скачать
+                open(a.url).inputStream.use { inp -> File(dir, a.name).outputStream().use { inp.copyTo(it) } }
+                continue
+            }
             val d = Downloader(a.url, a.size, File(dir, a.name), if (a.size > (256L shl 20)) 6 else 2, cancelled)
             val watcher = Thread {
                 while (!Thread.currentThread().isInterrupted) {

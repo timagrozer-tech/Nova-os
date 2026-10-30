@@ -161,6 +161,14 @@ ls -la pkg
 # Файлы выкладываются по отдельности: приложение качает их параллельно и без распаковки
 cp pkg/vda.qcow2 "$OUT/droidvm-os-vda.qcow2"
 cp pkg/vdb.qcow2 "$OUT/droidvm-os-vdb.qcow2"
-cp pkg/droidvm-os.json "$OUT/droidvm-os.json"
+# Описание с размерами файлов: приложение берёт его по постоянной ссылке, без GitHub API
+python3 - "$OUT" <<'PY'
+import json, os, sys
+out = sys.argv[1]
+m = json.load(open('pkg/droidvm-os.json'))
+m['files'] = [{'name': n, 'size': os.path.getsize(os.path.join(out, n))} for n in ('droidvm-os-vda.qcow2', 'droidvm-os-vdb.qcow2')]
+json.dump(m, open(os.path.join(out, 'droidvm-os.json'), 'w'), ensure_ascii=False, indent=1)
+print(json.dumps(m, ensure_ascii=False))
+PY
 ls -la "$OUT"
 echo "BASE_TAG=$BASE_TAG" > "$OUT/info.txt"; echo "MAGISK=$MV" >> "$OUT/info.txt"

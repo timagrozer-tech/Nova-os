@@ -72,3 +72,16 @@ jobs:
             /mnt/w/out/droidvm-os-vdb.qcow2
             /mnt/w/out/droidvm-os.json
             /mnt/w/out/droidvm_boot_arm64.img
+
+      - name: Постоянная ссылка droidvm-os-latest
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: droidvm-os-latest
+          name: DroidVM OS (последняя версия)
+          overwrite_files: true
+          body: |
+            Всегда последняя сборка DroidVM OS (сейчас ${{ env.VERSION }}). Отсюда её скачивает приложение.
+          files: |
+            /mnt/w/out/droidvm-os-vda.qcow2
+            /mnt/w/out/droidvm-os-vdb.qcow2
+            /mnt/w/out/droidvm-os.json
