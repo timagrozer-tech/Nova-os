@@ -16,37 +16,25 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
-      - uses: android-actions/setup-android@v3
+      - name: Собрать APK (QEMU из Termux + Gradle)
+        env:
+          ABIS: ${{ github.event.inputs.with_x86_64 == 'true' && '--abi arm64-v8a --abi x86_64' || '--abi arm64-v8a' }}
+        run: bash ci/build.sh
 
-      - name: Встроить QEMU из пакетов Termux
-        run: |
-          pip install zstandard
-          ABIS="--abi arm64-v8a"
-          if [ "${{ github.event.inputs.with_x86_64 }}" = "true" ]; then ABIS="$ABIS --abi x86_64"; fi
-          python3 scripts/fetch_qemu.py $ABIS
-
-      - name: Собрать APK
-        run: |
-          chmod +x gradlew
-          ./gradlew --no-daemon assembleRelease
-          mkdir -p dist
-          cp app/build/outputs/apk/release/*.apk dist/DroidVM.apk
-          ls -la dist
-
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: DroidVM-apk
           path: dist/DroidVM.apk
