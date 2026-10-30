@@ -12,8 +12,8 @@ android {
         minSdk = 26
         // 34: на Android 15 не включается принудительный edge-to-edge
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
+        versionName = "1.1." + (System.getenv("GITHUB_RUN_NUMBER") ?: "0")
     }
 
     // Один постоянный ключ, чтобы новые сборки ставились поверх старых без удаления.

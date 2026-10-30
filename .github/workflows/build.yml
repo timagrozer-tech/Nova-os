@@ -39,8 +39,11 @@ jobs:
           name: DroidVM-apk
           path: dist/DroidVM.apk
 
-      - name: Релиз (для тегов v*)
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Релиз приложения
+        if: github.ref == 'refs/heads/droidvm' || startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('droidvm-app-1.1.{0}', github.run_number) }}
+          name: DroidVM ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('1.1.{0}', github.run_number) }}
+          body: Приложение DroidVM (Android, arm64). Установите APK и нажмите «Установить DroidVM OS».
           files: dist/DroidVM.apk

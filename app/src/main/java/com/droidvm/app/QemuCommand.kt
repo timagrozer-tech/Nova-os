@@ -46,6 +46,9 @@ object QemuCommand {
             a += listOf("-device", "qemu-xhci,id=xhci", "-device", "usb-tablet", "-device", "usb-kbd")
         }
 
+        // Источник случайных чисел — ускоряет загрузку Android
+        a += listOf("-device", "virtio-rng-pci")
+
         // Сеть (user-mode, без root)
         if (cfg.net != "none") {
             var nd = "user,id=net0"
@@ -109,6 +112,8 @@ object QemuCommand {
         val varsTemplate = env.firmware(if (cfg.isArm) "edk2-arm-vars.fd" else "edk2-i386-vars.fd")
         if (!code.exists()) throw BuildError("Нет прошивки UEFI ${code.name} в сборке")
         val vars = File(vmDir, "efivars.fd")
+        // Размер банка переменных должен совпадать с прошивкой, иначе QEMU не запустится
+        if (vars.exists() && vars.length() != code.length() && cfg.isArm) vars.delete()
         if (!vars.exists() && varsTemplate.exists()) varsTemplate.copyTo(vars)
         a += listOf("-drive", "if=pflash,format=raw,unit=0,readonly=on,file=${esc(code.absolutePath)}")
         if (vars.exists()) a += listOf("-drive", "if=pflash,format=raw,unit=1,file=${esc(vars.absolutePath)}")

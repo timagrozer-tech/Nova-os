@@ -28,6 +28,8 @@ class MainActivity : Activity(), VmRunner.Listener {
         header.addView(Ui.title(this, "DroidVM"), Ui.weight())
         header.addView(Ui.button(this, "+ Новая ВМ", primary = true) { newVm() })
         root.addView(header)
+        root.addView(Ui.button(this, "⬇ Установить DroidVM OS (Android 16 + root)", primary = true) { installOs() },
+            Ui.lp(top = 12, ctx = this))
         status = Ui.label(this, "", 12f)
         root.addView(status, Ui.lp(top = 6, ctx = this))
         list = Ui.vbox(this, 0)
@@ -126,6 +128,32 @@ class MainActivity : Activity(), VmRunner.Listener {
                 .setPositiveButton("Запустить") { _, _ -> doStart(vm) }
                 .setNegativeButton("Отмена", null).show()
         } else doStart(vm)
+    }
+
+    private fun installOs() {
+        val cancelled = java.util.concurrent.atomic.AtomicBoolean(false)
+        val (dlg, upd) = Ui.progress(this, "DroidVM OS") { cancelled.set(true) }
+        upd(-1, "Ищу последнюю версию…")
+        Thread {
+            val res = runCatching {
+                val rel = OsInstaller.latest()
+                runOnUiThread { dlg.setTitle("DroidVM OS ${rel.tag}") }
+                OsInstaller.install(this, rel, cancelled, upd)
+            }
+            runOnUiThread {
+                dlg.dismiss()
+                res.onSuccess { vm ->
+                    refresh()
+                    AlertDialog.Builder(this).setTitle("Готово")
+                        .setMessage("Создана ВМ «${vm.name}».\n\nПервая загрузка в эмуляции занимает несколько минут. " +
+                            "Root — через приложение Magisk, adb: `adb connect 127.0.0.1:5555` из Termux.")
+                        .setPositiveButton("Запустить") { _, _ -> start(vm) }
+                        .setNegativeButton("Позже", null).show()
+                }.onFailure { e ->
+                    if (e !is InterruptedException) Ui.alert(this, "Не удалось установить", e.message ?: e.toString())
+                }
+            }
+        }.start()
     }
 
     private fun doStart(vm: VmConfig) {
