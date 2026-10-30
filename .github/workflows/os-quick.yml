@@ -1,12 +1,18 @@
 name: Publish DroidVM OS from zip release
 
 on:
+  push:
+    branches: [ droidvm ]
+    paths: [ '.github/workflows/os-quick.yml' ]
   workflow_dispatch:
     inputs:
       tag:
         description: 'Тег релиза с droidvm-os-arm64.zip'
         required: true
         default: 'droidvm-os-2026.10.30-3'
+
+env:
+  TAG: ${{ github.event.inputs.tag || 'droidvm-os-2026.10.30-3' }}
 
 permissions:
   contents: write
@@ -21,11 +27,11 @@ jobs:
         run: |
           set -e
           mkdir -p /mnt/w && sudo chown $USER /mnt/w && cd /mnt/w
-          gh release download -R ${{ github.repository }} "${{ inputs.tag }}" -p droidvm-os-arm64.zip
+          gh release download -R ${{ github.repository }} "$TAG" -p droidvm-os-arm64.zip
           unzip -q droidvm-os-arm64.zip -d pkg && rm droidvm-os-arm64.zip
           mv pkg/vda.qcow2 droidvm-os-vda.qcow2
           mv pkg/vdb.qcow2 droidvm-os-vdb.qcow2
-          V="${{ inputs.tag }}"; V="${V#droidvm-os-}"
+          V="$TAG"; V="${V#droidvm-os-}"
           python3 - "$V" <<'PY'
           import json, os, sys
           m = json.load(open('pkg/droidvm-os.json'))
