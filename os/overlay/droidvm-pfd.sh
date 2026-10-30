@@ -1,8 +1,11 @@
 #!/system/bin/sh
 # DroidVM OS — ранний этап загрузки (до запуска Android-фреймворка). Должен отработать быстро.
 MT="$1"
-D=/data/adb/droidvm
-mkdir -p $D
+# Служебные файлы — в /data/local (её создаёт сам init с правильной политикой шифрования).
+# НЕЛЬЗЯ создавать новые папки верхнего уровня в /data (например /data/adb) на post-fs-data:
+# при первой загрузке это ломает шифрование (set_policy_failed) и Android уходит в recovery.
+D=/data/local/droidvm
+[ -d /data/local ] && mkdir -p $D
 rp() { "$MT/magisk" resetprop "$@" 2>/dev/null; }
 
 # Имя устройства в «О телефоне»

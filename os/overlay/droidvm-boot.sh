@@ -1,7 +1,7 @@
 #!/system/bin/sh
 # DroidVM OS — настройка после загрузки. При первом запуске применяет настройки и ставит приложения.
 MT="$1"
-D=/data/adb/droidvm
+D=/data/local/droidvm
 LOG=$D/boot.log
 mkdir -p $D
 exec >>$LOG 2>&1

@@ -128,7 +128,7 @@ scripts/fetch_qemu.py   встраивание QEMU из Termux
 - microG вместо сервисов Google: microG Services + Companion, подмена подписи включена патчем
   `ComputerEngine.isDebuggable()` в `libandroid_servers.so` (`os/patch_servers.py`), подключается
   bind-mount'ом при загрузке. Защита: только если библиотека совпадает с системной; после трёх
-  неудачных загрузок подряд патч отключается сам (`/data/adb/droidvm/no-spoof`).
+  неудачных загрузок подряд патч отключается сам (`/data/local/droidvm/no-spoof`).
 - Приложения: F-Droid, Aurora Store (Google Play без Google-аккаунта на устройстве).
 - Русский язык, Москва, тёмная тема, анимации 0,5×, мастер настройки пропущен, ADB по сети.
 

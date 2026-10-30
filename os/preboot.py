@@ -89,8 +89,14 @@ while qemu.poll() is None:
         with open(serial, errors='replace') as f:
             f.seek(last_serial); new = f.read(); last_serial = f.tell()
         for line in new.splitlines():
-            if 'droidvm' in line.lower() or 'panic' in line.lower():
+            if 'droidvm' in line.lower() or 'panic' in line.lower() or 'Restarting system' in line:
                 print(f'[{el // 60}:{el % 60:02d}] {line.strip()}', flush=True)
+        if "with command 'recovery'" in new:
+            # Android ушёл в recovery («Can't load Android system») — ждать дальше бессмысленно
+            time.sleep(60); shot('recovery')
+            print('ОШИБКА: гость перезагрузился в recovery — смотрите recovery.png и serial.log', flush=True)
+            monitor('quit'); qemu.wait(30)
+            sys.exit(1)
     if el > timeout_min * 60:
         print(f'ТАЙМАУТ: гость не выключился за {timeout_min} мин', flush=True)
         shot('timeout')
