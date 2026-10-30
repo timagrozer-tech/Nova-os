@@ -221,6 +221,7 @@ Add file [overlay.d/sbin/init-ld.xz] (100644)
 Add file [overlay.d/droidvm.rc] (100644)
 Add file [overlay.d/sbin/droidvm-pfd.sh] (100755)
 Add file [overlay.d/sbin/droidvm-boot.sh] (100755)
+Add file [overlay.d/sbin/droidvm-watchdog.sh] (100755)
 Patch with flag KEEPVERITY=[true] KEEPFORCEENCRYPT=[true]
 Loading cpio: [ramdisk.cpio.orig]
 Backup [init] -> [.backup/init.xz]
@@ -229,6 +230,7 @@ Record new entry: [overlay.d/droidvm.rc] -> [.backup/.rmlist]
 Record new entry: [overlay.d/sbin] -> [.backup/.rmlist]
 Record new entry: [overlay.d/sbin/droidvm-boot.sh] -> [.backup/.rmlist]
 Record new entry: [overlay.d/sbin/droidvm-pfd.sh] -> [.backup/.rmlist]
+Record new entry: [overlay.d/sbin/droidvm-watchdog.sh] -> [.backup/.rmlist]
 Record new entry: [overlay.d/sbin/init-ld.xz] -> [.backup/.rmlist]
 Record new entry: [overlay.d/sbin/magisk.xz] -> [.backup/.rmlist]
 Create directory [.backup] (0000)
@@ -248,12 +250,12 @@ debugfs 1.47.0 (5-Feb-2023)
 4-aurora-store.apk: com.aurora.store 4.8.4 (9140 КБ)
 129M	payload
 total 130980
-drwxr-xr-x 2 runner runner      4096 Oct 30 15:01 .
-drwxr-xr-x 4 runner runner      4096 Oct 30 15:00 ..
--rw-r--r-- 1 runner runner 108113833 Oct 30 15:01 1-microg-services.apk
--rw-r--r-- 1 runner runner   4210169 Oct 30 15:01 2-microg-companion.apk
--rw-r--r-- 1 runner runner  12426276 Oct 30 15:01 3-fdroid.apk
--rw-r--r-- 1 runner runner   9360088 Oct 30 15:01 4-aurora-store.apk
+drwxr-xr-x 2 runner runner      4096 Oct 30 16:57 .
+drwxr-xr-x 4 runner runner      4096 Oct 30 16:55 ..
+-rw-r--r-- 1 runner runner 108113833 Oct 30 16:57 1-microg-services.apk
+-rw-r--r-- 1 runner runner   4210169 Oct 30 16:57 2-microg-companion.apk
+-rw-r--r-- 1 runner runner  12426276 Oct 30 16:57 3-fdroid.apk
+-rw-r--r-- 1 runner runner   9360088 Oct 30 16:57 4-aurora-store.apk
 == раздел droidvm в свободном месте диска
 Warning: The kernel is still using the old partition table.
 The new table will be used at the next reboot or after you
@@ -354,8 +356,35 @@ Directory for ::/boot/grub/themes/lineage/images
 загрузчик: включена тихая загрузка
 == первая загрузка на сервере (прогрев образа)
 $ qemu-system-aarch64 -M virt -cpu max,pauth-impdef=on -accel tcg,thread=multi,tb-size=1024 -smp 4 -m 4096 -nodefaults -display none -vga none -drive if=pflash,format=raw,unit=0,readonly=on,file=/usr/share/AAVMF/AAVMF_CODE.fd -drive if=pflash,format=raw,unit=1,file=/mnt/w/out/preboot/vars.fd -device virtio-gpu-pci,xres=720,yres=1280 -device qemu-xhci,id=xhci -device usb-tablet -device usb-kbd -device virtio-rng-pci -netdev user,id=net0 -device virtio-net-pci,netdev=net0 -drive file=run_vda.qcow2,if=none,id=hd0,format=qcow2,cache=unsafe -device virtio-blk-pci,drive=hd0,bootindex=1 -drive file=run_vdb.qcow2,if=none,id=hd1,format=qcow2,cache=unsafe -device virtio-blk-pci,drive=hd1,bootindex=2 -device pci-testdev -rtc base=utc -monitor unix:/mnt/w/out/preboot/mon.sock,server=on,wait=off -serial file:/mnt/w/out/preboot/serial.log
-[2:20] [  112.860503][  T497] droidvm-pfd: раздел droidvm: vda12 (id: u:r:magisk:s0)
-[2:20] [  113.611590][  T497] droidvm-pfd: mount с context не удался: mount: '/dev/block/vda12'->'/mnt/droidvm': Permission denied
-[2:20] [  114.379991][  T497] droidvm-pfd: смонтирован: 1 файлов: 1-microg-services.apk 2-microg-companion.apk 3-fdroid.apk 4-aurora-store.apk
-[2:20] [  115.617705][  T497] droidvm-pfd: spoof: spoof включён
-ТАЙМАУТ: гость не выключился за 110 мин
+[1:20] [   63.101084][  T493] droidvm-pfd: раздел droidvm: vda12 (id: u:r:magisk:s0)
+[1:20] [   63.842192][  T493] droidvm-pfd: смонтирован: 1 файлов: 1-microg-services.apk 2-microg-companion.apk 3-fdroid.apk 4-aurora-store.apk
+[1:20] [   65.742770][  T493] droidvm-pfd: spoof: spoof включён (u:object_r:system_lib_file:s0)
+[6:40] [  390.131460][ T2664] droidvm: boot completed (ci=1) spoof: spoof включён (u:object_r:system_lib_file:s0)
+[10:40] [  619.075662][ T2664] droidvm: install 1-microg-services.apk: Success
+[10:40] [  624.341419][ T2664] droidvm: install 2-microg-companion.apk: Success
+[10:40] [  630.944265][ T2664] droidvm: install 3-fdroid.apk: Success
+[11:00] [  637.531429][ T2664] droidvm: install 4-aurora-store.apk: Success
+[11:00] [  639.227577][ T2664] droidvm: packages: 4 of 4 extra apps
+[11:00] [  640.588361][ T2664] droidvm: locale: ru-RU,en-US density: Override density: 320
+[12:25] [  731.882565][ T2664] droidvm: firstboot complete
+Гость выключился сам через 12 мин 45 с, код QEMU 0
+== упаковка
+virtual size: 16 GiB (17179869184 bytes)
+disk size: 1.53 GiB
+    disk size: 1.53 GiB
+total 2859208
+drwxr-xr-x 2 runner runner       4096 Oct 30 17:11 .
+drwxr-xr-x 5 runner runner       4096 Oct 30 17:11 ..
+-rw-r--r-- 1 runner runner        266 Oct 30 17:11 droidvm-os.json
+-rw-r--r-- 1 runner runner     334848 Oct 30 17:11 efi_vars.fd
+-rw-r--r-- 1 runner runner 1286623744 Oct 30 17:11 vda.qcow2
+-rw-r--r-- 1 runner runner 1648099328 Oct 30 17:11 vdb.qcow2
+{"name": "DroidVM OS", "version": "2026.10.30-9", "base": "LineageOS for QEMU v2026.10.18", "magisk": "v31.1", "arch": "aarch64", "ramMb": 3072, "disks": ["droidvm-os-vda.qcow2", "droidvm-os-vdb.qcow2"], "prebooted": 1, "efiVars": "efi_vars.fd", "files": [{"name": "droidvm-os-vda.qcow2", "size": 1286623744}, {"name": "droidvm-os-vdb.qcow2", "size": 1648099328}]}
+total 2924420
+drwxr-xr-x 3 runner runner       4096 Oct 30 17:11 .
+drwxr-xr-x 4 runner root         4096 Oct 30 16:55 ..
+-rw-r--r-- 1 runner runner 1286623744 Oct 30 17:11 droidvm-os-vda.qcow2
+-rw-r--r-- 1 runner runner 1648099328 Oct 30 17:11 droidvm-os-vdb.qcow2
+-rw-r--r-- 1 runner runner        410 Oct 30 17:11 droidvm-os.json
+-rw-r--r-- 1 runner runner   67108864 Oct 30 16:55 droidvm_boot_arm64.img
+drwxr-xr-x 3 runner runner       4096 Oct 30 17:10 preboot
