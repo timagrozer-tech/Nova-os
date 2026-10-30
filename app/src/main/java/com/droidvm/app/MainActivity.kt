@@ -72,6 +72,11 @@ class MainActivity : Activity(), VmRunner.Listener {
             return
         }
         for (vm in vms) {
+            // Миграция ВМ DroidVM OS, созданных старой версией: экран 9:16
+            if (vm.isArm && vm.name.startsWith("DroidVM OS") && vm.resolution.isBlank() && !(VmRunner.current?.id == vm.id)) {
+                vm.resolution = "720x1280"; vm.density = 320
+                VmStore.save(this, vm)
+            }
             val running = VmRunner.current?.id == vm.id && VmRunner.isActive
             val card = Ui.card(this)
             card.addView(Ui.title(this, vm.name, 18f))
@@ -80,6 +85,17 @@ class MainActivity : Activity(), VmRunner.Listener {
             if (running) {
                 row.addView(Ui.button(this, "Экран", primary = true) { openScreen() }, Ui.weight())
                 row.addView(Ui.button(this, "Остановить") { VmRunner.kill(this) }, Ui.weight().apply { leftMargin = dp(8) })
+            } else if (VmRunner.hasState(this, vm)) {
+                // Быстрый старт: есть сохранённое состояние
+                val t = java.text.SimpleDateFormat("d MMM, HH:mm", java.util.Locale("ru")).format(java.util.Date(VmRunner.stateTime(this, vm)))
+                card.addView(Ui.label(this, "⏸ Состояние сохранено $t — запуск за секунды", 12f, Ui.ACCENT))
+                row.addView(Ui.button(this, "▶ Продолжить", primary = true) { start(vm, resume = true) }, Ui.weight())
+                row.addView(Ui.button(this, "Заново") {
+                    AlertDialog.Builder(this).setTitle("Запустить заново?")
+                        .setMessage("Сохранённое состояние будет удалено, система загрузится с нуля (как после выключения).")
+                        .setPositiveButton("Заново") { _, _ -> start(vm) }.setNegativeButton("Отмена", null).show()
+                }, Ui.weight(0.8f).apply { leftMargin = dp(8) })
+                row.addView(Ui.button(this, "Настроить") { edit(vm.id) }, Ui.weight(0.9f).apply { leftMargin = dp(8) })
             } else {
                 row.addView(Ui.button(this, "▶ Запустить", primary = true) { start(vm) }, Ui.weight())
                 row.addView(Ui.button(this, "Настроить") { edit(vm.id) }, Ui.weight().apply { leftMargin = dp(8) })
@@ -118,16 +134,16 @@ class MainActivity : Activity(), VmRunner.Listener {
 
     private fun openScreen() = startActivity(Intent(this, ScreenActivity::class.java))
 
-    private fun start(vm: VmConfig) {
+    private fun start(vm: VmConfig, resume: Boolean = false) {
         if (VmRunner.isActive) { Ui.alert(this, "Уже работает ВМ", "Сначала остановите «${VmRunner.current?.name}»."); return }
         val mi = ActivityManager.MemoryInfo().also { (getSystemService(ACTIVITY_SERVICE) as ActivityManager).getMemoryInfo(it) }
         val needBytes = vm.ramMb.toLong() * 1024 * 1024
         if (needBytes > mi.availMem) {
             AlertDialog.Builder(this).setTitle("Мало свободной памяти")
                 .setMessage("ВМ просит ${vm.ramMb} МБ, а свободно ${humanSize(mi.availMem)}. Android может закрыть приложение. Запустить всё равно?")
-                .setPositiveButton("Запустить") { _, _ -> doStart(vm) }
+                .setPositiveButton("Запустить") { _, _ -> doStart(vm, resume) }
                 .setNegativeButton("Отмена", null).show()
-        } else doStart(vm)
+        } else doStart(vm, resume)
     }
 
     private fun installOs() {
@@ -156,11 +172,11 @@ class MainActivity : Activity(), VmRunner.Listener {
         }.start()
     }
 
-    private fun doStart(vm: VmConfig) {
+    private fun doStart(vm: VmConfig, resume: Boolean = false) {
         val (dlg, upd) = Ui.progress(this, "Запуск «${vm.name}»")
-        upd(-1, "Подготовка QEMU…")
+        upd(-1, if (resume) "Восстанавливаю сохранённое состояние…" else "Подготовка QEMU…")
         Thread {
-            val err = runCatching { VmRunner.start(this, vm) }.exceptionOrNull()
+            val err = runCatching { VmRunner.start(this, vm, resume) }.exceptionOrNull()
             runOnUiThread {
                 dlg.dismiss()
                 if (err != null) Ui.alert(this, "Не удалось запустить", err.message ?: err.toString())

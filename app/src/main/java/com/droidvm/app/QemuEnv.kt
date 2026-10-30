@@ -12,7 +12,7 @@ import java.util.zip.ZipInputStream
  * разрешает запускать бинарники. Прошивки/BIOS лежат в assets/qemu-data.zip и
  * распаковываются в filesDir при первом запуске.
  */
-class QemuEnv(private val ctx: Context) {
+class QemuEnv(val ctx: Context) {
 
     val libDir = File(ctx.applicationInfo.nativeLibraryDir)
     val dataDir = File(ctx.filesDir, "qemu-data")

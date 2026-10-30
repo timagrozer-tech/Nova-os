@@ -134,8 +134,10 @@ object OsInstaller {
             input = "usb",
             net = "virtio",
             adbPort = 5555,
-            tbSizeMb = 512,
+            tbSizeMb = if (totalMb >= 7000) 1024 else 512,
             multiThread = true,
+            resolution = "720x1280",
+            density = 320,
         )
         VmStore.save(ctx, cfg)
         // Переменные UEFI из пакета (порядок загрузки уже настроен)

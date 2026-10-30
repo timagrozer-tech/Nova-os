@@ -12,7 +12,7 @@ object QemuCommand {
 
     private fun fmt(path: String) = if (path.endsWith(".qcow2", true)) "qcow2" else "raw"
 
-    fun build(env: QemuEnv, cfg: VmConfig, vmDir: File): List<String> {
+    fun build(env: QemuEnv, cfg: VmConfig, vmDir: File, resume: Boolean = false): List<String> {
         val a = mutableListOf<String>()
         a += env.binary(cfg.arch).absolutePath
         a += listOf("-L", env.dataDir.absolutePath)
@@ -31,13 +31,15 @@ object QemuCommand {
             a += listOf("-cpu", "max")
         }
 
-        // Графика
+        // Графика (для virtio — сразу нужное разрешение, например 720×1280 = 9:16)
+        val res = parseRes(cfg.resolution)?.let { (w, h) -> ",xres=$w,yres=$h" } ?: ""
         when {
             cfg.isArm && cfg.gpu == "ramfb" -> a += listOf("-device", "ramfb")
-            cfg.isArm -> a += listOf("-device", "virtio-gpu-pci")
-            cfg.gpu == "virtio" -> a += listOf("-device", "virtio-vga")
+            cfg.isArm -> a += listOf("-device", "virtio-gpu-pci$res")
+            cfg.gpu == "virtio" -> a += listOf("-device", "virtio-vga$res")
             else -> a += listOf("-vga", "std")
         }
+
 
         // Ввод (абсолютный указатель — тап по экрану попадает туда, куда нажали)
         if (cfg.input == "virtio") {
@@ -102,6 +104,7 @@ object QemuCommand {
         a += listOf("-monitor", "unix:${env.monitorSocket.absolutePath},server=on,wait=off")
         a += listOf("-serial", "file:${File(vmDir, "serial.log").absolutePath}")
 
+        if (resume) a += listOf("-loadvm", VmRunner.SNAPSHOT)
         a += splitArgs(cfg.extraArgs)
         return a
     }
@@ -109,14 +112,33 @@ object QemuCommand {
     private fun uefiOrNothing(a: MutableList<String>, env: QemuEnv, cfg: VmConfig, vmDir: File, required: Boolean) {
         if (!required) return
         val code = env.firmware(if (cfg.isArm) "edk2-aarch64-code.fd" else "edk2-x86_64-code.fd")
-        val varsTemplate = env.firmware(if (cfg.isArm) "edk2-arm-vars.fd" else "edk2-i386-vars.fd")
         if (!code.exists()) throw BuildError("Нет прошивки UEFI ${code.name} в сборке")
-        val vars = File(vmDir, "efivars.fd")
-        // Размер банка переменных должен совпадать с прошивкой, иначе QEMU не запустится
-        if (vars.exists() && vars.length() != code.length() && cfg.isArm) vars.delete()
-        if (!vars.exists() && varsTemplate.exists()) varsTemplate.copyTo(vars)
         a += listOf("-drive", "if=pflash,format=raw,unit=0,readonly=on,file=${esc(code.absolutePath)}")
-        if (vars.exists()) a += listOf("-drive", "if=pflash,format=raw,unit=1,file=${esc(vars.absolutePath)}")
+        val qvars = File(vmDir, "efivars.qcow2")
+        if (qvars.exists()) {
+            // переменные UEFI в qcow2 — тогда работает сохранение состояния (savevm)
+            a += listOf("-drive", "if=pflash,format=qcow2,unit=1,file=${esc(qvars.absolutePath)}")
+        } else {
+            val vars = rawVars(env, cfg, vmDir)
+            if (vars.exists()) a += listOf("-drive", "if=pflash,format=raw,unit=1,file=${esc(vars.absolutePath)}")
+        }
+    }
+
+    /** Файл переменных UEFI в raw (создаётся из шаблона; размер должен совпадать с прошивкой). */
+    fun rawVars(env: QemuEnv, cfg: VmConfig, vmDir: File): File {
+        val code = env.firmware(if (cfg.isArm) "edk2-aarch64-code.fd" else "edk2-x86_64-code.fd")
+        val tmpl = env.firmware(if (cfg.isArm) "edk2-arm-vars.fd" else "edk2-i386-vars.fd")
+        val vars = File(vmDir, "efivars.fd")
+        if (vars.exists() && vars.length() != code.length() && cfg.isArm) vars.delete()
+        if (!vars.exists() && tmpl.exists()) tmpl.copyTo(vars)
+        return vars
+    }
+
+    fun usesUefi(cfg: VmConfig) = cfg.bootMode == VmConfig.BOOT_UEFI || (cfg.isArm && cfg.bootMode != VmConfig.BOOT_KERNEL)
+
+    fun parseRes(s: String): Pair<Int, Int>? {
+        val m = Regex("""^\s*(\d{3,4})\s*[x×]\s*(\d{3,4})\s*$""").find(s) ?: return null
+        return m.groupValues[1].toInt() to m.groupValues[2].toInt()
     }
 
     private fun check(path: String, what: String) {

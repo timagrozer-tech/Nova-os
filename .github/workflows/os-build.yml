@@ -23,7 +23,7 @@ jobs:
       - name: Инструменты и место на диске
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq qemu-utils gdisk zip unzip erofs-utils e2fsprogs llvm python3-pyelftools >/dev/null
+          sudo apt-get install -y -qq qemu-utils gdisk zip unzip erofs-utils e2fsprogs llvm python3-pyelftools mtools >/dev/null
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
           sudo mkdir -p /mnt/w && sudo chown $USER /mnt/w
           df -h / /mnt

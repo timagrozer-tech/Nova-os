@@ -13,6 +13,16 @@ echo 0 > $D/bootcount
 # дождаться готовности менеджера пакетов
 for i in $(seq 1 60); do pm path android >/dev/null 2>&1 && break; sleep 2; done
 
+# Плотность экрана под разрешение гостя (DroidVM задаёт его, например 720x1280 = 9:16):
+# ширина ~360dp, как у обычного телефона. Применяется заново, только если разрешение сменилось.
+SIZE=$(wm size 2>/dev/null | sed -n 's/^Physical size: //p')
+if [ -n "$SIZE" ] && [ "$SIZE" != "$(cat $D/size 2>/dev/null)" ]; then
+  W=${SIZE%x*}; H=${SIZE#*x}; S=$W; [ "$H" -lt "$S" ] && S=$H
+  DPI=$(( (S * 100 / 225 + 10) / 20 * 20 ))
+  [ "$DPI" -lt 160 ] && DPI=160
+  wm density $DPI && echo "$SIZE" > $D/size && echo "разрешение $SIZE → плотность $DPI dpi"
+fi
+
 if [ ! -f $D/.configured ]; then
   echo "первый запуск: применяю настройки"
   settings put global device_provisioned 1

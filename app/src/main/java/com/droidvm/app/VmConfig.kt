@@ -38,6 +38,10 @@ data class VmConfig(
     var tbSizeMb: Int = 256,
     var multiThread: Boolean = true,
     var extraArgs: String = "",
+    /** Разрешение экрана гостя "ШxВ" (virtio-gpu); пусто — по умолчанию */
+    var resolution: String = "720x1280",
+    /** Плотность экрана (dpi) для гостя DroidVM OS, 0 — не задавать */
+    var density: Int = 320,
 ) {
     val isArm get() = arch == ARCH_ARM
 
@@ -47,7 +51,8 @@ data class VmConfig(
             BOOT_UEFI -> "UEFI"
             else -> "BIOS"
         }
-        return "${if (isArm) "ARM64" else "x86_64"} · ${ramMb} МБ · ${cpus} ЦП · $boot"
+        val res = if (resolution.isNotBlank()) " · ${resolution.replace('x', '×')}" else ""
+        return "${if (isArm) "ARM64" else "x86_64"} · ${ramMb} МБ · ${cpus} ЦП · $boot$res"
     }
 
     fun toJson(): JSONObject = JSONObject().apply {
@@ -59,6 +64,7 @@ data class VmConfig(
         put("gpu", gpu); put("input", input); put("net", net); put("adbPort", adbPort)
         put("snapshot", snapshot); put("tbSizeMb", tbSizeMb); put("multiThread", multiThread)
         put("extraArgs", extraArgs)
+        put("resolution", resolution); put("density", density)
     }
 
     companion object {
@@ -96,6 +102,8 @@ data class VmConfig(
                 tbSizeMb = o.optInt("tbSizeMb", d.tbSizeMb),
                 multiThread = o.optBoolean("multiThread", true),
                 extraArgs = o.optString("extraArgs", ""),
+                resolution = o.optString("resolution", ""),
+                density = o.optInt("density", 0),
             )
         }
 
@@ -106,12 +114,12 @@ data class VmConfig(
                 "Android-x86 / BlissOS / PrimeOS (ISO, x86_64)" to VmConfig(
                     name = "Android x86", arch = ARCH_X86, ramMb = 3072, cpus = c,
                     bootMode = BOOT_BIOS, machine = "q35", diskIface = "sata",
-                    gpu = "std", input = "usb", net = "virtio",
+                    gpu = "std", input = "usb", net = "virtio", resolution = "", density = 0,
                 ),
                 "x86_64: готовый образ диска (.img/.qcow2)" to VmConfig(
                     name = "x86 образ", arch = ARCH_X86, ramMb = 3072, cpus = c,
                     bootMode = BOOT_BIOS, bootFromIso = false, machine = "q35", diskIface = "sata",
-                    gpu = "std", input = "usb", net = "virtio",
+                    gpu = "std", input = "usb", net = "virtio", resolution = "", density = 0,
                 ),
                 "ARM64: ядро + ramdisk + образы (AOSP/GSI/своя сборка)" to VmConfig(
                     name = "AOSP arm64", arch = ARCH_ARM, ramMb = 3072, cpus = c,
@@ -124,7 +132,7 @@ data class VmConfig(
                     bootMode = BOOT_UEFI, diskIface = "virtio", gpu = "virtio", input = "usb",
                     net = "virtio",
                 ),
-                "Пустая конфигурация" to VmConfig(cpus = c),
+                "Пустая конфигурация" to VmConfig(cpus = c, resolution = "", density = 0),
             )
         }
     }

@@ -101,6 +101,32 @@ dd if=droidvm.ext4 of=vda.raw bs=$SECT seek="$DF" conv=notrunc status=none
 sgdisk -v vda.raw | tail -2
 sgdisk -p vda.raw | tail -4
 
+echo "== тихая загрузка (без текста ядра на экране)"
+EFIP=$(sgdisk -p vda.raw | awk '$7=="EFI" {print $1; exit}')
+if [ -n "$EFIP" ]; then
+  read -r EF EL < <(sgdisk -i "$EFIP" vda.raw | awk '/First sector/{f=$3} /Last sector/{l=$3} END{print f, l}')
+  dd if=vda.raw of=efi.img bs=$SECT skip="$EF" count=$(( EL - EF + 1 )) status=none
+  mdir -/ -i efi.img :: 2>/dev/null | head -60 || true
+  CHANGED=0
+  for cfgf in $(mdir -/ -b -i efi.img :: 2>/dev/null | grep -iE '\.cfg$'); do
+    mcopy -o -i efi.img "$cfgf" cfg.tmp
+    echo "--- $cfgf"; grep -nE '^\s*(linux|menuentry|set default|set timeout)' cfg.tmp | head -20 || true
+    if grep -qE '^\s*linux' cfg.tmp && ! grep -q 'droidvm-quiet' cfg.tmp; then
+      sed -i -E '/^\s*linux/ s/$/ quiet loglevel=3 vt.global_cursor_default=0 droidvm-quiet/' cfg.tmp
+      sed -i -E 's/^(\s*set timeout=).*/\10/' cfg.tmp
+      mcopy -o -i efi.img cfg.tmp "$cfgf"; CHANGED=1
+      grep -nE '^\s*linux' cfg.tmp | head -5
+    fi
+  done
+  if [ "$CHANGED" = 1 ]; then
+    dd if=efi.img of=vda.raw bs=$SECT seek="$EF" conv=notrunc status=none
+    echo "загрузчик: включена тихая загрузка"
+  else
+    echo "загрузчик: конфиг GRUB с командой linux не найден — оставлено как есть"
+  fi
+  rm -f efi.img cfg.tmp
+fi
+
 echo "== упаковка"
 rm -rf pkg && mkdir pkg
 qemu-img convert -c -O qcow2 vda.raw pkg/vda.qcow2

@@ -76,6 +76,14 @@ class EditVmActivity : ImageActivityBase() {
             "virtio" to "virtio-gpu (нужен драйвер virtio в сборке)",
             "ramfb" to "ramfb (простой кадровый буфер, ARM)",
         ), { cfg.gpu }) { cfg.gpu = it }
+        choice("Разрешение экрана гостя", listOf(
+            "720x1280" to "720×1280 · 9:16, телефон (рекомендуется)",
+            "1080x1920" to "1080×1920 · 9:16, Full HD (медленнее)",
+            "600x1024" to "600×1024 · компактно и быстро",
+            "1280x720" to "1280×720 · 16:9, альбомная",
+            "1280x800" to "1280×800 · 16:10, планшет",
+            "" to "По умолчанию (решает гостевая система)",
+        ), { cfg.resolution }, { cfg.gpu == "virtio" || cfg.isArm }) { cfg.resolution = it }
         choice("Ввод (сенсор/клавиатура)", listOf(
             "usb" to "USB-планшет + USB-клавиатура",
             "virtio" to "virtio-tablet + virtio-keyboard",
