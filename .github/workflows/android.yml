@@ -1,10 +1,10 @@
 # Сборка APK «С НУЛЯ» в GitHub Actions.
-# При каждом пуше в main: тесты ядра → копирование игры в assets → APK → артефакт и релиз с файлом .apk.
+# При каждом пуше в ветку s-nulya: тесты ядра → копирование игры в assets → APK → артефакт и релиз с файлом .apk.
 name: Android APK
 
 on:
   push:
-    branches: [main]
+    branches: [s-nulya]
   workflow_dispatch:
 
 permissions:
