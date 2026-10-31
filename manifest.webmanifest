@@ -1,0 +1,18 @@
+{
+  "name": "С НУЛЯ: Симулятор жизни",
+  "short_name": "С НУЛЯ",
+  "description": "Офлайн-симулятор жизни: работа, учёба, жильё, бизнес, друзья и семья.",
+  "lang": "ru",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#101419",
+  "theme_color": "#11171c",
+  "categories": ["games", "simulation"],
+  "icons": [
+    { "src": "assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "assets/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

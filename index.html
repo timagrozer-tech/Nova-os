@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#11171c">
+<meta name="color-scheme" content="dark">
+<meta name="description" content="С НУЛЯ — офлайн-симулятор жизни: от улицы до своего дела, семьи или свободы.">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'">
+<title>С НУЛЯ — симулятор жизни</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="assets/icons/icon-192.png">
+<link rel="apple-touch-icon" href="assets/icons/icon-192.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="shell">
+  <header id="top" class="topbar"></header>
+  <main id="content" class="main" aria-live="polite"></main>
+  <nav id="nav" class="nav" aria-label="Основные разделы"></nav>
+</div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<noscript><p style="padding:20px;color:#fff">Для игры нужен JavaScript.</p></noscript>
+<!-- Порядок модулей совпадает с js/manifest.js -->
+<script src="js/core/util.js"></script>
+<script src="js/data/world.js"></script>
+<script src="js/data/jobs.js"></script>
+<script src="js/data/education.js"></script>
+<script src="js/data/property.js"></script>
+<script src="js/data/business.js"></script>
+<script src="js/data/services.js"></script>
+<script src="js/data/npcs.js"></script>
+<script src="js/data/events.js"></script>
+<script src="js/data/quests.js"></script>
+<script src="js/core/state.js"></script>
+<script src="js/core/clock.js"></script>
+<script src="js/core/save.js"></script>
+<script src="js/systems/stats.js"></script>
+<script src="js/systems/economy.js"></script>
+<script src="js/systems/work.js"></script>
+<script src="js/systems/property.js"></script>
+<script src="js/systems/business.js"></script>
+<script src="js/systems/finance.js"></script>
+<script src="js/systems/social.js"></script>
+<script src="js/systems/events.js"></script>
+<script src="js/systems/quests.js"></script>
+<script src="js/ui/scene.js"></script>
+<script src="js/ui/components.js"></script>
+<script src="js/ui/screens.js"></script>
+<script src="js/ui/sheets.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

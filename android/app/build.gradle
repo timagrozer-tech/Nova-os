@@ -1,0 +1,35 @@
+plugins { id 'com.android.application' }
+
+// Подпись: если в секретах GitHub задан свой ключ (KEYSTORE_BASE64 → release.keystore) — используется он,
+// иначе debug.keystore из репозитория, чтобы обновления ставились поверх без удаления игры.
+def relKs = file('../release.keystore')
+android {
+    namespace 'ru.snulya.game'
+    compileSdk 34
+    defaultConfig {
+        applicationId 'ru.snulya.game'
+        minSdk 24
+        targetSdk 34
+        versionCode Integer.parseInt(System.getenv('VERSION_CODE') ?: '1')
+        versionName System.getenv('VERSION_NAME') ?: '0.2.0'
+    }
+    signingConfigs {
+        shared {
+            if (relKs.exists()) {
+                storeFile relKs
+                storePassword System.getenv('KEYSTORE_PASSWORD')
+                keyAlias System.getenv('KEY_ALIAS')
+                keyPassword System.getenv('KEY_PASSWORD')
+            } else {
+                storeFile file('../debug.keystore')
+                storePassword 'android'; keyAlias 'androiddebugkey'; keyPassword 'android'
+            }
+        }
+    }
+    buildTypes {
+        release { minifyEnabled false; signingConfig signingConfigs.shared }
+        debug { signingConfig signingConfigs.shared }
+    }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}
+dependencies { implementation 'androidx.webkit:webkit:1.11.0' }

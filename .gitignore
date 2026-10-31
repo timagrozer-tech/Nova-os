@@ -1,0 +1,10 @@
+android/.gradle/
+android/build/
+android/app/build/
+android/app/src/main/assets/www/
+android/release.keystore
+android/local.properties
+out/
+tests/shots/
+__pycache__/
+*.zip

@@ -1,0 +1,74 @@
+# Сборка APK «С НУЛЯ» в GitHub Actions.
+# При каждом пуше в main: тесты ядра → копирование игры в assets → APK → артефакт и релиз с файлом .apk.
+name: Android APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Тесты игрового ядра
+        run: node tests/engine.test.js
+
+      - name: Копировать игру в assets
+        run: |
+          W=android/app/src/main/assets/www
+          rm -rf "$W" && mkdir -p "$W"
+          cp -r index.html manifest.webmanifest css js assets "$W"/
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Свой ключ подписи (если задан в секретах)
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        if: env.KEYSTORE_BASE64 != ''
+        run: echo "$KEYSTORE_BASE64" | base64 -d > android/release.keystore
+
+      - name: Сборка APK
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+          VERSION_NAME: 0.2.${{ github.run_number }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          gradle -p android assembleRelease --no-daemon
+          mkdir -p out
+          cp android/app/build/outputs/apk/release/app-release.apk out/s-nulya-0.2.${{ github.run_number }}.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: s-nulya-apk
+          path: out/*.apk
+
+      - name: Релиз с APK
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.2.${{ github.run_number }}
+          name: С НУЛЯ 0.2.${{ github.run_number }}
+          body: |
+            APK для Android 7.0+. Скачайте файл ниже, откройте его на телефоне и разрешите установку из этого источника.
+            Обновления ставятся поверх — прогресс сохраняется.
+          files: out/*.apk
