@@ -82,6 +82,7 @@
     sys.social.daily(s, rep);
     sys.events.daily(s, rep);
     sys.quests.check(s);
+    sys.daily.daily(s, rep);
     rep.lines.forEach(t => SN.Sys.log(s, t));
     return rep;
   };

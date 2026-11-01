@@ -32,6 +32,7 @@
         let ok = false; try { ok = a.done(s); } catch (e) { ok = false; }
         if (ok) { s.ach[a.id] = T.day(s); s.xp += 50; Sys.log(s, '🏆 Достижение: ' + a.name); SN.emit('achievement', a); }
       }
+      if (Sys.daily) Sys.daily.check(s);
     } finally { busy = false; }
   };
 
@@ -69,6 +70,7 @@
     return 'Сейчас нет подходящей работы. Загляните в «Карьеру».';
   };
   Quick.eat = function (s) {
+    if (s.st.food > 88) return { label: 'Вы сыты', run: () => SN.fail('Вы сыты. Поешьте позже, когда проголодаетесь.') };
     const order = ['cookhome', 'soup', 'canteen', 'bread', 'noodles'];
     for (const id of order) {
       const a = D.actionById[id];

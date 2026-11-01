@@ -5,7 +5,7 @@
   const Pk = Sys.perks = {};
 
   Pk.spent = s => (s.perks || []).reduce((a, id) => a + (D.perkById[id] ? D.perkById[id].cost : 0), 0);
-  Pk.points = s => Math.max(0, Sys.quests.level(s) - 1 + (s.flags.boughtPts || 0) - Pk.spent(s));
+  Pk.points = s => Math.max(0, Sys.quests.level(s) - 1 + (s.flags.boughtPts || 0) + (s.flags.streakPts || 0) - Pk.spent(s));
   Pk.buy = function (s, id) {
     const p = D.perkById[id];
     if (!p) return SN.fail('Нет таланта');

@@ -307,8 +307,9 @@
     const pct = s.fin.autosave || 0;
     if (!pct || !s.account || !['work', 'business', 'passive'].includes(cat)) return;
     const x = Math.floor(amt * pct / 100);
-    if (toBank && s.account) { const y = Math.min(x, s.bank); s.bank -= y; s.fin.deposit += y; }
-    else { const y = Math.min(x, s.money); s.money -= y; s.fin.deposit += y; }
+    const y = toBank && s.account ? Math.min(x, s.bank) : Math.min(x, s.money);
+    if (toBank && s.account) s.bank -= y; else s.money -= y;
+    s.fin.deposit += y; s.c.saved = (s.c.saved || 0) + y;
   };
   I.serviceDaily = function (s, rep) {
     if (s.fin.cb >= 1) { s.bank += s.fin.cb; s.today.inc += s.fin.cb; E().ledger(s, s.fin.cb, 'bank', 'Кешбэк'); s.fin.cb = 0; }

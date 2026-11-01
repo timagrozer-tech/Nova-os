@@ -1,7 +1,7 @@
 /* Service Worker: офлайн-кэш всех ресурсов игры. Работает только по HTTPS или на localhost.
    При обновлении игры поменяйте CACHE — старый кэш удалится автоматически. */
 'use strict';
-const CACHE = 's-nulya-0.3.0';
+const CACHE = 's-nulya-0.4.0';
 const ASSETS = [
   './',
   'index.html',
@@ -23,6 +23,7 @@ const ASSETS = [
   'js/data/events.js',
   'js/data/quests.js',
   'js/data/extra.js',
+  'js/data/business2.js',
   'js/core/state.js',
   'js/core/clock.js',
   'js/core/save.js',
@@ -38,13 +39,16 @@ const ASSETS = [
   'js/systems/events.js',
   'js/systems/quests.js',
   'js/systems/auto.js',
+  'js/systems/daily.js',
   'js/ui/scene.js',
   'js/ui/components.js',
   'js/ui/screens.js',
   'js/ui/screens2.js',
   'js/ui/sheets.js',
   'js/main.js',
-  'js/ui/actions2.js'
+  'js/ui/actions2.js',
+  'js/ui/bizui.js',
+  'js/ui/extras.js'
 ];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));

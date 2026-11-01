@@ -43,7 +43,7 @@
   F.depositPut = function (s, amt) {
     amt = Math.min(Math.floor(amt), s.bank);
     if (!s.account || amt <= 0) return SN.fail('Пополнить вклад можно со счёта');
-    s.bank -= amt; s.fin.deposit += amt;
+    s.bank -= amt; s.fin.deposit += amt; s.c.saved = (s.c.saved || 0) + amt;
     Sys.quests.check(s);
     return SN.okr('На вклад: ' + U.money(amt));
   };

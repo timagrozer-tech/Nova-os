@@ -33,10 +33,16 @@
     g += `<rect x="45" y="44" width="10" height="12" rx="4" fill="${skin}"/>`;
     g += `<ellipse cx="50" cy="34" rx="15" ry="17" fill="${skin}"/>`;
     g += `<circle cx="44.5" cy="33" r="1.8" fill="#222"/><circle cx="55.5" cy="33" r="1.8" fill="#222"/>`;
+    if (h.glasses) g += `<g fill="none" stroke="#1d2228" stroke-width="1.5"><circle cx="44.5" cy="33" r="4.2" fill="#9fd3ff33"/><circle cx="55.5" cy="33" r="4.2" fill="#9fd3ff33"/><path d="M48.7 33 H51.3 M40.3 32 L36 30.5 M59.7 32 L64 30.5"/></g>`;
     g += `<path d="M45 42 Q50 ${s.st && s.st.mood > 55 ? 46 : s.st && s.st.mood < 30 ? 40 : 43} 55 42" stroke="#3a2a22" stroke-width="1.6" fill="none" stroke-linecap="round"/>`;
     if (h.beard) g += `<path d="M36 36 Q38 52 50 53 Q62 52 64 36 Q60 46 50 46 Q40 46 36 36 Z" fill="${hair}" opacity=".9"/>`;
     if (o.hat) g += `<path d="M34 30 Q34 14 50 14 Q66 14 66 30 Q58 25 50 25 Q42 25 34 30 Z" fill="${o.hat}"/><rect x="34" y="27" width="32" height="5" rx="2.5" fill="${o.hat}" opacity=".85"/>`;
-    else g += `<path d="M35 31 Q34 15 50 16 Q66 15 65 31 Q62 22 50 22 Q38 22 35 31 Z" fill="${hair}"/>`;
+    else {
+      const st = h.style || 0;
+      if (st === 0) g += `<path d="M35 31 Q34 15 50 16 Q66 15 65 31 Q62 22 50 22 Q38 22 35 31 Z" fill="${hair}"/>`;
+      else if (st === 1) g += `<path d="M33 46 Q31 14 50 15 Q69 14 67 46 Q64 30 62 24 Q50 20 38 24 Q36 30 33 46 Z" fill="${hair}"/>`;
+      else if (st === 3) g += `<path d="M46 26 Q47 8 50 6 Q53 8 54 26 Z" fill="${hair}"/><path d="M36 30 Q37 24 46 23 L54 23 Q63 24 64 30 Q56 26 50 26 Q44 26 36 30 Z" fill="${hair}" opacity=".45"/>`;
+    }
     if (o.scarf) g += `<path d="M38 52 Q50 60 62 52 L62 57 Q50 64 38 57 Z" fill="${o.scarf}"/>`;
     if (s.flags && s.flags.dog && full) g += `<g transform="translate(76 104)"><ellipse cx="10" cy="12" rx="12" ry="7" fill="#b9733a"/><circle cx="21" cy="5" r="6" fill="#b9733a"/><path d="M18 0 L20 -5 L23 0 Z" fill="#8a5428"/><circle cx="23" cy="4" r="1" fill="#222"/></g>`;
     return `<svg viewBox="${vb}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Внешность героя">${g}</svg>`;

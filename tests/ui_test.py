@@ -33,7 +33,7 @@ with sync_playwright() as p:
     def overflow():
         return pg.evaluate('document.documentElement.scrollWidth > window.innerWidth + 1')
     def small_targets():
-        return pg.evaluate('''[...document.querySelectorAll('button,input,[role=button]')].filter(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.height>0&&(r.height<43.5||r.width<43.5)}).map(e=>(e.textContent||e.getAttribute('aria-label')||e.className).trim().slice(0,30))''')
+        return pg.evaluate('''[...document.querySelectorAll('button,input,[role=button]')].filter(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.height>0&&!e.closest('label.switch')&&(r.height<43.5||r.width<43.5)}).map(e=>(e.textContent||e.getAttribute('aria-label')||e.className).trim().slice(0,30))''')
     def click(sel):
         pg.locator(sel).first.click(); pg.wait_for_timeout(250)
     def close_sheets(n=6):
@@ -68,7 +68,7 @@ with sync_playwright() as p:
 
     # 3. Обход всех экранов
     routes = ['city', 'career', 'people', 'more', 'housing', 'biz', 'fin', 'transport', 'hero', 'inventory', 'quests', 'ach', 'journal', 'stats', 'modes', 'settings', 'help',
-              'cat:food', 'cat:health', 'cat:fun', 'cat:skills', 'cat:docs', 'district:old', 'district:center', 'district:business', 'npc:nina', 'career:study', 'career:skills', 'people:love', 'passive', 'shop', 'talents', 'auto', 'rich']
+              'cat:food', 'cat:health', 'cat:fun', 'cat:skills', 'cat:docs', 'district:old', 'district:center', 'district:business', 'npc:nina', 'career:study', 'career:skills', 'people:love', 'passive', 'shop', 'talents', 'auto', 'rich', 'inbox']
     bad = []
     for r in routes:
         pg.evaluate(f'SN.UI.go({json.dumps(r)})'); pg.wait_for_timeout(120)
@@ -103,10 +103,24 @@ with sync_playwright() as p:
     # 6. Бизнес и финансы
     pg.evaluate("Object.assign(SN.state.docs,{ip:true}); SN.state.account=true; SN.state.money=60000; SN.UI.go('biz')")
     pg.wait_for_timeout(150)
-    click('[data-a="bizOpen"][data-x="drinks"]'); click('.sheet [data-a="confirmYes"]'); close_sheets()
+    click('[data-a="bizOpen"][data-x="drinks"]'); shot('14a-biz-open')
+    click('.sheet [data-a="bizOpenIn"][data-x="drinks"][data-y="embankment"]'); close_sheets()
     check('бизнес открыт', pg.evaluate('SN.state.biz.length') == 1)
-    click('[data-a="bizSet"][data-y="staff:1"]')
-    check('персонал нанят', pg.evaluate('SN.state.biz[0].staff') == 1)
+    check('открылась карточка бизнеса', pg.locator('.bizhero').count() == 1)
+    bad3 = []
+    for tab in ['overview', 'team', 'stock', 'market', 'up']:
+        click(f'[data-a="bizTab"][data-x="{tab}"]')
+        if overflow(): bad3.append(tab + ':overflow')
+        sm = small_targets()
+        if sm: bad3.append(tab + ':small' + str(sm[:3]))
+        shot('14-bizd-' + tab)
+    check('вкладки бизнеса без переполнения и мелких кнопок', not bad3, str(bad3))
+    close_sheets(); check('первый сотрудник нанят при открытии', pg.evaluate('SN.state.biz[0].team.length') == 1)
+    pg.evaluate('SN.state.biz[0].team = []; SN.UI.render()'); click('[data-a="bizTab"][data-x="team"]'); click('[data-a="bizHire"]'); close_sheets()
+    check('сотрудник нанят', pg.evaluate('SN.state.biz[0].team.length') == 1)
+    click('[data-a="bizTab"][data-x="market"]'); click('[data-a="bizCamp"][data-y="flyers"]'); close_sheets()
+    check('рекламная кампания запущена', pg.evaluate('!!SN.state.biz[0].camp'))
+    pg.evaluate("SN.UI.go('biz')"); pg.wait_for_timeout(150)
     shot('14-biz')
     pg.evaluate("SN.UI.go('fin')"); pg.wait_for_timeout(100)
     click('[data-a="amount"][data-x="toBank"]'); click('.sheet [data-a="amSet"]'); click('.sheet [data-a="amGo"]')

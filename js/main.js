@@ -43,7 +43,7 @@
       else if (base === 'npc') html = V.npc(arg);
       else if (base === 'career') html = V.career(arg || UI.tabs.career);
       else if (base === 'people') html = V.people(arg || UI.tabs.people);
-      else html = (V[base] || V.home)();
+      else html = (V[base] || V.home)(arg);
     } catch (err) { console.error(err); html = `<div class="notice">Ошибка экрана: ${U.esc(err.message)}. Попробуйте вернуться на главный.</div>` + UI.C.btn('На главный', 'go', 'home'); }
     const c = $('content'); c.innerHTML = `<div class="view">${html}</div>`;
     const nv = navOf(r);

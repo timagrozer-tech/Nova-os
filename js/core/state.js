@@ -8,7 +8,7 @@
     const seed = (opt.seed != null ? opt.seed : (Date.now() ^ 0x5f3759df)) | 0;
     return {
       v: SN.SAVE_VERSION, mode: 'classic', seed, rng: seed, created: Date.now(),
-      hero: { name: opt.name || 'Саня', skin: 1, hair: 1, beard: 1 },
+      hero: { name: opt.name || 'Саня', skin: 1, hair: 1, beard: 1, style: 0, glasses: 0 },
       time: 8 * 60,                    // минуты с полуночи первого дня
       district: 'old',
       money: 340, bank: 0, account: false,
@@ -26,16 +26,16 @@
       fin: { deposit: 0, loan: 0, loanStart: 0, loanDue: 0, funds: { index: 0, crypto: 0 }, ledger: [], history: [],
         mkt: { p: {}, h: {}, gold: 0, gh: [] }, port: {}, bonds: [], terms: [], gold: 0, broker: false, mort: [], ins: { health: false, property: false },
         card: 'basic', cb: 0, autosave: 0, agency: false, goodPays: 0, badPays: 0, news: [] },
-      perks: [], passive: [], itemVal: {}, nwHist: [],
+      perks: [], passive: [], itemVal: {}, nwHist: [], tasks: null, inbox: [],
       npc: {}, partner: null,
       quests: {}, ach: {}, flags: {}, daily: {}, lastDone: {},
-      c: { jobs: 0, gigs: 0, meals: 0, sleeps: 0, studyH: 0, earned: 0, spent: 0, actions: 0, nightsStreet: 0, events: 0, dates: 0, bizProfitDays: 0, fishCaught: 0, collapses: 0, passive: 0, autoDays: 0 },
+      c: { jobs: 0, gigs: 0, meals: 0, sleeps: 0, studyH: 0, earned: 0, spent: 0, actions: 0, nightsStreet: 0, events: 0, dates: 0, bizProfitDays: 0, fishCaught: 0, collapses: 0, passive: 0, autoDays: 0, talks: 0, fun: 0, wash: 0, saved: 0, bizShifts: 0 },
       log: [{ d: 1, t: 'Вы начинаете жизнь с нуля: 340 ₽, поношенная куртка и никаких документов. Соццентр в Старом районе — хорошее начало.' }],
       ill: null, weather: null, prices: 1, priceDays: 0,
       today: { inc: 0, exp: 0 }, days: [],   // история итогов дней
       pending: [],                     // очередь событий с выбором
       news: [],
-      settings: { motion: true, transport: 'auto', bigText: false, vibro: true, auto: { work: 'auto', study: '', events: 'auto', maxHours: 10, saveCash: true } }
+      settings: { motion: true, transport: 'auto', bigText: false, vibro: true, accent: 'gold', auto: { work: 'auto', study: '', events: 'auto', maxHours: 10, saveCash: true } }
     };
   };
 
@@ -71,7 +71,9 @@
       return s;
     },
     /* v2 → v3 (игра 0.3): новые поля добавит normalize, прогресс сохраняется полностью */
-    2: function (s) { s.v = 3; return s; }
+    2: function (s) { s.v = 3; return s; },
+    /* v3 → v4 (0.4): бизнесы получают команду, склад и район — это делает upgradeLegacy в normalize */
+    3: function (s) { s.v = 4; return s; }
   };
 
   SN.migrate = function (data) {
@@ -114,7 +116,7 @@
     if (!D.housing[out.housing]) out.housing = 'street';
     if (!D.districts[out.district]) out.district = 'old';
     out.certs = out.certs.filter(c => typeof c === 'string' && D.certNames[c]);
-    out.biz = out.biz.filter(b => b && D.bizById[b.id]).map(b => Object.assign(SN.Sys.biz.make(b.id), b));
+    out.biz = out.biz.filter(b => b && D.bizById[b.id]).map(b => SN.Sys.biz.upgradeLegacy(out, b));
     out.passive = out.passive.filter(p => p && D.passiveById && D.passiveById[p.id]);
     out.perks = out.perks.filter(p => D.perkById && D.perkById[p]);
     for (const k of ['mkt', 'ins']) out.fin[k] = Object.assign({}, base.fin[k], out.fin[k] || {});

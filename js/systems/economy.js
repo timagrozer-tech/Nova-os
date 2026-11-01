@@ -136,6 +136,8 @@
     Sys.stats.apply(s, a.eff, a.id === 'cookhome' && s.items.includes('kitchen') ? 1.3 : 1);
     Sys.stats.gain(s, a.gain, mult, a.cap);
     if (a.cat === 'food' && a.eff && a.eff.food) s.c.meals++;
+    if (a.cat === 'fun' || a.cat === 'skills') s.c.fun = (s.c.fun || 0) + 1;
+    if (a.eff && a.eff.hygiene >= 50) s.c.wash = (s.c.wash || 0) + 1;
     if (a.risk === 'poison' && !SN.perk(s, 'ironstomach') && U.chance(s, 0.04)) Sys.stats.getIll(s, 'poison');
     s.daily[a.id] = (s.daily[a.id] || 0) + 1;
     s.c.actions++; s.xp += Math.max(2, Math.round(a.hours * 3));

@@ -37,7 +37,7 @@
       req: { certs: ['programming'], items: ['laptop'] }, gain: { tech: 1 }, scaleSkill: 'tech', desc: 'Работа из дома, нужен ноутбук и навык программирования.' },
 
     // ── Вакансии: собеседование, одна основная работа, повышения
-    { id: 'loader', kind: 'job', icon: '🏗️', name: 'Грузчик на складе', district: 'industrial', hours: 8, pay: 3000, energy: 28, hyg: 10, open: [7, 12],
+    { id: 'loader', kind: 'job', icon: '🏗️', name: 'Грузчик на складе', district: 'industrial', hours: 8, pay: 3300, energy: 28, hyg: 10, open: [7, 12],
       req: { docs: ['passport'], skills: { physical: 10 } }, gain: { physical: 1 }, promo: 'physical', interview: 0.15,
       track: ['Грузчик', 'Старший грузчик', 'Бригадир', 'Мастер смены', 'Начальник склада'], desc: 'Официальное трудоустройство, стабильная зарплата.' },
     { id: 'cashier', kind: 'job', icon: '🛒', name: 'Продавец-кассир', district: 'sleeping', hours: 8, pay: 2500, energy: 18, hyg: 3, open: [8, 13], indoor: true,

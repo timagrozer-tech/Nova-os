@@ -67,25 +67,25 @@
 
   // ── Бизнесы
   D.business.push(
-    { id: 'carwash', icon: '🚿', name: 'Автомойка', district: 'industrial', price: 520000, base: 40, check: 720, cogs: 0.15, rent: 5500, wage: 2200, cap: 12, staffMax: 4, ads: 900,
+    { id: 'carwash', icon: '🚿', name: 'Автомойка', district: 'industrial', price: 520000, base: 40, check: 770, cogs: 0.15, rent: 5500, wage: 2200, cap: 12, staffMax: 4, ads: 900,
       req: { docs: ['ip'] }, season: { winter: 0.8, spring: 1.1, summer: 1.2, autumn: 1 }, rain: 0.6, desc: 'Простой старт: без лицензий. Дождь отпугивает клиентов.' },
-    { id: 'barbershop', icon: '💈', name: 'Барбершоп', district: 'sleeping', price: 680000, base: 30, check: 1260, cogs: 0.1, rent: 7000, wage: 3000, cap: 8, staffMax: 4, ads: 1200,
+    { id: 'barbershop', icon: '💈', name: 'Барбершоп', district: 'sleeping', price: 680000, base: 30, check: 1300, cogs: 0.1, rent: 7000, wage: 3000, cap: 8, staffMax: 4, ads: 1200,
       req: { docs: ['ip'], any: [{ certs: ['hair'] }, { certs: ['biz'] }] }, season: { winter: 1, spring: 1, summer: 1, autumn: 1 }, rain: 0.95, desc: 'Курс парикмахера или предпринимательства.' },
-    { id: 'bakery', icon: '🥐', name: 'Пекарня', district: 'sleeping', price: 820000, base: 240, check: 230, cogs: 0.42, rent: 8000, wage: 2600, cap: 80, staffMax: 4, ads: 1200,
+    { id: 'bakery', icon: '🥐', name: 'Пекарня', district: 'sleeping', price: 820000, base: 240, check: 290, cogs: 0.42, rent: 8000, wage: 2600, cap: 80, staffMax: 4, ads: 1200,
       req: { docs: ['ip', 'medbook'] }, season: { winter: 1.1, spring: 1, summer: 0.9, autumn: 1.05 }, rain: 1, desc: 'Утренний хлеб и выпечка. Медкнижка обязательна.' },
-    { id: 'itstudio', icon: '💻', name: 'IT-студия', district: 'business', price: 1400000, base: 3, check: 27000, cogs: 0.05, rent: 12000, wage: 8000, cap: 0.75, staffMax: 6, ads: 3000,
+    { id: 'itstudio', icon: '💻', name: 'IT-студия', district: 'business', price: 1400000, base: 3, check: 34480, cogs: 0.05, rent: 12000, wage: 8000, cap: 0.75, staffMax: 6, ads: 3000,
       req: { docs: ['ip'], any: [{ certs: ['programming'] }, { skills: { tech: 45 } }] }, season: { winter: 1, spring: 1, summer: 0.9, autumn: 1.05 }, rain: 1, desc: 'Сайты и приложения на заказ. Программирование или техника 45.' },
-    { id: 'gym', icon: '🏋️', name: 'Фитнес-клуб', district: 'sleeping', price: 2300000, base: 150, check: 570, cogs: 0.05, rent: 24000, wage: 3500, cap: 40, staffMax: 5, ads: 3000,
+    { id: 'gym', icon: '🏋️', name: 'Фитнес-клуб', district: 'sleeping', price: 2300000, base: 150, check: 560, cogs: 0.05, rent: 24000, wage: 3500, cap: 40, staffMax: 5, ads: 3000,
       req: { docs: ['ip'], certs: ['biz'] }, season: { winter: 1.1, spring: 1.15, summer: 0.8, autumn: 1 }, rain: 1.05, desc: 'Абонементы. Весной пик спроса.' },
-    { id: 'hostelbiz', icon: '🛏️', name: 'Свой хостел', district: 'old', price: 3000000, base: 70, check: 1100, cogs: 0.1, rent: 15000, wage: 2600, cap: 30, staffMax: 3, ads: 2500,
+    { id: 'hostelbiz', icon: '🛏️', name: 'Свой хостел', district: 'old', price: 3000000, base: 70, check: 1180, cogs: 0.1, rent: 15000, wage: 2600, cap: 30, staffMax: 3, ads: 2500,
       req: { docs: ['ip'], rep: 40 }, season: { winter: 0.8, spring: 1, summer: 1.35, autumn: 0.95 }, rain: 1, desc: 'Вы знаете, каково это — искать ночлег. Летом аншлаг.' },
-    { id: 'restaurant', icon: '🍽️', name: 'Ресторан на набережной', district: 'embankment', price: 4200000, base: 150, check: 1300, cogs: 0.38, rent: 40000, wage: 3200, cap: 28, staffMax: 8, ads: 6000,
+    { id: 'restaurant', icon: '🍽️', name: 'Ресторан на набережной', district: 'embankment', price: 4200000, base: 150, check: 1390, cogs: 0.38, rent: 40000, wage: 3200, cap: 28, staffMax: 8, ads: 6000,
       req: { docs: ['ip', 'medbook'], certs: ['biz'], rep: 50 }, season: { winter: 0.85, spring: 1, summer: 1.2, autumn: 0.95 }, rain: 0.9, desc: 'Высокий чек, дорогая аренда. Репутация 50.' },
-    { id: 'logistics', icon: '🚚', name: 'Транспортная компания', district: 'industrial', price: 8500000, base: 14, check: 23400, cogs: 0.45, rent: 50000, wage: 4500, cap: 2.6, staffMax: 8, ads: 8000,
+    { id: 'logistics', icon: '🚚', name: 'Транспортная компания', district: 'industrial', price: 8500000, base: 14, check: 30260, cogs: 0.45, rent: 50000, wage: 4500, cap: 2.6, staffMax: 8, ads: 8000,
       req: { docs: ['ip'], certs: ['biz', 'management'], rep: 60 }, season: { winter: 1.05, spring: 1, summer: 0.95, autumn: 1.1 }, rain: 1, desc: 'Перевозки для бизнеса. Нужен курс управления.' },
-    { id: 'cinema', icon: '🎬', name: 'Кинотеатр', district: 'center', price: 11000000, base: 850, check: 350, cogs: 0.2, rent: 80000, wage: 3000, cap: 150, staffMax: 8, ads: 12000,
+    { id: 'cinema', icon: '🎬', name: 'Кинотеатр', district: 'center', price: 11000000, base: 850, check: 410, cogs: 0.2, rent: 80000, wage: 3000, cap: 150, staffMax: 8, ads: 12000,
       req: { docs: ['ip'], certs: ['biz'], rep: 65 }, season: { winter: 1.1, spring: 0.95, summer: 0.85, autumn: 1.1 }, rain: 1.25, desc: 'Дождь и зима — лучшие друзья кино.' },
-    { id: 'factory', icon: '🏭', name: 'Мебельная фабрика', district: 'industrial', price: 32000000, base: 28, check: 36000, cogs: 0.55, rent: 140000, wage: 4800, cap: 2.6, staffMax: 12, ads: 20000,
+    { id: 'factory', icon: '🏭', name: 'Мебельная фабрика', district: 'industrial', price: 32000000, base: 28, check: 41650, cogs: 0.55, rent: 140000, wage: 4800, cap: 2.6, staffMax: 12, ads: 20000,
       req: { docs: ['ip'], certs: ['biz', 'management'], rep: 80 }, season: { winter: 0.95, spring: 1.05, summer: 1, autumn: 1 }, rain: 1, desc: 'Производство полного цикла. Вершина бизнес-карьеры.' }
   );
   D.bizById = Object.fromEntries(D.business.map(b => [b.id, b]));

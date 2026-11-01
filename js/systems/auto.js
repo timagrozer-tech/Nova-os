@@ -31,7 +31,11 @@
   Au.resolve = function (s, ctx) {
     const ev = Sys.events.current(s); if (!ev) return;
     let idx = 0;
-    if (ev.choices) { idx = ev.choices.findIndex(c => !c.lock || !c.lock(s)); if (idx < 0) idx = ev.choices.length - 1; }
+    if (ev.choices) {
+      const free = i => ev.choices[i] && !Sys.events.lock(s, ev.choices[i]);
+      idx = ev.auto != null && free(ev.auto) ? ev.auto : ev.choices.findIndex((c, i) => free(i));
+      if (idx < 0) idx = ev.choices.length - 1;
+    }
     const r = Sys.events.resolve(s, idx);
     if (r.locked) s.pending.shift();
     ctx.events.push(ev.icon + ' ' + ev.title + (r.text ? ': ' + r.text : ''));
@@ -69,8 +73,8 @@
       if (!Sys.work.check(s, j) && Au.try(() => Sys.work.shift(s, j.id))) return done(j.hours);
     }
     if (part !== 'gig' && s.biz.length && (plan.work === 'auto' || plan.work === 'biz')) {
-      const b = s.biz.find(x => !x.owner && (x.staff === 0 || plan.work === 'biz'));
-      if (b && s.st.energy >= 30 && Au.try(() => Sys.biz.work(s, b.id))) return done(8);
+      const b = s.biz.find(x => !x.owner && !x.paused && (x.team.length === 0 || plan.work === 'biz'));
+      if (b && s.st.energy >= 30 && Au.try(() => Sys.biz.work(s, b.uid))) return done(8);
     }
     if (part !== 'main' && (plan.work === 'auto' || plan.work === 'gig')) {
       // Не брать подработку, если сегодня ещё предстоит смена на основной работе
@@ -135,7 +139,7 @@
     if (s.st.food < 45) { const q = Sys.quick.eat(s); q.run(); }
     Au.sleep(s, plan);
     ctx.days++;
-    if (s.pending.length && plan.events !== 'stop') { while (s.pending.length) Au.resolve(s, ctx); }
+    for (let g = 0; g < 5 && s.pending.length && plan.events !== 'stop'; g++) Au.resolve(s, ctx);
     return '';
   };
 

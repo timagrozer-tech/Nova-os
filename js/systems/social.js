@@ -32,6 +32,7 @@
       if (S.where(s, id) !== s.district) return SN.fail(def.name + ' уже ушёл(ушла)');
     }
     const first = !n.met;
+    s.c.talks = (s.c.talks || 0) + 1;
     n.met = true;
     T.advance(s, remote ? 10 : 20, { indoor: false });
     if (n.last !== T.day(s)) { n.rel = U.clamp(n.rel + (remote ? 1.5 : 3) * (s.st.hygiene < 25 && !remote ? 0.4 : 1) * (SN.perk(s, 'charisma') ? 1.3 : 1)); n.last = T.day(s); }

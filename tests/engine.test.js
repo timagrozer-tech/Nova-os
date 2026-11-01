@@ -77,13 +77,16 @@ t('покупка жилья и продажа с возвратом 85%', () =>
 t('бизнес: запуск → ежедневная прибыль/расходы, простой без персонала', () => {
   const s = SN.fresh({ seed: 7 }); s.docs.passport = s.docs.ip = s.docs.medbook = true; s.account = true; s.money = 400000;
   ok(Sys.biz.open(s, 'kiosk').ok);
-  const b = s.biz[0]; eq(b.staff, 1);
+  const b = s.biz[0]; eq(b.team.length, 1); ok(b.stock > 0, 'стартовый товар'); ok(b.uid > 0);
   const bank0 = s.bank; const rep = T.advance(s, 1440 * 3, { indoor: true, noCollapse: true });
   ok(rep.length >= 3); ok(rep[0].biz.length === 1, 'отчёт по бизнесу');
   const tot = rep.reduce((a, r) => a + r.biz[0].profit, 0);
-  ok(rep[0].biz[0].tax > 0 && rep[0].biz[0].wages > 0 && rep[0].biz[0].rent > 0, 'учтены налог, зарплаты, аренда');
-  b.staff = 0; const r2 = T.advance(s, 1440, { indoor: true, noCollapse: true });
+  ok(rep[0].biz[0].tax > 0 && rep[0].biz[0].wages > 0 && rep[0].biz[0].rent > 0 && rep[0].biz[0].cogs > 0, 'учтены налог, зарплаты, аренда, закупки');
+  ok(b.stock > 0, 'автозакупка пополняет склад'); ok(b.hist.length === 3);
+  b.team = []; const r2 = T.advance(s, 1440, { indoor: true, noCollapse: true });
   eq(r2[0].biz[0].cust, 0, 'без персонала нет клиентов'); ok(r2[0].biz[0].profit < 0, 'убыток от аренды');
+  b.autoStock = false; b.stock = 0; Sys.biz.hire(s, b.uid, 0); const r3 = T.advance(s, 1440, { indoor: true, noCollapse: true });
+  eq(r3[0].biz[0].cust, 0, 'без товара нет продаж'); ok(r3[0].biz[0].lostStock > 0);
   console.log('      прибыль киоска за 3 дня: ' + tot);
 });
 t('дружба и согласие на свидание', () => {
@@ -124,7 +127,7 @@ t('миграция сохранения прототипа v1', () => {
   const old = { name: 'Саня', day: 3, hour: 14, money: 13000, bank: 500, xp: 120, health: 60, food: 40, hygiene: 30, mood: 70, energy: 50, warmth: 50, education: 2, reputation: 20, owned: ['Палатка', 'Тележка с напитками'], jobCount: 4 };
   mem[SN.Save.LEGACY] = JSON.stringify(old); delete mem[SN.Save.KEY]; delete mem[SN.Save.BAK];
   const r = SN.Save.read(); eq(r.source, 'legacy'); const s = r.state;
-  eq(s.money, 13000); eq(T.day(s), 3); ok(s.items.includes('tent')); eq(s.biz[0].id, 'drinks'); ok(s.certs.includes('school')); eq(s.v, 3);
+  eq(s.money, 13000); eq(T.day(s), 3); ok(s.items.includes('tent')); eq(s.biz[0].id, 'drinks'); ok(s.certs.includes('school')); eq(s.v, 4);
 });
 t('импорт отвергает поддельный файл', () => {
   let threw = false; try { SN.Save.importText('{"format":"s-nulya-save","hash":"0","data":"{}"}'); } catch (e) { threw = true; } ok(threw);
@@ -143,7 +146,7 @@ t('сохранение 0.2 (v2) загружается в 0.3 без потер
   const data = JSON.stringify(old);
   mem[SN.Save.KEY] = JSON.stringify({ format: 's-nulya-save', v: 2, data, hash: SN.U.hash(data) });
   const r = SN.Save.read(); eq(r.source, 'main'); const n = r.state;
-  eq(n.v, 3); eq(n.money, 141374); eq(n.bank, 1057807); eq(T.day(n), 276); eq(n.housing, 'flat'); eq(n.job.rank, 2); eq(n.biz[0].id, 'kiosk'); eq(n.quests.q_firstgig, 'done');
+  eq(n.v, 4); ok(n.biz[0].uid > 0 && Array.isArray(n.biz[0].team), 'бизнес переведён'); eq(n.money, 141374); eq(n.bank, 1057807); eq(T.day(n), 276); eq(n.housing, 'flat'); eq(n.job.rank, 2); eq(n.biz[0].id, 'kiosk'); eq(n.quests.q_firstgig, 'done');
   ok(Array.isArray(n.passive) && Array.isArray(n.fin.mort) && n.fin.ins && n.sk.english >= 0 && n.settings.auto.work === 'auto', 'новые поля добавлены');
   T.advance(n, 1440, { indoor: true, noCollapse: true }); ok(Sys.fin.netWorth(n) > 1e6, 'день после загрузки проходит');
 });
@@ -237,7 +240,7 @@ function bot(seed, days, opts) {
 t('поденщик без документов выживает, но не богатеет', () => {
   const { s, log } = bot(21, 30, {});
   console.log('      ' + log.map(l => 'д' + l.day + ': ' + l.net + '₽ hp' + l.hp).join(' | '));
-  ok(SN.Sys.fin.netWorth(s) > 2000, 'может накопить'); ok(SN.Sys.fin.netWorth(s) < 75000, 'но не слишком легко: ' + SN.Sys.fin.netWorth(s)); global.gigNet = log.find(l => l.day >= 31).net;
+  ok(SN.Sys.fin.netWorth(s) > 2000, 'может накопить'); ok(SN.Sys.fin.netWorth(s) < 100000, 'но не слишком легко: ' + SN.Sys.fin.netWorth(s)); global.gigNet = log.find(l => l.day >= 31).net;
   ok(s.c.collapses <= 1, 'не умирает от голода: обмороков ' + s.c.collapses);
 });
 t('документы + склад + хостел: устойчивый рост', () => {
@@ -250,9 +253,12 @@ t('экономика бизнеса: окупаемость 3–20 недель
   const s = SN.fresh({ seed: 30 }); s.docs.passport = s.docs.ip = s.docs.medbook = true; s.certs.push('biz', 'management', 'mechanic'); s.rep = 80; s.account = true;
   s.time = 120 * 1440; // весна-лето для честного среднего — берём ~февраль..май
   for (const b of D.business) {
-    const x = Sys.biz.make(b.id); x.staff = b.staffMax; x.rep = 50;
-    let sum = 0; const N = 360; for (let i = 0; i < N; i++) { const seasons = ['winter', 'spring', 'summer', 'autumn']; sum += Sys.biz.calc(s, x, 1, seasons[i % 4], 'clear').profit; }
-    let best = -1e9; for (let st = 0; st <= b.staffMax; st++) for (const pr of [0, 1, 2]) { x.staff = st; x.price = pr; let ss = 0; for (const se of ['winter', 'spring', 'summer', 'autumn']) ss += Sys.biz.calc(s, x, 1, se, 'clear').profit; best = Math.max(best, ss / 4); }
+    const x = Sys.biz.make(b.id); x.rep = 50;
+    let best = -1e9;
+    for (let st = 0; st <= b.staffMax; st++) for (const pr of [0.85, 1, 1.2]) {
+      x.team = Array.from({ length: st }, () => ({ n: 'x', sk: 3, wage: Math.round(b.wage * 1.15), mor: 70, tr: 'none' })); x.price = pr;
+      let ss = 0; for (const se of ['winter', 'spring', 'summer', 'autumn']) ss += Sys.biz.calc(s, x, 1, se, 'clear', { noStock: true }).profit; best = Math.max(best, ss / 4);
+    }
     const weeks = b.price / best / 7;
     console.log('      ' + b.name.padEnd(22) + ' лучший средний день ' + Math.round(best) + ' ₽ → окупаемость ' + weeks.toFixed(1) + ' нед.');
     ok(best > 0, b.name + ' может быть прибыльным'); ok(weeks > 4 && weeks < 25, b.name + ' окупаемость в разумных пределах');

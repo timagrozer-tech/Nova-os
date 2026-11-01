@@ -2,8 +2,8 @@
 (function (G) {
   'use strict';
   const SN = G.SN = G.SN || {};
-  SN.VERSION = '0.3.0';
-  SN.SAVE_VERSION = 3;
+  SN.VERSION = '0.4.0';
+  SN.SAVE_VERSION = 4;
   SN.D = SN.D || {};      // данные
   SN.Sys = SN.Sys || {};  // игровые системы
 

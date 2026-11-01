@@ -28,19 +28,24 @@
     let total = pool.reduce((a, e) => a + e.w, 0), r = U.rand(s) * total, pick = pool[0];
     for (const e of pool) { r -= e.w; if (r <= 0) { pick = e; break; } }
     s.flags.evLast[pick.id] = T.day(s);
-    s.pending.push({ id: pick.id });
+    let x = null; try { x = pick.prep ? pick.prep(s) : null; } catch (err) { return; }
+    s.pending.push({ id: pick.id, x });
   };
 
-  Ev.current = s => s.pending.length ? Ev.byId(s.pending[0].id) : null;
+  /* Неизвестные (удалённые в новой версии) события из старых сохранений отбрасываются */
+  Ev.current = s => { while (s.pending.length && !Ev.byId(s.pending[0].id)) s.pending.shift(); return s.pending.length ? Ev.byId(s.pending[0].id) : null; };
+  Ev.ctx = s => s.pending.length ? s.pending[0].x : null;
+  Ev.text = (s, e) => typeof e.text === 'function' ? e.text(s, Ev.ctx(s) || {}) : e.text;
+  Ev.lock = (s, c) => c.lock ? c.lock(s, Ev.ctx(s) || {}) : '';
   Ev.resolve = function (s, idx) {
     const e = Ev.current(s);
     if (!e) return { text: '' };
-    s.pending.shift();
+    const item = s.pending.shift(), x = item.x || {};
     if (!e.choices) return { text: '' };
     const c = e.choices[idx];
     if (!c) return { text: '' };
-    if (c.lock) { const l = c.lock(s); if (l) { s.pending.unshift({ id: e.id }); return { text: l, locked: true }; } }
-    const text = c.run(s);
+    if (c.lock) { const l = c.lock(s, x); if (l) { s.pending.unshift(item); return { text: l, locked: true }; } }
+    const text = c.run(s, x);
     s.c.events++;
     Sys.log(s, e.icon + ' ' + e.title + ': ' + text);
     Sys.quests.check(s);

@@ -58,8 +58,8 @@
   Sh.event = function () {
     const ev = Sys.events.current(S()); if (!ev) return;
     const s = S();
-    const ch = (ev.choices || [{ t: 'Хорошо' }]).map((c, i) => { const l = c.lock ? c.lock(s) : ''; return `<button class="choice" data-a="evChoose" data-x="${i}" ${l ? `aria-disabled="true" data-why="${e(l)}"` : ''}>${e(c.t)}${l ? `<small>${e(l)}</small>` : ''}</button>`; }).join('');
-    Sh.open(`<div class="big-ico">${ev.icon}</div><h3 style="justify-content:center">${e(ev.title)}</h3><p>${e(ev.text)}</p>${ch}`, { closable: false });
+    const ch = (ev.choices || [{ t: 'Хорошо' }]).map((c, i) => { const l = Sys.events.lock(s, c); return `<button class="choice" data-a="evChoose" data-x="${i}" ${l ? `aria-disabled="true" data-why="${e(l)}"` : ''}>${e(c.t)}${l ? `<small>${e(l)}</small>` : ''}</button>`; }).join('');
+    Sh.open(`<div class="big-ico">${ev.icon}</div><h3 style="justify-content:center">${e(ev.title)}</h3><p>${e(Sys.events.text(s, ev))}</p>${ch}`, { closable: false });
   };
   Sh.eventResult = function (text) { Sh.open(`<p>${e(text)}</p><button class="btn wide" data-a="sheetClose" data-focus>Дальше</button>`); };
 
