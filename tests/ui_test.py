@@ -68,7 +68,7 @@ with sync_playwright() as p:
 
     # 3. Обход всех экранов
     routes = ['city', 'career', 'people', 'more', 'housing', 'biz', 'fin', 'transport', 'hero', 'inventory', 'quests', 'ach', 'journal', 'stats', 'modes', 'settings', 'help',
-              'cat:food', 'cat:health', 'cat:fun', 'cat:skills', 'cat:docs', 'district:old', 'district:center', 'district:business', 'npc:nina', 'career:study', 'career:skills', 'people:love']
+              'cat:food', 'cat:health', 'cat:fun', 'cat:skills', 'cat:docs', 'district:old', 'district:center', 'district:business', 'npc:nina', 'career:study', 'career:skills', 'people:love', 'passive', 'shop', 'talents', 'auto', 'rich']
     bad = []
     for r in routes:
         pg.evaluate(f'SN.UI.go({json.dumps(r)})'); pg.wait_for_timeout(120)
@@ -77,7 +77,7 @@ with sync_playwright() as p:
         if overflow(): bad.append(r + ':overflow')
         sm = small_targets()
         if sm: bad.append(r + ':small' + str(sm[:3]))
-        if r in ('city', 'career', 'people', 'biz', 'fin', 'hero', 'quests', 'npc:nina', 'modes', 'more'): shot('10-' + r.replace(':', '-'))
+        if r in ('city', 'career', 'people', 'biz', 'fin', 'hero', 'quests', 'npc:nina', 'modes', 'more', 'passive', 'shop', 'talents', 'auto', 'rich', 'career:skills'): shot('10-' + r.replace(':', '-'))
     check('все ' + str(len(routes)) + ' экранов открываются без ошибок, без переполнения и мелких кнопок', not bad, str(bad))
 
     # 4. Документы через диалог Нины Петровны
@@ -122,6 +122,33 @@ with sync_playwright() as p:
     for _ in range(3): click('.sheet [data-a="fishHook"]')
     check('мини-игра завершается', pg.locator('.fish-bar').count() == 0)
     close_sheets()
+
+    # 7б. Финансы: вкладки, биржа
+    pg.evaluate("SN.state.bank = 2000000; SN.UI.go('fin')"); pg.wait_for_timeout(150)
+    bad2 = []
+    for tab in ['overview', 'save', 'credit', 'invest', 'ins']:
+        click(f'[data-a="finTab"][data-x="{tab}"]')
+        if overflow(): bad2.append(tab + ':overflow')
+        sm = small_targets()
+        if sm: bad2.append(tab + ':small' + str(sm[:3]))
+        if tab == 'invest' and pg.locator('[data-a="openBroker"]').count(): click('[data-a="openBroker"]')
+        shot('18-fin-' + tab)
+    check('вкладки финансов без переполнения', not bad2, str(bad2))
+    click('[data-a="finTab"][data-x="invest"]'); click('[data-a="amount"][data-x="stock:GRBK"]'); click('.sheet [data-a="amGo"]')
+    check('акции куплены через интерфейс', pg.evaluate("(SN.state.fin.port.GRBK||{q:0}).q") > 0)
+    # 7в. Активы
+    pg.evaluate("SN.UI.go('passive')"); pg.wait_for_timeout(100)
+    click('[data-a="passiveTab"][data-x="machine"]'); click('[data-a="buyAsset"][data-x="vending"]'); click('.sheet [data-a="confirmYes"]')
+    check('доходный актив куплен', pg.evaluate("SN.state.passive.length") == 1)
+    # 7г. Автопилот: неделя
+    pg.evaluate("SN.UI.go('home')"); pg.wait_for_timeout(100)
+    day0 = pg.evaluate('SN.T.day(SN.state)')
+    click('[data-a="live"][data-x="7"]'); pg.wait_for_timeout(500); shot('19-autopilot-run')
+    pg.wait_for_selector('.sheet [data-a="sheetClose"]', timeout=20000); pg.wait_for_timeout(300); shot('20-autopilot-summary')
+    check('автопилот прожил неделю', pg.evaluate('SN.T.day(SN.state)') - day0 >= 7)
+    close_sheets(10)
+    pg.evaluate("SN.UI.go('home')"); pg.wait_for_timeout(300); shot('21-home-after')
+    pg.screenshot(path=os.path.join(OUT, '21-home-full.png'), full_page=True)
 
     # 8. Сохранение → перезагрузка → восстановление
     snap = pg.evaluate('JSON.stringify({m:SN.state.money,b:SN.state.bank,t:SN.state.time,biz:SN.state.biz.length,name:SN.state.hero.name})')

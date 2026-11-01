@@ -54,14 +54,14 @@ jobs:
       - name: Сборка APK
         env:
           VERSION_CODE: ${{ github.run_number }}
-          VERSION_NAME: 0.2.${{ github.run_number }}
+          VERSION_NAME: 0.3.${{ github.run_number }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           gradle -p android assembleRelease --no-daemon
           mkdir -p out
-          cp android/app/build/outputs/apk/release/app-release.apk out/s-nulya-0.2.${{ github.run_number }}.apk
+          cp android/app/build/outputs/apk/release/app-release.apk out/s-nulya-0.3.${{ github.run_number }}.apk
 
       - uses: actions/upload-artifact@v4
         with:
@@ -71,8 +71,8 @@ jobs:
       - name: Релиз с APK
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.2.${{ github.run_number }}
-          name: С НУЛЯ 0.2.${{ github.run_number }}
+          tag_name: v0.3.${{ github.run_number }}
+          name: С НУЛЯ 0.3.${{ github.run_number }}
           body: |
             APK для Android 7.0+. Скачайте файл ниже, откройте его на телефоне и разрешите установку из этого источника.
             Обновления ставятся поверх — прогресс сохраняется.

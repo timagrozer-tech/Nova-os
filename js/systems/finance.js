@@ -53,13 +53,15 @@
     s.fin.deposit -= amt; s.bank += amt;
     return SN.okr('Со вклада: ' + U.money(amt));
   };
-  F.loanRate = s => F.LOAN_RATE * (1 - s.sk.finance / 200);
+  F.loanRate = s => F.LOAN_RATE * (1 - s.sk.finance / 200) * (Sys.inv ? Sys.inv.scoreMult(s) : 1) * (SN.perk(s, 'banker') ? 0.85 : 1);
   F.avgIncome = s => { const d = s.days.slice(0, 7); return d.length ? d.reduce((a, x) => a + x.inc, 0) / d.length : 0; };
   F.loanLimit = function (s) {
     if (!s.account || !s.docs.passport) return 0;
     if (!s.job && !s.biz.length) return 0;
     if (s.rep < 15 || s.fin.loan > 0) return 0;
-    return Math.max(0, Math.floor(Math.min(s.rep * 4000, F.avgIncome(s) * 20 + (s.job ? 10000 : 0)) / 1000) * 1000);
+    const sc = Sys.inv ? Sys.inv.score(s) : 600;
+    if (sc < 500) return 0;
+    return Math.max(0, Math.floor(Math.min(s.rep * 4000 * sc / 600, F.avgIncome(s) * 20 * sc / 600 + (s.job ? 10000 : 0)) / 1000) * 1000);
   };
   F.loanWhy = function (s) {
     if (!s.account) return 'Нужен банковский счёт';
@@ -105,12 +107,12 @@
 
   F.daily = function (s, rep) {
     const f = s.fin;
-    if (f.deposit > 0) { const i = f.deposit * F.DEP_RATE; f.deposit += i; f.depIncome = (f.depIncome || 0) + i; }
+    if (f.deposit > 0) { const i = f.deposit * F.DEP_RATE * (SN.perk(s, 'banker') ? 1.2 : 1); f.deposit += i; f.depIncome = (f.depIncome || 0) + i; }
     if (f.loan > 0) {
       const overdue = T.day(s) > f.loanDue;
       f.loan += f.loan * (overdue ? 0.002 : F.loanRate(s));
       if (overdue) {
-        s.rep = U.clamp(s.rep - 1); s.st.stress = U.clamp(s.st.stress + 4);
+        s.rep = U.clamp(s.rep - 1); s.st.stress = U.clamp(s.st.stress + 4); f.badPays = (f.badPays || 0) + 1;
         rep.lines.push('⚠️ Кредит просрочен: ' + U.money(f.loan) + '. Пени растут, репутация падает.');
       } else if (f.loanDue - T.day(s) === 7) rep.lines.push('До погашения кредита 7 дней. Остаток ' + U.money(f.loan) + '.');
     }
@@ -124,12 +126,18 @@
     f.history.unshift({ d: T.day(s) - 1, cash: s.money, bank: s.bank + f.deposit });
     f.history = f.history.slice(0, 30);
   };
+  const f2 = s => s.fin;
   F.netWorth = function (s) {
     let w = s.money + s.bank + s.fin.deposit + (s.fin.funds.index || 0) + (s.fin.funds.crypto || 0) - s.fin.loan;
-    s.items.forEach(i => w += D.items[i].price * D.items[i].sell);
+    s.items.forEach(i => w += Sys.prop.itemValue(s, i));
     const h = D.housing[s.housing];
     if (h.type === 'own') w += h.price * 0.85; else w += s.deposit;
     s.biz.forEach(b => w += Sys.biz.sellValue(s, b));
+    if (Sys.inv) {
+      w += Sys.inv.passiveValue(s) + Sys.inv.portfolioValue(s) + (f2(s).gold || 0) * (Sys.inv.mkt(s).gold || 0) * 0.97;
+      f2(s).bonds.forEach(b => w += b.amt); f2(s).terms.forEach(t => w += t.amt + t.acc);
+      f2(s).mort.forEach(m => w -= m.left);
+    }
     return Math.round(w);
   };
 })(typeof window !== 'undefined' ? window : globalThis);

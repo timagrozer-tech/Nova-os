@@ -208,3 +208,166 @@ h1, h2, h3 { margin: 0; }
 .swatches { display: flex; gap: 8px; flex-wrap: wrap; }
 .sw { width: var(--tap); height: var(--tap); border-radius: 50%; border: 2px solid #fff3; }
 .sw.on { border-color: var(--gold); box-shadow: 0 0 0 3px #f5b54a44; }
+
+/* ═════════════ 0.3 — обновлённый дизайн и анимации ═════════════ */
+:root { --glass: linear-gradient(150deg, #222c37f2, #19212af2); --ring: 0 0 0 1px #ffffff0d inset; --shadow: 0 8px 24px #0006; --ease: cubic-bezier(.2, .8, .2, 1); }
+body { background: radial-gradient(120% 60% at 50% -10%, #1d2732, #101419 60%); }
+.shell { background: transparent; }
+.topbar { background: linear-gradient(180deg, #121920f5, #11171cf0); box-shadow: 0 6px 20px #0005; }
+.brand { background: linear-gradient(90deg, #ffd98a, #f5b54a 60%, #e09a2e); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.wallet b { display: inline-block; transition: transform .2s var(--ease); }
+.wallet b.pulse { animation: pulse .45s var(--ease); }
+@keyframes pulse { 40% { transform: scale(1.12); color: var(--gold2); } }
+.xp i { position: relative; overflow: hidden; }
+.xp i::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, #fff8, transparent); transform: translateX(-100%); animation: shine 2.8s ease-in-out infinite; }
+@keyframes shine { 60%, 100% { transform: translateX(100%); } }
+
+/* Карточки: стекло, мягкая тень, появление с задержкой */
+.card { background: var(--glass); box-shadow: var(--shadow), var(--ring); border-color: #364350; transition: transform .2s var(--ease), border-color .2s; }
+.card[role="button"]:active { transform: scale(.985); }
+.card.gold { background: linear-gradient(130deg, #3a3020, #262220 60%, #1f2226); border-color: #7a6034; box-shadow: var(--shadow), 0 0 0 1px #f5b54a1a inset; }
+.card.good { border-color: #2f6d50; background: linear-gradient(150deg, #1e2f2b, #19222a); }
+.view > * { animation: rise .32s var(--ease) both; }
+.view > *:nth-child(2) { animation-delay: .03s; } .view > *:nth-child(3) { animation-delay: .06s; } .view > *:nth-child(4) { animation-delay: .09s; }
+.view > *:nth-child(5) { animation-delay: .12s; } .view > *:nth-child(6) { animation-delay: .15s; } .view > *:nth-child(7) { animation-delay: .18s; } .view > *:nth-child(n+8) { animation-delay: .2s; }
+@keyframes rise { from { transform: translateY(10px); opacity: 0; } to { transform: none; opacity: 1; } }
+.heading { position: relative; padding-left: 10px; }
+.heading::before { content: ''; position: absolute; left: 0; top: 3px; bottom: 3px; width: 3px; border-radius: 3px; background: linear-gradient(var(--gold2), var(--gold)); }
+.thumb { background: radial-gradient(circle at 30% 25%, #4a5866, #232d36); box-shadow: 0 3px 8px #0005, var(--ring); }
+.thumb.glow { background: radial-gradient(circle at 30% 25%, #ffcf79, #b97a24); box-shadow: 0 0 18px #f5b54a55; }
+
+/* Кнопки: блик и волна */
+.btn, .quick button, .tile, .choice, .nav button, .pin, .perk { position: relative; overflow: hidden; }
+.btn { box-shadow: 0 3px 10px #0004, inset 0 1px 0 #ffffff40; }
+.btn.sec { box-shadow: 0 2px 8px #0003, inset 0 1px 0 #ffffff14; }
+.btn:hover { filter: brightness(1.06); }
+.ripple { position: absolute; border-radius: 50%; background: #ffffff38; transform: scale(0); animation: ripple .5s ease-out forwards; pointer-events: none; }
+@keyframes ripple { to { transform: scale(1); opacity: 0; } }
+.tile { transition: transform .2s var(--ease), border-color .2s; box-shadow: var(--shadow), var(--ring); }
+.tile:active { transform: scale(.97); }
+.tile .ti { display: inline-block; transition: transform .3s var(--ease); }
+.tile:hover .ti { transform: scale(1.15) rotate(-6deg); }
+.choice.on { border-color: var(--gold); background: linear-gradient(130deg, #3a3020, #252a30); box-shadow: 0 0 0 1px #f5b54a33 inset; }
+.choice small.ok { color: var(--mute); }
+.col { display: flex; flex-direction: column; gap: 6px; flex: none; }
+
+/* Нижняя навигация */
+.nav { background: linear-gradient(180deg, #141b22f2, #0f1419fa); box-shadow: 0 -8px 24px #0006; }
+.nav button { transition: color .2s, background .25s var(--ease); }
+.nav button .ni { transition: transform .3s var(--ease); }
+.nav button.on { background: linear-gradient(160deg, #4a3b22, #352b1c); box-shadow: inset 0 1px 0 #ffffff14; }
+.nav button.on .ni { transform: translateY(-2px) scale(1.12); animation: hop .4s var(--ease); }
+@keyframes hop { 40% { transform: translateY(-6px) scale(1.18); } }
+
+/* Шкалы */
+.meter { background: linear-gradient(160deg, #1f2832, #1a222b); box-shadow: var(--ring); transition: border-color .3s; }
+.meter .mi { display: inline-block; }
+.meter.low .mi { animation: wobble 1.6s ease-in-out infinite; }
+@keyframes wobble { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(-12deg); } 40% { transform: rotate(10deg); } 60% { transform: rotate(-6deg); } }
+.track i { transition: width .7s var(--ease); position: relative; }
+.meter b.up { color: var(--green); transition: color 1s; } .meter b.down { color: var(--red); transition: color 1s; }
+.prog i { transition: width .7s var(--ease); background: linear-gradient(90deg, #e09a2e, #ffd98a); }
+
+/* Сцена: читаемость текста и живая атмосфера */
+.scene-copy::before { content: ''; position: absolute; left: -12px; right: -12px; top: -46px; bottom: -12px; z-index: -1; background: linear-gradient(180deg, transparent, #0a0e15b8 30%, #0a0e15ee 70%); }
+.scene-copy h1 { text-shadow: 0 2px 12px #000, 0 0 2px #000; }
+.eyebrow { text-shadow: 0 1px 6px #000; }
+.hero .bg { animation: kenburns 24s ease-in-out infinite alternate; }
+@keyframes kenburns { to { transform: scale(1.08) translate(-1.5%, 1%); } }
+.hero-figure svg { transform-origin: 50% 100%; animation: breathe 3.6s ease-in-out infinite; }
+@keyframes breathe { 50% { transform: scaleY(1.018) translateY(-1px); } }
+.skyline .tw { animation: flicker 7s steps(1) infinite; }
+@keyframes flicker { 0%, 100% { opacity: .9; } 30% { opacity: .15; } 55% { opacity: .9; } 80% { opacity: .35; } }
+.stars { position: absolute; inset: 0 0 45% 0; z-index: -2; background-image: radial-gradient(#fff 1px, transparent 1.4px), radial-gradient(#fffa .8px, transparent 1.2px); background-size: 53px 41px, 31px 37px; background-position: 7px 9px, 19px 23px; animation: twinkle 4s ease-in-out infinite alternate; pointer-events: none; }
+@keyframes twinkle { to { opacity: .45; } }
+.clouds { position: absolute; inset: 0; z-index: -2; pointer-events: none; overflow: hidden; }
+.clouds i { position: absolute; width: 120px; height: 34px; border-radius: 40px; background: #ffffffa0; filter: blur(6px); animation: drift 38s linear infinite; }
+.clouds i:nth-child(1) { top: 16%; left: -30%; } .clouds i:nth-child(2) { top: 30%; left: -60%; width: 170px; animation-duration: 52s; opacity: .7; } .clouds i:nth-child(3) { top: 8%; left: -90%; width: 90px; animation-duration: 44s; }
+.clouds.warm i { background: #ffb08a80; }
+@keyframes drift { to { transform: translateX(170vw); } }
+@media (min-width: 480px) { @keyframes drift { to { transform: translateX(800px); } } }
+.birds { position: absolute; top: 18%; left: -15%; width: 60px; z-index: -1; fill: none; stroke: #1f2730; stroke-width: 1.6; animation: fly 26s linear infinite; }
+@keyframes fly { to { transform: translate(560px, -30px); } }
+.quick button { transition: transform .15s var(--ease); }
+.quick button:active { transform: scale(.95); }
+.quick button:first-child { box-shadow: 0 6px 18px #f5b54a44, inset 0 1px 0 #fff6; }
+.quick .ico { transition: transform .3s var(--ease); }
+.quick button:hover .ico { transform: scale(1.18) rotate(-8deg); }
+
+/* Панель автопилота и полоса денег */
+.autopanel { background: linear-gradient(130deg, #24303d, #1b232c); border-color: #3e5163; margin-top: 10px; }
+.seg3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+.seg3 .btn { padding: 8px 4px; }
+.money-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin-top: 10px; }
+.money-strip button { min-height: 58px; border-radius: 13px; border: 1px solid #3a4652; background: var(--glass); padding: 8px 6px; text-align: left; box-shadow: var(--ring); }
+.money-strip b { display: block; font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.money-strip b.pos { color: var(--green); }
+.money-strip span { font-size: 10px; color: var(--mute); }
+
+/* KPI и банковская карта */
+.kpis { display: flex; gap: 6px; text-align: center; }
+.kpis .kpi { flex: 1; min-width: 0; }
+.kpi strong { display: block; font-size: 18px; color: #ffc56b; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kpi span { font-size: 10.5px; color: #9eabb7; }
+.bankcard { background: linear-gradient(125deg, #4a3a1e, #2b2a2c 45%, #1c2733); border-color: #8a6a35; position: relative; overflow: hidden; }
+.bankcard::after { content: ''; position: absolute; top: -60%; left: -30%; width: 60%; height: 220%; background: linear-gradient(90deg, transparent, #ffffff12, transparent); transform: rotate(20deg); animation: sheen 6s ease-in-out infinite; }
+@keyframes sheen { 0%, 60% { left: -40%; } 100% { left: 120%; } }
+.bc-top { display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 800; color: #f1d6a5; }
+.bc-sum { font-size: 26px; font-weight: 900; margin: 6px 0 2px; font-variant-numeric: tabular-nums; }
+.bc-sum span { font-size: 12px; color: var(--mute); font-weight: 600; }
+.spark { display: block; max-width: 100%; height: auto; }
+.spark-line { stroke-dasharray: 600; stroke-dashoffset: 600; animation: draw 1s var(--ease) forwards; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+.score-bar { position: relative; height: 10px; border-radius: 9px; margin: 12px 0 4px; background: linear-gradient(90deg, #ff7d7e, #ffb86a 40%, #f5d36a 55%, #71d8a3 80%, #3fbf86); }
+.score-bar i { position: absolute; top: -4px; width: 6px; height: 18px; margin-left: -3px; border-radius: 3px; background: #fff; box-shadow: 0 0 8px #000a; transition: left .8s var(--ease); }
+.score-scale { display: flex; justify-content: space-between; font-size: 10px; color: var(--mute); }
+.stock .spark { flex: none; }
+.news { border-color: #36547a; background: linear-gradient(150deg, #1e2c3d, #19222a); }
+.rich.me { background: #f5b54a1a; border-radius: 10px; padding-inline: 8px; margin-inline: -8px; }
+
+/* Таланты */
+.perk-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.perk { min-height: 132px; text-align: left; display: flex; flex-direction: column; gap: 3px; padding: 12px; border-radius: 14px; border: 1px solid #3f4a55; background: var(--glass); box-shadow: var(--ring); }
+.perk .pi { font-size: 26px; }
+.perk b { font-size: 13px; }
+.perk small { font-size: 11px; color: #a7b3bd; line-height: 1.3; flex: 1; }
+.perk .pc { font-size: 11px; color: var(--gold); font-weight: 800; }
+.perk.on { border-color: #7a6034; background: linear-gradient(140deg, #3a3020, #222428); }
+.perk.on .pi { animation: glowpulse 2.4s ease-in-out infinite; }
+@keyframes glowpulse { 50% { filter: drop-shadow(0 0 8px #f5b54a); } }
+.perk[aria-disabled="true"] { opacity: .55; }
+
+/* Поля суммы */
+.field.big { font-size: 22px; font-weight: 800; text-align: center; font-variant-numeric: tabular-nums; }
+.range { width: 100%; margin: 12px 0 4px; accent-color: var(--gold); height: 32px; }
+.amount { grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); }
+
+/* Всплывающие суммы, конфетти, смена дня */
+.float-delta { position: fixed; z-index: 70; transform: translateX(-100%); font-weight: 900; font-size: 15px; pointer-events: none; animation: floatup 1.25s var(--ease) forwards; text-shadow: 0 2px 8px #000; }
+.float-delta.pos { color: var(--green); } .float-delta.neg { color: var(--red); }
+@keyframes floatup { from { opacity: 0; transform: translate(-100%, 6px) scale(.8); } 15% { opacity: 1; transform: translate(-100%, 0) scale(1.1); } to { opacity: 0; transform: translate(-100%, 46px); } }
+.confetti { position: fixed; inset: 0; z-index: 80; pointer-events: none; overflow: hidden; }
+.confetti i { position: absolute; top: -12px; width: 8px; height: 13px; border-radius: 2px; animation: fall 1.5s cubic-bezier(.3, .6, .4, 1) forwards; }
+@keyframes fall { to { transform: translate(var(--dx), 105vh) rotate(var(--r)); opacity: .8; } }
+.daywipe { position: fixed; inset: 0; z-index: 75; display: grid; place-items: center; pointer-events: none; background: radial-gradient(circle, #0b101ae0, #0b101aa0); animation: wipe 1.35s ease forwards; }
+.daywipe div { text-align: center; animation: rise .5s var(--ease) both; }
+.daywipe b { display: block; font-size: 40px; font-weight: 900; background: linear-gradient(90deg, #ffd98a, #f5b54a); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.daywipe span { color: var(--ink2); font-size: 14px; }
+@keyframes wipe { 0% { opacity: 0; } 15%, 70% { opacity: 1; } 100% { opacity: 0; } }
+
+/* Экран автопилота */
+.liveov { position: fixed; inset: 0; z-index: 65; display: grid; place-items: center; background: radial-gradient(circle at 50% 40%, #1d2a38f2, #080b10f7); animation: fade .25s ease both; padding: 16px; }
+.liveov.out { animation: fade .25s ease reverse both; }
+.live-card { width: 100%; max-width: 340px; text-align: center; }
+.live-sun { width: 110px; height: 110px; margin: 0 auto 14px; border-radius: 50%; border: 2px dashed #f5b54a66; position: relative; animation: spin 3s linear infinite; }
+.live-sun i { position: absolute; top: -9px; left: 50%; width: 18px; height: 18px; margin-left: -9px; border-radius: 50%; background: radial-gradient(#fff3c4, #f5b54a); box-shadow: 0 0 18px #f5b54a; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.live-day { font-size: 34px; font-weight: 900; color: var(--gold2); font-variant-numeric: tabular-nums; }
+.live-sub { color: var(--ink2); margin-bottom: 14px; }
+.live-track { height: 10px; margin-bottom: 12px; }
+.live-track i { background: linear-gradient(90deg, #e09a2e, #ffd98a); transition: width .25s; }
+.live-money { font-size: 20px; font-weight: 800; margin-bottom: 18px; font-variant-numeric: tabular-nums; }
+.up { color: var(--green); } .down { color: var(--red); }
+.sheet { background: linear-gradient(180deg, #1c2530, #161d24); box-shadow: 0 -10px 40px #0008; }
+.toast { box-shadow: 0 14px 40px #000a, var(--ring); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+html.nomotion .clouds, html.nomotion .birds, html.nomotion .stars { display: none; }

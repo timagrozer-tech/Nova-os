@@ -28,9 +28,27 @@
     if (s.partner && s.npc[s.partner] && s.npc[s.partner].livingTogether) { s.npc[s.partner].livingTogether = false; }
     return refund;
   };
-  P.takeHome = function (s, id) {
-    const why = P.checkHome(s, id); if (why) return SN.fail(why);
+  /* Есть ли вещь (с учётом замен: флагман = смартфон, бизнес-седан = авто…) */
+  P.has = (s, id) => s.items.includes(id) || (D.itemAlias && (D.itemAlias[id] || []).some(x => s.items.includes(x)));
+  P.itemValue = (s, id) => { const it = D.items[id]; return it.apr ? Math.round((s.itemVal[id] || it.price) * it.sell) : Math.round(it.price * it.sell); };
+  P.takeHome = function (s, id, mortgage) {
     const h = D.housing[id];
+    if (mortgage && h.type === 'own') {
+      if (s.housing === id) return SN.fail('Вы уже здесь живёте');
+      const q = Sys.inv.mortQuote(s, h.price); if (q.why) return SN.fail(q.why);
+      const refund = P.refundValue(s);
+      if (!E().canPay(s, q.down - refund)) return SN.fail('Первый взнос ' + U.money(q.down));
+      if (s.housing !== 'street') P.moveOut(s);
+      E().pay(s, q.down, 'housing', 'Первый взнос: ' + h.name);
+      Sys.inv.addMort(s, q, 'home', id, h.name);
+      s.housing = id; s.rentDebt = 0; s.rentPaid = T.day(s) + 7;
+      T.advance(s, 120, { indoor: true });
+      Sys.log(s, 'Купили жильё в ипотеку: ' + h.name + '.');
+      Sys.quests.check(s);
+      SN.say(h.icon + ' Новый адрес: ' + h.name + ' (ипотека ' + U.money(q.pay) + '/день)', 'good');
+      return SN.okr(h.name);
+    }
+    const why = P.checkHome(s, id); if (why) return SN.fail(why);
     if (s.housing !== 'street') P.moveOut(s);
     if (h.type === 'rent') {
       E().pay(s, h.weekly + h.deposit, 'housing', 'Аренда + залог: ' + h.name);
@@ -56,12 +74,19 @@
   /* Еженедельные платежи: аренда/коммуналка + обслуживание техники */
   P.weeklyBill = function (s) {
     const h = D.housing[s.housing];
-    let sum = h.type === 'rent' ? h.weekly : h.type === 'own' ? h.upkeep : 0;
+    let sum = h.type === 'rent' ? h.weekly : h.type === 'own' ? h.upkeep * (s.items.includes('smarthome') ? 0.8 : 1) : 0;
     s.items.forEach(i => { if (D.items[i].upkeep) sum += D.items[i].upkeep; });
     return Math.round(sum * (s.partner && s.npc[s.partner] && s.npc[s.partner].livingTogether ? 0.6 : 1));
   };
   P.daily = function (s, rep) {
     const day = T.day(s);
+    // Ежедневные эффекты вещей и изменение цены коллекционных предметов
+    for (const i of s.items) {
+      const it = D.items[i];
+      if (it.homeDaily && (s.housing !== 'street' || !it.needHome)) Sys.stats.apply(s, it.homeDaily);
+      if (it.skillDaily && s.housing !== 'street') Sys.stats.gain(s, it.skillDaily);
+      if (it.apr) s.itemVal[i] = Math.max(it.price * 0.3, (s.itemVal[i] || it.price) * (1 + it.apr[0] + U.gauss(s) * it.apr[1]));
+    }
     const hasBills = s.housing !== 'street' || s.items.some(i => D.items[i].upkeep);
     if (!hasBills) return;
     if (!s.rentPaid) s.rentPaid = day + 7;
@@ -87,7 +112,7 @@
     }
   };
 
-  P.itemPrice = (s, id) => Math.round(D.items[id].price * (s.flags.discountDay === T.day(s) ? 0.75 : 1));
+  P.itemPrice = (s, id) => Math.round(D.items[id].price * (s.flags.discountDay === T.day(s) && !D.items[id].apr ? 0.75 : 1) * (SN.perk(s, 'haggler') && !D.items[id].apr ? 0.9 : 1));
   P.buyItem = function (s, id) {
     const it = D.items[id];
     if (s.items.includes(id)) return SN.fail('Уже есть');
@@ -97,7 +122,9 @@
     s.items.push(id);
     if (id === 'phone') delete s.flags.phoneBroken;
     T.advance(s, 30, { indoor: true });
-    Sys.stats.apply(s, { mood: id === 'sportcar' ? 30 : 5 });
+    Sys.stats.apply(s, { mood: id === 'sportcar' || id === 'yacht' || id === 'jet' ? 30 : 5 });
+    if (it.apr) s.itemVal[id] = p;
+    if (it.rep) s.rep = U.clamp(s.rep + it.rep);
     Sys.log(s, 'Покупка: ' + it.name + ' (' + U.money(p) + ').');
     Sys.quests.check(s);
     SN.say(it.icon + ' Куплено: ' + it.name, 'good');
@@ -106,14 +133,14 @@
   P.sellItem = function (s, id) {
     const it = D.items[id];
     if (!s.items.includes(id)) return SN.fail('Нет такой вещи');
-    const v = Math.round(it.price * it.sell);
-    s.items = s.items.filter(x => x !== id);
+    const v = P.itemValue(s, id);
+    s.items = s.items.filter(x => x !== id); delete s.itemVal[id];
     E().earn(s, v, 'items', 'Продажа: ' + it.name);
     Sys.log(s, 'Продано: ' + it.name + ' за ' + U.money(v) + '.');
     SN.say('Продано за ' + U.money(v), 'good');
     return SN.okr('');
   };
-  P.clothPrice = (s, id) => Math.round(D.clothes[id].price * (s.flags.discountDay === T.day(s) ? 0.7 : 1));
+  P.clothPrice = (s, id) => Math.round(D.clothes[id].price * (s.flags.discountDay === T.day(s) ? 0.7 : 1) * (SN.perk(s, 'haggler') ? 0.9 : 1));
   P.buyClothes = function (s, id) {
     const c = D.clothes[id];
     if (s.clothes.includes(id)) return SN.fail('Уже есть');

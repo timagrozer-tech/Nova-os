@@ -17,7 +17,7 @@
   C.tabs = (list, cur, a) => `<div class="tabs" role="tablist">${list.map(([id, name]) => `<button role="tab" aria-selected="${cur === id}" class="tab ${cur === id ? 'on' : ''}" ${C.attrs(a, id)}>${name}</button>`).join('')}</div>`;
   C.meter = (label, icon, v, col, inverse, info) => {
     const low = !info && (inverse ? v > 75 : v < 20);
-    return `<div class="meter ${low ? 'low' : ''}" aria-label="${label}: ${Math.round(v)}"><div class="mr"><span aria-hidden="true">${icon}</span><b>${Math.round(v)}</b></div><div class="ml">${label}</div><div class="track"><i style="width:${U.clamp(v)}%;background:${col}"></i></div></div>`;
+    return `<div class="meter ${low ? 'low' : ''}" aria-label="${label}: ${Math.round(v)}"><div class="mr"><span aria-hidden="true" class="mi">${icon}</span><b data-count="m_${label}">${Math.round(v)}</b></div><div class="ml">${label}</div><div class="track"><i data-k="m_${label}" style="width:${U.clamp(v)}%;background:${col}"></i></div></div>`;
   };
   C.prog = (v, max) => `<div class="prog"><i style="width:${U.clamp(v / max * 100)}%"></i></div>`;
   C.tag = (t, cls) => `<span class="tag ${cls || ''}">${t}</span>`;

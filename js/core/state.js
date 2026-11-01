@@ -14,7 +14,7 @@
       money: 340, bank: 0, account: false,
       st: { health: 72, food: 55, energy: 75, hygiene: 40, mood: 50, warmth: 55, stress: 40 },
       rep: 10, xp: 0,
-      sk: { physical: 8, social: 6, intellect: 6, finance: 0, cooking: 2, tech: 0, trade: 0, craft: 3, driving: 0, music: 0 },
+      sk: { physical: 8, social: 6, intellect: 6, finance: 0, cooking: 2, tech: 0, trade: 0, craft: 3, driving: 0, music: 0, english: 2, design: 0, marketing: 0, law: 0 },
       docs: { passport: false, oms: false, medbook: false, license: false, ip: false },
       docsPending: {},                 // { passport: day готовности }
       certs: [], study: {},            // study: { courseId: часов пройдено }
@@ -23,16 +23,19 @@
       housing: 'street', rentPaid: 0, deposit: 0, rentDebt: 0,
       items: [], clothes: ['worn'], wear: 'worn', groceries: 0, fish: 0,
       biz: [],
-      fin: { deposit: 0, loan: 0, loanStart: 0, loanDue: 0, funds: { index: 0, crypto: 0 }, ledger: [], history: [] },
+      fin: { deposit: 0, loan: 0, loanStart: 0, loanDue: 0, funds: { index: 0, crypto: 0 }, ledger: [], history: [],
+        mkt: { p: {}, h: {}, gold: 0, gh: [] }, port: {}, bonds: [], terms: [], gold: 0, broker: false, mort: [], ins: { health: false, property: false },
+        card: 'basic', cb: 0, autosave: 0, agency: false, goodPays: 0, badPays: 0, news: [] },
+      perks: [], passive: [], itemVal: {}, nwHist: [],
       npc: {}, partner: null,
       quests: {}, ach: {}, flags: {}, daily: {}, lastDone: {},
-      c: { jobs: 0, gigs: 0, meals: 0, sleeps: 0, studyH: 0, earned: 0, spent: 0, actions: 0, nightsStreet: 0, events: 0, dates: 0, bizProfitDays: 0, fishCaught: 0, collapses: 0 },
+      c: { jobs: 0, gigs: 0, meals: 0, sleeps: 0, studyH: 0, earned: 0, spent: 0, actions: 0, nightsStreet: 0, events: 0, dates: 0, bizProfitDays: 0, fishCaught: 0, collapses: 0, passive: 0, autoDays: 0 },
       log: [{ d: 1, t: 'Вы начинаете жизнь с нуля: 340 ₽, поношенная куртка и никаких документов. Соццентр в Старом районе — хорошее начало.' }],
       ill: null, weather: null, prices: 1, priceDays: 0,
       today: { inc: 0, exp: 0 }, days: [],   // история итогов дней
       pending: [],                     // очередь событий с выбором
       news: [],
-      settings: { motion: true, transport: 'auto', bigText: false }
+      settings: { motion: true, transport: 'auto', bigText: false, vibro: true, auto: { work: 'auto', study: '', events: 'auto', maxHours: 10, saveCash: true } }
     };
   };
 
@@ -66,7 +69,9 @@
       s.log.unshift({ d: 1, t: 'Сохранение прототипа перенесено в новую версию игры.' });
       s.v = 2;
       return s;
-    }
+    },
+    /* v2 → v3 (игра 0.3): новые поля добавит normalize, прогресс сохраняется полностью */
+    2: function (s) { s.v = 3; return s; }
   };
 
   SN.migrate = function (data) {
@@ -100,7 +105,7 @@
     for (const k in base.sk) out.sk[k] = U.clamp(+out.sk[k] || 0);
     out.hero.name = String(out.hero.name || 'Саня').replace(/[<>]/g, '').slice(0, 24) || 'Саня';
     out.rep = U.clamp(out.rep);
-    out.money = Math.round(out.money); out.bank = Math.max(0, Math.round(out.bank));
+    out.money = Math.round(out.money * 100) / 100; out.bank = Math.max(0, out.bank);
     out.time = Math.max(0, Math.floor(out.time));
     const D = SN.D;
     out.items = out.items.filter(i => D.items[i]);
@@ -110,6 +115,12 @@
     if (!D.districts[out.district]) out.district = 'old';
     out.certs = out.certs.filter(c => typeof c === 'string' && D.certNames[c]);
     out.biz = out.biz.filter(b => b && D.bizById[b.id]).map(b => Object.assign(SN.Sys.biz.make(b.id), b));
+    out.passive = out.passive.filter(p => p && D.passiveById && D.passiveById[p.id]);
+    out.perks = out.perks.filter(p => D.perkById && D.perkById[p]);
+    for (const k of ['mkt', 'ins']) out.fin[k] = Object.assign({}, base.fin[k], out.fin[k] || {});
+    for (const k of ['port']) if (!out.fin[k] || typeof out.fin[k] !== 'object') out.fin[k] = {};
+    for (const k of ['bonds', 'terms', 'mort', 'news', 'ledger', 'history']) if (!Array.isArray(out.fin[k])) out.fin[k] = [];
+    out.settings.auto = Object.assign({}, base.settings.auto, out.settings.auto || {});
     if (out.job && !D.jobById[out.job.id]) out.job = null;
     out.log = out.log.slice(0, 120); out.fin.ledger = (out.fin.ledger || []).slice(0, 120);
     out.v = SN.SAVE_VERSION;

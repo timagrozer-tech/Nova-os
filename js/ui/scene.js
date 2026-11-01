@@ -57,7 +57,7 @@
     while (x < 420) {
       const bw = 30 + rnd() * 50, bh = Math.min(280, (110 + rnd() * 130) * tall);
       b += `<rect x="${x.toFixed(0)}" y="${(300 - bh).toFixed(0)}" width="${bw.toFixed(0)}" height="${bh.toFixed(0)}" fill="${bcol}" opacity="${(0.85 + rnd() * 0.15).toFixed(2)}"/>`;
-      for (let wy = 300 - bh + 10; wy < 290; wy += 14) for (let wx = x + 6; wx < x + bw - 8; wx += 11) if (rnd() < lit) w += `<rect x="${wx.toFixed(0)}" y="${wy.toFixed(0)}" width="5" height="7" fill="#ffd27a" opacity="${(0.6 + rnd() * 0.4).toFixed(2)}"/>`;
+      for (let wy = 300 - bh + 10; wy < 290; wy += 14) for (let wx = x + 6; wx < x + bw - 8; wx += 11) if (rnd() < lit) { const tw = rnd() < 0.18; w += `<rect ${tw ? `class="tw" style="animation-delay:${(rnd() * 6).toFixed(1)}s"` : ''} x="${wx.toFixed(0)}" y="${wy.toFixed(0)}" width="5" height="7" fill="#ffd27a" opacity="${(0.6 + rnd() * 0.4).toFixed(2)}"/>`; }
       if (s.district === 'industrial' && rnd() < 0.3) b += `<rect x="${(x + bw / 2).toFixed(0)}" y="${(300 - bh - 50).toFixed(0)}" width="9" height="50" fill="${bcol}"/>`;
       x += bw + 2;
     }
@@ -80,6 +80,7 @@
     const bg = photo ? `<div class="bg" style="background-image:url('assets/scene.webp')"></div>` : Sc.skyline(s) + `<div class="hero-figure">${Sc.avatar(s, true)}</div>`;
     const wx = ['rain', 'snow', 'storm'].includes(w.kind) ? `<div class="wx ${w.kind}"></div>` : '';
     const tint = photo ? Sc.TINT[ph] : 'linear-gradient(180deg,transparent 45%,#0b101acc 78%,#0b101af2 96%)';
-    return bg + `<div class="tint" style="background:${tint}"></div>` + wx;
+    const sky = ph === 'night' ? '<div class="stars"></div>' : (ph === 'day' && !['rain', 'snow', 'storm'].includes(w.kind) ? '<div class="clouds"><i></i><i></i><i></i></div><svg class="birds" viewBox="0 0 60 20" aria-hidden="true"><path d="M2 10 q4 -5 8 0 q4 -5 8 0" /><path d="M30 6 q3 -4 6 0 q3 -4 6 0" /></svg>' : ph === 'evening' || ph === 'dawn' ? '<div class="clouds warm"><i></i><i></i></div>' : '');
+    return bg + sky + `<div class="tint" style="background:${tint}"></div>` + wx;
   };
 })(typeof window !== 'undefined' ? window : globalThis);

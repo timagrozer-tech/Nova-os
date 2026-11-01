@@ -15,7 +15,7 @@
       gain: { social: 0.6 }, desc: 'Стоять у метро и улыбаться прохожим.' },
     { id: 'yard', kind: 'gig', limit: 1, icon: '🧹', name: 'Уборка дворов (поденно)', district: 'sleeping', hours: 3, pay: 620, energy: 14, hyg: 7, open: [6, 18],
       gain: { physical: 0.6 }, desc: 'Управляющая компания платит наличными за смену.' },
-    { id: 'unload', kind: 'gig', limit: 2, icon: '📦', name: 'Разгрузка фуры', district: 'industrial', hours: 3, pay: 720, energy: 22, hyg: 10, open: [6, 22], risk: 0.02,
+    { id: 'unload', kind: 'gig', limit: 1, icon: '📦', name: 'Разгрузка фуры', district: 'industrial', hours: 3, pay: 720, energy: 22, hyg: 10, open: [6, 22], risk: 0.02,
       gain: { physical: 1 }, desc: 'Тяжело, но платят сразу. Нужна энергия.' },
     { id: 'carwash', kind: 'gig', limit: 1, icon: '🚿', name: 'Помощник на автомойке', district: 'industrial', hours: 4, pay: 760, energy: 16, hyg: 6, open: [8, 21],
       gain: { craft: 0.3 }, desc: 'Мойка, пылесос, протирка салона.' },

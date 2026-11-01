@@ -21,6 +21,7 @@
     const cash = Math.min(s.money, amt);
     s.money -= cash; s.bank -= (amt - cash);
     s.today.exp += amt; s.c.spent += amt;
+    if (Sys.inv) Sys.inv.cashbackOn(s, amt, cat);
     E.ledger(s, -amt, cat, note);
     return true;
   };
@@ -31,9 +32,10 @@
     if (toBank && s.account) s.bank += amt; else s.money += amt;
     s.today.inc += amt; s.c.earned += amt;
     E.ledger(s, amt, cat, note);
+    if (Sys.inv) Sys.inv.autosaveOn(s, amt, cat, toBank);
   };
   /* Цена с учётом района и городской инфляции */
-  E.price = (s, base, district, fixed) => fixed ? base : Math.round(base * (D.districts[district] ? D.districts[district].priceMult : 1) * s.prices / 5) * 5;
+  E.price = (s, base, district, fixed) => fixed ? base : Math.round(base * (D.districts[district] ? D.districts[district].priceMult : 1) * s.prices * (SN.perk(s, 'thrifty') ? 0.95 : 1) / 5) * 5;
 
   /* Проверка требований. Возвращает текст причины или '' */
   E.reqFail = function (s, r) {
@@ -41,7 +43,7 @@
     for (const d of r.docs || []) if (!s.docs[d]) return 'Нужен документ: ' + D.docNames[d];
     for (const c of r.certs || []) if (!s.certs.includes(c)) return 'Нужно обучение: ' + D.certNames[c];
     for (const k in r.skills || {}) if (s.sk[k] < r.skills[k]) return 'Нужен навык «' + D.skillNames[k] + '» ' + r.skills[k] + ' (сейчас ' + Math.floor(s.sk[k]) + ')';
-    for (const i of r.items || []) if (!s.items.includes(i)) return 'Нужно: ' + D.items[i].name.toLowerCase();
+    for (const i of r.items || []) if (!Sys.prop.has(s, i)) return 'Нужно: ' + D.items[i].name.toLowerCase();
     if (r.rep && s.rep < r.rep) return 'Нужна репутация ' + r.rep;
     if (r.look && Sys.stats.look(s) < r.look) return 'Нужен более опрятный вид (одежда/гигиена)';
     if (r.hygiene && s.st.hygiene < r.hygiene) return 'Слишком неопрятный вид — нужна гигиена ' + r.hygiene;
@@ -54,7 +56,7 @@
   const C = Sys.city = {};
   C.modeAvailable = function (s, id) {
     const t = D.transport[id];
-    if (t.item && !s.items.includes(t.item)) return false;
+    if (t.item && !Sys.prop.has(s, t.item)) return false;
     if (t.doc && !s.docs[t.doc]) return false;
     if (t.open && !T.isOpen(s, t.open)) return false;
     return true;
@@ -63,7 +65,7 @@
   C.pickMode = function (s) {
     const pref = s.settings.transport;
     if (pref !== 'auto' && C.modeAvailable(s, pref) && E.canPay(s, D.transport[pref].cost)) return pref;
-    const order = E.available(s) > 3000 ? ['car', 'metro', 'bike', 'bus', 'walk'] : ['bike', 'bus', 'walk'];
+    const order = E.available(s) > 3000 ? ['moto', 'car', 'metro', 'scooter', 'bike', 'bus', 'walk'] : ['scooter', 'bike', 'bus', 'walk'];
     for (const id of order) if (C.modeAvailable(s, id) && E.canPay(s, D.transport[id].cost) && !(id === 'bus' && E.available(s) < 400)) return id;
     return 'walk';
   };
@@ -76,13 +78,13 @@
     // Даже без сил до места можно добрести — медленнее. Тупиков нет.
     const tired = s.st.energy < t.energy;
     s.st.energy = U.clamp(s.st.energy - t.energy);
-    T.advance(s, t.mins * (tired ? 1.5 : 1), { indoor: m !== 'walk' && m !== 'bike' });
+    T.advance(s, t.mins * (tired ? 1.5 : 1) * (SN.perk(s, 'driver') ? 0.75 : 1), { indoor: m !== 'walk' && m !== 'bike' });
     s.district = to;
     s.flags['visited_' + to] = true;
     if (m === 'walk') Sys.stats.gain(s, { physical: 0.2 });
     return SN.okr(t.icon + ' ' + D.districts[to].name);
   };
-  C.etaMins = (s, dest) => dest && dest !== s.district ? D.transport[C.pickMode(s)].mins : 0;
+  C.etaMins = (s, dest) => dest && dest !== s.district ? D.transport[C.pickMode(s)].mins * (SN.perk(s, 'driver') ? 0.75 : 1) : 0;
   C.hoursLabel = o => String(o[0]).padStart(2, '0') + ':00–' + String(o[1] % 24).padStart(2, '0') + ':00';
   C.homeDistrict = s => s.housing === 'street' ? null : D.housing[s.housing].district;
   /* Куда нужно ехать для действия: null — можно здесь */
@@ -122,6 +124,7 @@
     if (dest) { const r = C.travel(s, dest); if (!r.ok) return r; }
     let cost = A.cost(s, a);
     if (a.special === 'docPassport') cost = s.flags.ninaReferral ? 0 : 1500;
+    if (a.id === 'clinic' && s.fin.ins && s.fin.ins.health) cost = 0;
     if (cost && !E.pay(s, cost, a.cat, a.name)) return SN.fail('Не хватает ' + U.money(cost - E.available(s)));
     if (a.energy) s.st.energy = U.clamp(s.st.energy - a.energy);
     T.advance(s, a.hours * 60, { indoor: a.indoor });
@@ -130,10 +133,10 @@
     if (a.special && A.specials[a.special]) extra = A.specials[a.special](s, a) || '';
     let mult = 1;
     if (a.id === 'sportground' || a.id === 'gym') mult = s.wear === 'sport' ? 1.2 : 1;
-    Sys.stats.apply(s, a.eff);
+    Sys.stats.apply(s, a.eff, a.id === 'cookhome' && s.items.includes('kitchen') ? 1.3 : 1);
     Sys.stats.gain(s, a.gain, mult, a.cap);
     if (a.cat === 'food' && a.eff && a.eff.food) s.c.meals++;
-    if (a.risk === 'poison' && U.chance(s, 0.04)) Sys.stats.getIll(s, 'poison');
+    if (a.risk === 'poison' && !SN.perk(s, 'ironstomach') && U.chance(s, 0.04)) Sys.stats.getIll(s, 'poison');
     s.daily[a.id] = (s.daily[a.id] || 0) + 1;
     s.c.actions++; s.xp += Math.max(2, Math.round(a.hours * 3));
     Sys.quests.check(s);

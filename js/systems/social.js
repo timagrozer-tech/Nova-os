@@ -34,7 +34,7 @@
     const first = !n.met;
     n.met = true;
     T.advance(s, remote ? 10 : 20, { indoor: false });
-    if (n.last !== T.day(s)) { n.rel = U.clamp(n.rel + (remote ? 1.5 : 3) * (s.st.hygiene < 25 && !remote ? 0.4 : 1)); n.last = T.day(s); }
+    if (n.last !== T.day(s)) { n.rel = U.clamp(n.rel + (remote ? 1.5 : 3) * (s.st.hygiene < 25 && !remote ? 0.4 : 1) * (SN.perk(s, 'charisma') ? 1.3 : 1)); n.last = T.day(s); }
     if (n.rel >= 15 && !n.phone && s.items.includes('phone')) { n.phone = true; SN.say(def.icon + ' ' + def.name + ' даёт свой номер.', 'good'); }
     Sys.quests.check(s);
     return { ok: true, first, greet: def.greet[D.npcTier(n)] };
@@ -80,7 +80,7 @@
     if (where !== s.district) { const r = Sys.city.travel(s, where); if (!r.ok) return r; }
     if (h.cost) Sys.econ.pay(s, h.cost, 'social', h.name + ': ' + def.name);
     T.advance(s, h.hours * 60, { indoor: k !== 'walk' });
-    const vibe = (s.st.mood > 50 ? 1.1 : 0.9) * (s.st.hygiene < 30 ? 0.6 : 1);
+    const vibe = (s.st.mood > 50 ? 1.1 : 0.9) * (s.st.hygiene < 30 ? 0.6 : 1) * (SN.perk(s, 'charisma') ? 1.2 : 1);
     n.rel = U.clamp(n.rel + h.rel * vibe);
     if (n.status) n.romance = U.clamp(n.romance + h.rom * vibe);
     if (k === 'gift') n.mem.giftDay = T.day(s);
@@ -109,7 +109,7 @@
 
   // ── Романтика: всегда с проверкой согласия; отказ уважается
   S.consent = function (s, n, base) {
-    let p = base + (n.rel - 35) / 80 + Sys.stats.look(s) * 0.05 + n.trust / 300;
+    let p = base + (SN.perk(s, 'charisma') ? 0.05 : 0) + (n.rel - 35) / 80 + Sys.stats.look(s) * 0.05 + n.trust / 300;
     if (s.st.mood > 55) p += 0.08;
     if (s.st.stress > 70) p -= 0.1;
     if (s.st.hygiene < 35) p -= 0.25;

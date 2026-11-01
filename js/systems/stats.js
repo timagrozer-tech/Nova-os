@@ -16,6 +16,7 @@
   S.look = s => {
     let l = (D.clothes[s.wear] || D.clothes.worn).look;
     if (s.st.hygiene < 25) l -= 2; else if (s.st.hygiene < 45) l -= 1;
+    l += Math.min(2, s.items.reduce((a, i) => a + (D.items[i] && D.items[i].look || 0), 0));
     return Math.max(0, l);
   };
 
@@ -23,16 +24,16 @@
   S.tick = function (s, h, ctx) {
     T.ensureWeather(s);
     const st = s.st, w = s.weather, sleep = !!ctx.sleep;
-    st.food -= (sleep ? 1.0 : 2.0) * h;
+    st.food -= (sleep ? 1.0 : 2.0) * h * (SN.perk(s, 'ironstomach') ? 0.85 : 1);
     st.hygiene -= (sleep ? 0.3 : 0.85) * h;
     if (sleep) {
       const q = ctx.q || 0.5;
       const sick = s.ill ? 0.7 : 1;
-      st.energy += 11.5 * q * sick * h;
+      st.energy += 11.5 * q * sick * h * (SN.perk(s, 'athlete') ? 1.1 : 1);
       if (st.food > 20) st.health += 0.7 * q * h;
       st.stress -= 2.2 * q * h;
     } else {
-      st.energy -= 0.9 * h;
+      st.energy -= 0.9 * h * (SN.perk(s, 'nightowl') ? 0.8 : 1);
     }
     // Тепло: в помещении растёт, на улице зависит от погоды и одежды
     const sheltered = ctx.indoor || (sleep && ctx.warm);
@@ -46,6 +47,7 @@
       if (sleep && s.flags.dog) d += 1.5;
       d = U.clamp(d, -7, 3);
       if (d > 0 && st.warmth >= 75) d = 0;
+      if (d < 0 && SN.perk(s, 'hardy')) d *= 0.7;
       st.warmth += d * h;
     }
     // Настроение и стресс медленно возвращаются к базе
@@ -74,8 +76,9 @@
     const m = (mult || 1) * (s.st.mood < 25 ? 0.7 : s.st.mood > 70 ? 1.15 : 1) * (s.st.stress > 75 ? 0.75 : 1);
     for (const k in g) {
       const limit = cap && cap[k] != null ? cap[k] : 100;
-      if (s.sk[k] >= limit) continue;
-      s.sk[k] = Math.min(limit, U.clamp(s.sk[k] + g[k] * m * (1 - s.sk[k] / 160)));
+      if (s.sk[k] == null || s.sk[k] >= limit) continue;
+      const km = (k === 'physical' && SN.perk(s, 'athlete') ? 1.3 : 1) * ((k === 'tech' || k === 'design') && s.items.includes('macbook') ? 1.2 : 1) * (k === 'cooking' && s.items.includes('kitchen') ? 2 : 1);
+      s.sk[k] = Math.min(limit, U.clamp(s.sk[k] + g[k] * m * km * (1 - s.sk[k] / 160)));
     }
   };
 
@@ -83,7 +86,7 @@
   S.sleepOptions = function (s) {
     const h = T.hour(s), opts = [];
     const home = D.housing[s.housing];
-    if (s.housing !== 'street') opts.push({ id: 'home', name: 'Спать дома', icon: home.icon, q: home.sleep * (s.items.includes('furniture') ? 1.1 : 1), warm: true, cost: 0, district: home.district });
+    if (s.housing !== 'street') opts.push({ id: 'home', name: 'Спать дома', icon: home.icon, q: home.sleep * (s.items.includes('furniture') ? 1.1 : 1) * (s.items.includes('smarthome') ? 1.05 : 1), warm: true, cost: 0, district: home.district });
     opts.push({ id: 'shelter', name: 'Ночлежка (бесплатно)', icon: '🏚️', q: 0.75, warm: true, cost: 0, district: 'old', open: h >= 19 || h < 2, note: 'Заселение с 19:00 до 02:00' });
     if (s.housing === 'street') opts.push({ id: 'hostelNight', name: 'Ночь в хостеле', icon: '🛏️', q: 0.85, warm: true, cost: Math.round(780 * s.prices), district: 'old' });
     opts.push({ id: 'street', name: s.items.includes('tent') ? 'В палатке' : 'На улице', icon: s.items.includes('tent') ? '⛺' : '🧥', q: s.items.includes('tent') ? 0.62 : 0.48, warm: false, tent: s.items.includes('tent'), cost: 0, district: s.district });
@@ -142,7 +145,7 @@
   S.daily = function (s, rep) {
     if (s.ill && --s.ill.left <= 0) { rep.lines.push('Вы поправились: ' + S.ILL[s.ill.id].name.toLowerCase() + ' прошла.'); s.ill = null; }
     // Шанс простыть при холоде
-    if (!s.ill && s.st.warmth < 30 && U.chance(s, 0.3)) S.getIll(s, s.weather.temp < -5 ? 'flu' : 'cold');
+    if (!s.ill && s.st.warmth < 30 && U.chance(s, SN.perk(s, 'hardy') ? 0.15 : 0.3)) S.getIll(s, s.weather.temp < -5 ? 'flu' : 'cold');
   };
 
   /* Обморок: не конец игры. Скорая, городская больница, сутки на восстановление. */

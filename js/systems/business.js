@@ -37,15 +37,15 @@
   B.calc = function (s, b, rnd, season, weather) {
     const d = D.bizById[b.id];
     const repM = 0.6 + b.rep / 100 * 0.8;
-    const sat = 1 / (1 + 0.04 * Math.max(0, s.biz.length - 1));
+    const sat = 1 / (1 + (SN.perk(s, 'tycoon') ? 0.02 : 0.04) * Math.max(0, s.biz.length - 1));
     const pl = D.PRICE_LEVELS[b.price];
-    let demand = d.base * (1 + 0.4 * (b.lvl - 1)) * repM * D.ADS_MULT[b.ads] * pl.demand * (d.season[season] || 1) * sat * (rnd == null ? 1 : rnd);
+    let demand = d.base * (1 + 0.4 * (b.lvl - 1)) * repM * D.ADS_MULT[b.ads] * pl.demand * (d.season[season] || 1) * sat * (rnd == null ? 1 : rnd) * (SN.perk(s, 'marketer') ? 1.08 : 1);
     if (['rain', 'snow', 'storm'].includes(weather)) demand *= d.rain;
     const cap = B.capacity(b, d, b.owner);
     const cust = Math.floor(Math.min(demand, cap));
     const rev = cust * d.check * pl.rev * s.prices;
     const cogs = cust * d.check * d.cogs * s.prices;
-    const wages = b.staff * d.wage;
+    const wages = b.staff * d.wage * (SN.perk(s, 'manager') ? 0.9 : 1);
     const ads = b.ads * d.ads;
     const rent = d.rent * (1 + 0.3 * (b.lvl - 1));
     const tax = rev * D.TAX;
@@ -88,11 +88,11 @@
     if (key === 'price') b.price = U.clamp(val, 0, 2);
     return SN.okr('');
   };
-  B.upgradeCost = (b, d) => Math.round(d.price * 0.5 * b.lvl);
+  B.upgradeCost = (b, d, s) => Math.round(d.price * 0.5 * b.lvl * (s && SN.perk(s, 'tycoon') ? 0.75 : 1));
   B.upgrade = function (s, id) {
     const b = B.get(s, id), d = D.bizById[id];
     if (b.lvl >= 3) return SN.fail('Максимальный уровень');
-    const c = B.upgradeCost(b, d);
+    const c = B.upgradeCost(b, d, s);
     if (!E().pay(s, c, 'business', 'Расширение: ' + d.name)) return SN.fail('Нужно ' + U.money(c));
     b.lvl++; s.xp += 80;
     Sys.quests.check(s);

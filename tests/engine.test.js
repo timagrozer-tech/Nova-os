@@ -124,12 +124,83 @@ t('миграция сохранения прототипа v1', () => {
   const old = { name: 'Саня', day: 3, hour: 14, money: 13000, bank: 500, xp: 120, health: 60, food: 40, hygiene: 30, mood: 70, energy: 50, warmth: 50, education: 2, reputation: 20, owned: ['Палатка', 'Тележка с напитками'], jobCount: 4 };
   mem[SN.Save.LEGACY] = JSON.stringify(old); delete mem[SN.Save.KEY]; delete mem[SN.Save.BAK];
   const r = SN.Save.read(); eq(r.source, 'legacy'); const s = r.state;
-  eq(s.money, 13000); eq(T.day(s), 3); ok(s.items.includes('tent')); eq(s.biz[0].id, 'drinks'); ok(s.certs.includes('school')); eq(s.v, 2);
+  eq(s.money, 13000); eq(T.day(s), 3); ok(s.items.includes('tent')); eq(s.biz[0].id, 'drinks'); ok(s.certs.includes('school')); eq(s.v, 3);
 });
 t('импорт отвергает поддельный файл', () => {
   let threw = false; try { SN.Save.importText('{"format":"s-nulya-save","hash":"0","data":"{}"}'); } catch (e) { threw = true; } ok(threw);
   const s = SN.Save.importText(JSON.stringify({ format: 's-nulya-save', data: JSON.stringify({ v: 2, money: 'x', hero: { name: '<img onerror=1>' }, st: { health: 999 } }), hash: SN.U.hash(JSON.stringify({ v: 2, money: 'x', hero: { name: '<img onerror=1>' }, st: { health: 999 } })) }));
   eq(s.st.health, 100); ok(!s.hero.name.includes('<')); eq(s.money, 340);
+});
+
+console.log('Версия 0.3');
+t('сохранение 0.2 (v2) загружается в 0.3 без потерь', () => {
+  const s = SN.fresh({ seed: 50 }); s.money = 141374; s.bank = 1057807; s.time = 275 * 1440 + 18 * 60; s.housing = 'flat'; s.docs.passport = true; s.account = true; s.items.push('car', 'phone');
+  s.biz.push(Sys.biz.make('kiosk')); s.job = { id: 'loader', rank: 2, shifts: 30, hired: 3, last: 0, missed: 0 }; s.rep = 100; s.quests.q_firstgig = 'done';
+  const old = JSON.parse(JSON.stringify(s)); old.v = 2;
+  ['perks', 'passive', 'itemVal', 'nwHist'].forEach(k => delete old[k]);
+  ['mkt', 'port', 'bonds', 'terms', 'gold', 'broker', 'mort', 'ins', 'card', 'cb', 'autosave', 'agency', 'goodPays', 'badPays', 'news'].forEach(k => delete old.fin[k]);
+  ['english', 'design', 'marketing', 'law'].forEach(k => delete old.sk[k]); delete old.settings.auto; delete old.settings.vibro;
+  const data = JSON.stringify(old);
+  mem[SN.Save.KEY] = JSON.stringify({ format: 's-nulya-save', v: 2, data, hash: SN.U.hash(data) });
+  const r = SN.Save.read(); eq(r.source, 'main'); const n = r.state;
+  eq(n.v, 3); eq(n.money, 141374); eq(n.bank, 1057807); eq(T.day(n), 276); eq(n.housing, 'flat'); eq(n.job.rank, 2); eq(n.biz[0].id, 'kiosk'); eq(n.quests.q_firstgig, 'done');
+  ok(Array.isArray(n.passive) && Array.isArray(n.fin.mort) && n.fin.ins && n.sk.english >= 0 && n.settings.auto.work === 'auto', 'новые поля добавлены');
+  T.advance(n, 1440, { indoor: true, noCollapse: true }); ok(Sys.fin.netWorth(n) > 1e6, 'день после загрузки проходит');
+});
+t('автопилот: неделя без документов — герой жив, сыт, заработал', () => {
+  const s = SN.fresh({ seed: 51 }); s.flags.welcomed = true;
+  const r = Sys.auto.run(s, 7);
+  eq(r.days, 7, 'прожито 7 дней: ' + r.stop); ok(r.income > 3000, 'доход ' + r.income); ok(s.st.health > 40, 'здоровье ' + s.st.health); ok(s.st.food > 25, 'сытость ' + s.st.food);
+  ok(r.shifts >= 7, 'смены ' + r.shifts);
+});
+t('автопилот: месяц с работой, жильём и учёбой', () => {
+  const s = SN.fresh({ seed: 52 }); Object.assign(s.docs, { passport: true, medbook: true }); s.account = true; s.money = 20000; s.sk.physical = 20;
+  Sys.prop.takeHome(s, 'hostel'); s.job = { id: 'loader', rank: 0, shifts: 0, hired: 1, last: 0, missed: 0 };
+  s.settings.auto = { work: 'auto', study: 'school', events: 'auto', maxHours: 10, saveCash: true };
+  const before = Sys.fin.netWorth(s), r = Sys.auto.run(s, 30);
+  eq(r.days, 30, r.stop); ok(s.job, 'не уволен'); ok(s.job.shifts >= 18, 'смен на работе ' + s.job.shifts); ok(r.studyH >= 20, 'учился ' + r.studyH + ' ч');
+  ok(Sys.fin.netWorth(s) > before + 30000, 'капитал вырос: ' + (Sys.fin.netWorth(s) - before)); ok(s.st.health > 40, 'здоровье ' + Math.round(s.st.health));
+  console.log('      месяц: доход ' + r.income + ', расход ' + r.spent + ', смен ' + r.shifts + ', учёба ' + r.studyH + ' ч, событий ' + r.events.length);
+});
+t('пассивный доход: студия под сдачу приносит деньги после арендатора', () => {
+  const s = SN.fresh({ seed: 53 }); s.account = true; s.bank = 3e6; s.docs.passport = true;
+  ok(Sys.inv.buy(s, 'studiorent').ok); eq(s.passive.length, 1); ok(s.passive[0].vac > 0, 'сначала поиск арендатора');
+  const b0 = s.bank; T.advance(s, 1440 * 30, { indoor: true, noCollapse: true });
+  const got = s.bank - b0; ok(got > 30000 && got < 90000, 'за 30 дней ' + got); ok(Sys.inv.passivePerDay(s) > 1500);
+});
+t('ипотека: платежи списываются, досрочное погашение закрывает долг', () => {
+  const s = SN.fresh({ seed: 54 }); s.account = true; s.docs.passport = true; s.rep = 60; s.job = { id: 'loader', rank: 0, shifts: 0, hired: 1, last: 0, missed: 0 };
+  s.days = Array.from({ length: 7 }, (_, i) => ({ d: i, inc: 9000, exp: 1000 })); s.bank = 700000;
+  const q = Sys.inv.mortQuote(s, D.passiveById.studiorent.price); eq(q.why, '', 'одобрено'); ok(q.pay > 0 && q.down === 520000);
+  ok(Sys.inv.buy(s, 'studiorent', true).ok); eq(s.fin.mort.length, 1);
+  const left0 = s.fin.mort[0].left; T.advance(s, 1440 * 5, { indoor: true, noCollapse: true }); ok(s.fin.mort[0].left < left0, 'долг уменьшается'); ok(s.fin.goodPays >= 5);
+  s.bank += 3e6; ok(Sys.inv.mortRepay(s, 0, 3e6).ok); eq(s.fin.mort.length, 0); ok(s.flags.mortRepaid);
+});
+t('ипотека без платежей → банк забирает залог', () => {
+  const s = SN.fresh({ seed: 55 }); s.account = true; s.docs.passport = true; s.rep = 60; s.job = { id: 'loader', rank: 0, shifts: 0, hired: 1, last: 0, missed: 0 };
+  s.days = Array.from({ length: 7 }, () => ({ d: 0, inc: 9000, exp: 0 })); s.bank = 600000;
+  Sys.inv.buy(s, 'studiorent', true); s.bank = 0; s.money = 0; s.passive[0].vac = 99;
+  T.advance(s, 1440 * 16, { indoor: true, noCollapse: true }); eq(s.passive.length, 0); eq(s.fin.mort.length, 0);
+});
+t('биржа: покупка, изменение цен, продажа с налогом', () => {
+  const s = SN.fresh({ seed: 56 }); s.account = true; s.bank = 500000;
+  ok(!Sys.inv.buyStock(s, 'GRBK', 100000).ok, 'без брокерского счёта нельзя'); Sys.inv.openBroker(s);
+  ok(Sys.inv.buyStock(s, 'GRBK', 100000).ok); ok(s.fin.port.GRBK.q > 300); const p0 = Sys.inv.price(s, 'GRBK');
+  T.advance(s, 1440 * 30, { indoor: true, noCollapse: true }); ok(Sys.inv.price(s, 'GRBK') !== p0, 'цена изменилась');
+  ok(Sys.inv.sellStock(s, 'GRBK', 1).ok); ok(!s.fin.port.GRBK); ok(Sys.inv.buyBond(s, 50000).ok); ok(Sys.inv.openTerm(s, 0, 50000).ok);
+  const b = s.bank; T.advance(s, 1440 * 31, { indoor: true, noCollapse: true }); ok(s.fin.terms.length === 0 && s.bank > b + 50000, 'вклад вернулся с процентами');
+});
+t('таланты и мастер-классы', () => {
+  const s = SN.fresh({ seed: 57 }); s.xp = 2000; s.items.push('phone'); s.money = 50000;
+  const pts = Sys.perks.points(s); ok(pts >= 2, 'очки ' + pts); ok(Sys.perks.buy(s, 'thrifty').ok); eq(Sys.perks.points(s), pts - 1);
+  ok(Sys.act.cost(s, D.actionById.canteen) < 340, 'скидка Экономного');
+  const e0 = s.sk.english; ok(Sys.perks.masterclass(s, 'english').ok); ok(s.sk.english > e0 + 3, 'английский вырос');
+  ok(Sys.perks.buyPoint(s).ok); eq(Sys.perks.points(s), pts);
+});
+t('новые профессии требуют свои документы', () => {
+  const s = SN.fresh({ seed: 58 }); s.docs.passport = true;
+  ok(Sys.work.applyCheck(s, D.jobById.pilot).length > 0); ok(Sys.work.applyCheck(s, D.jobById.lawyer).includes('юрист'));
+  s.certs.push('electric'); eq(Sys.work.applyCheck(s, D.jobById.electric), '');
 });
 
 console.log('Баланс (симуляция стратегий)');
@@ -166,7 +237,7 @@ function bot(seed, days, opts) {
 t('поденщик без документов выживает, но не богатеет', () => {
   const { s, log } = bot(21, 30, {});
   console.log('      ' + log.map(l => 'д' + l.day + ': ' + l.net + '₽ hp' + l.hp).join(' | '));
-  ok(SN.Sys.fin.netWorth(s) > 2000, 'может накопить'); ok(SN.Sys.fin.netWorth(s) < 75000, 'но не слишком легко: ' + SN.Sys.fin.netWorth(s)); global.gigNet = SN.Sys.fin.netWorth(s);
+  ok(SN.Sys.fin.netWorth(s) > 2000, 'может накопить'); ok(SN.Sys.fin.netWorth(s) < 75000, 'но не слишком легко: ' + SN.Sys.fin.netWorth(s)); global.gigNet = log.find(l => l.day >= 31).net;
   ok(s.c.collapses <= 1, 'не умирает от голода: обмороков ' + s.c.collapses);
 });
 t('документы + склад + хостел: устойчивый рост', () => {
@@ -184,7 +255,7 @@ t('экономика бизнеса: окупаемость 3–20 недель
     let best = -1e9; for (let st = 0; st <= b.staffMax; st++) for (const pr of [0, 1, 2]) { x.staff = st; x.price = pr; let ss = 0; for (const se of ['winter', 'spring', 'summer', 'autumn']) ss += Sys.biz.calc(s, x, 1, se, 'clear').profit; best = Math.max(best, ss / 4); }
     const weeks = b.price / best / 7;
     console.log('      ' + b.name.padEnd(22) + ' лучший средний день ' + Math.round(best) + ' ₽ → окупаемость ' + weeks.toFixed(1) + ' нед.');
-    ok(best > 0, b.name + ' может быть прибыльным'); ok(weeks > 4 && weeks < 30, b.name + ' окупаемость в разумных пределах');
+    ok(best > 0, b.name + ' может быть прибыльным'); ok(weeks > 4 && weeks < 25, b.name + ' окупаемость в разумных пределах');
   }
 });
 

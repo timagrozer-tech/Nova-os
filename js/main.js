@@ -5,7 +5,7 @@
   const $ = id => document.getElementById(id);
   const S = () => SN.state;
 
-  UI.route = 'home'; UI.stack = []; UI.tabs = { career: 'jobs', people: 'contacts' };
+  UI.route = 'home'; UI.stack = []; UI.tabs = Object.assign({ career: 'jobs', people: 'contacts' }, UI.tabs || {});
   const NAV = [['home', '🏠', 'Дом'], ['city', '🗺️', 'Город'], ['career', '💼', 'Карьера'], ['people', '👥', 'Люди'], ['more', '▦', 'Ещё']];
   const ROOT = r => r.split(':')[0];
   const navOf = r => { const b = ROOT(r); if (b === 'district') return 'city'; if (b === 'npc') return 'people'; return NAV.some(n => n[0] === b) ? b : 'more'; };

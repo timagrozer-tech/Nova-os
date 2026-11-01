@@ -75,6 +75,7 @@
     sys.prop.daily(s, rep);
     sys.biz.daily(s, rep);
     sys.fin.daily(s, rep);
+    sys.inv.daily(s, rep);
     sys.stats.daily(s, rep);
     sys.docs.daily(s, rep);
     sys.work.daily(s, rep);

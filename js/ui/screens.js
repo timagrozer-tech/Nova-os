@@ -23,8 +23,11 @@
         <button data-a="quick" data-x="eat"><span class="ico">🍲</span>Поесть<small>${e(qEat.label)}</small></button>
         <button data-a="sleepSheet"><span class="ico">🛏️</span>Отдохнуть<small>${e(qRest.label)}</small></button>
       </div></div></div>`;
+    o += V.autoPanel(s);
     const st = s.st;
-    o += `<h3 class="heading">Состояние <span class="muted">Репутация ${Math.round(s.rep)} · Капитал ${M(Sys.fin.netWorth(s))}</span></h3><div class="meters">
+    const pas = Sys.inv.passivePerDay(s);
+    o += `<div class="money-strip"><button ${C.attrs('go', 'rich')}><b>${U.num(Sys.fin.netWorth(s))} ₽</b><span>капитал · #${Sys.inv.richRank(s)} в городе</span></button><button ${C.attrs('go', 'passive')}><b class="${pas > 0 ? 'pos' : ''}">+${U.num(pas)} ₽</b><span>пассивно в день</span></button><button ${C.attrs('go', 'talents')}><b>${Sys.perks.points(s)} ★</b><span>очков таланта</span></button></div>`;
+    o += `<h3 class="heading">Состояние <span class="muted">Репутация ${Math.round(s.rep)}</span></h3><div class="meters">
       ${C.meter('Здоровье', '❤️', st.health, '#f27c7b')}${C.meter('Сытость', '🍗', st.food, '#ffb86a')}${C.meter('Энергия', '⚡', st.energy, '#b29aff')}
       ${C.meter('Гигиена', '💧', st.hygiene, '#7bbdff')}${C.meter('Настроение', '😊', st.mood, '#8dda9f')}${C.meter('Тепло', '🌡️', st.warmth, '#f9bd79')}
       ${C.meter('Стресс', '😣', st.stress, '#ff8f7a', true)}${C.meter('Репутация', '⭐', s.rep, '#f5b54a', false, true)}${C.meter('Навыки', '🧠', V.skillAvg(s), '#7bd7e8', false, true)}</div>`;
@@ -105,6 +108,7 @@
     const acts = D.actions.filter(a => a.where === id || (Array.isArray(a.where) && a.where.includes(id)));
     if (acts.length) o += `<h3 class="heading">Места и услуги</h3>` + acts.map(a => V.actCard(s, a)).join('');
     if (id === 'old' || (id === 'sleeping')) o += C.row({ icon: '🏠', title: 'Жильё', desc: 'Аренда и покупка жилья', a: 'go', x: 'housing', btn: C.btn('Открыть', 'go', 'housing', null, { cls: 'sm sec' }) });
+    if (id === 'business') o += C.row({ icon: '📈', title: 'Биржа и активы', desc: 'Акции, облигации, недвижимость под сдачу', a: 'go', x: 'passive', btn: C.btn('Открыть', 'go', 'passive', null, { cls: 'sm sec' }) });
     if (id === 'business') o += C.row({ icon: '🏦', title: 'Банк', desc: 'Счёт, вклад, кредит, инвестиции', a: 'go', x: 'fin', btn: C.btn('Открыть', 'go', 'fin', null, { cls: 'sm sec' }) });
     const biz = D.business.filter(b => b.district === id);
     if (biz.length) o += `<h3 class="heading">Бизнес в районе</h3>` + biz.map(b => C.row({ icon: b.icon, title: b.name, desc: b.desc, a: 'go', x: 'biz' })).join('');
@@ -144,9 +148,7 @@
       o += C.notice('🎓 Бесплатно: библиотека (навык без документов), компьютерная грамотность, кассир, финграмотность, вечерняя школа. Профессии требуют конкретных документов — повторять один курс бесполезно.', 'blue');
       o += D.courses.map(c => V.courseCard(s, c)).join('');
     } else {
-      o += `<div class="card">${Object.keys(D.skillNames).map(k => `<div class="kv" style="display:block"><div class="row" style="gap:6px"><span>${D.skillIcons[k]} ${D.skillNames[k]}</span><b style="margin-left:auto">${Math.floor(s.sk[k])}</b></div>${C.prog(s.sk[k], 100)}</div>`).join('')}</div>`;
-      o += `<h3 class="heading">Тренировки</h3>` + D.actions.filter(a => a.cat === 'skills').map(a => V.actCard(s, a)).join('');
-      o += C.notice('Навыки растут от работы, учёбы, тренировок и общения. Чем выше навык, тем медленнее рост. Плохое настроение и стресс замедляют обучение.');
+      o += V.skillsTab(s);
     }
     return o;
   };
@@ -238,14 +240,9 @@
     o += `<h3 class="heading">Жильё</h3>` + Object.entries(D.housing).filter(([id]) => id !== 'street').map(([id, h]) => {
       const why = s.housing === id ? '' : Sys.prop.checkHome(s, id);
       const price = h.type === 'rent' ? `${M(h.weekly)}/нед.${h.deposit ? ' + залог ' + M(h.deposit) : ''}` : M(h.price) + ' · коммуналка ' + M(h.upkeep) + '/нед.';
-      return C.row({ icon: h.icon, title: h.name, desc: h.desc, meta: `<span class="c">${price}</span><span class="m">Сон ×${String(h.sleep).replace('.', ',')}</span>`, why: s.housing === id ? '' : why, cls: s.housing === id ? 'good' : '', btn: s.housing === id ? C.tag('Ваш дом', 'good') : C.btn(h.type === 'rent' ? 'Снять' : 'Купить', 'home', id, null, { cls: 'sm', why }) });
+      return C.row({ icon: h.icon, title: h.name, desc: h.desc, meta: `<span class="c">${price}</span><span class="m">Сон ×${String(h.sleep).replace('.', ',')}</span>`, why: s.housing === id ? '' : why, cls: s.housing === id ? 'good' : '', btn: s.housing === id ? C.tag('Ваш дом', 'good') : h.type === 'own' ? `<div class="col">${C.btn('Купить', 'home', id, null, { cls: 'sm', why })}${C.btn('Ипотека', 'homeMort', id, null, { cls: 'sm sec', why: Sys.inv.mortQuote(s, h.price).why })}</div>` : C.btn('Снять', 'home', id, null, { cls: 'sm', why }) });
     }).join('');
-    const disc = s.flags.discountDay === T.day(s);
-    o += `<h3 class="heading">Вещи и транспорт ${disc ? C.tag('−25% сегодня', 'gold') : ''}</h3>` + Object.entries(D.items).map(([id, it]) => {
-      const has = s.items.includes(id), p = Sys.prop.itemPrice(s, id);
-      const why = has ? '' : (it.needHome && s.housing === 'street' ? 'Нужно жильё' : (!Sys.econ.canPay(s, p) ? 'Нужно ' + M(p) : ''));
-      return C.row({ icon: it.icon, title: it.name, desc: it.desc, meta: has ? `<span>Продать за ${M(it.price * it.sell)}</span>` : `<span class="c">${M(p)}</span>${it.upkeep ? `<span class="m">+${M(it.upkeep)}/нед.</span>` : ''}`, cls: has ? 'good' : '', btn: has ? C.btn('Продать', 'sellItem', id, null, { cls: 'sm sec' }) : C.btn('Купить', 'buyItem', id, null, { cls: 'sm', why }) });
-    }).join('');
+    o += `<div class="grid2" style="margin-top:12px">${[['🛍️', 'Магазин вещей', 'shop', 'Техника, транспорт, роскошь'], ['🏘️', 'Доходные активы', 'passive', 'Сдавать в аренду']].map(z => `<button class="tile" ${C.attrs('go', z[2])}><span class="ti">${z[0]}</span><span>${z[1]}<small>${z[3]}</small></span></button>`).join('')}</div>`;
     return o;
   };
 
@@ -366,8 +363,9 @@
   V.stats = function () {
     const s = S(), c = s.c;
     let o = C.head('📊 Статистика', 'Ваш путь в цифрах', true);
+    o += `<div class="btns">${C.btn('🏅 Рейтинг состояний', 'go', 'rich', null, { cls: 'sec' })}</div>`;
     o += `<div class="card gold"><div class="stat3"><div><strong>${T.day(s)}</strong><span>День</span></div><div><strong>${Sys.quests.level(s)}</strong><span>Уровень</span></div><div><strong>${U.num(Sys.fin.netWorth(s))}</strong><span>Капитал ₽</span></div></div>${C.bars(s.days)}</div>`;
-    o += `<div class="card">${[['💰 Заработано всего', M(c.earned)], ['🧾 Потрачено всего', M(c.spent)], ['🛠️ Подработок', c.gigs], ['💼 Смен на работе', c.jobs], ['🎓 Часов учёбы', c.studyH], ['🍲 Приёмов пищи', c.meals], ['🛏️ Ночей', c.sleeps], ['🌃 Ночей на улице', c.nightsStreet], ['💞 Свиданий', c.dates], ['📅 Событий', c.events], ['🐟 Рыбы поймано', c.fishCaught], ['🚑 Обмороков', c.collapses], ['⭐ Опыт', U.num(s.xp) + ' XP']].map(z => C.kv(z[0], z[1])).join('')}</div>`;
+    o += `<div class="card">${[['💰 Заработано всего', M(c.earned)], ['🧾 Потрачено всего', M(c.spent)], ['🛠️ Подработок', c.gigs], ['💼 Смен на работе', c.jobs], ['🎓 Часов учёбы', c.studyH], ['🍲 Приёмов пищи', c.meals], ['🛏️ Ночей', c.sleeps], ['🌃 Ночей на улице', c.nightsStreet], ['💞 Свиданий', c.dates], ['📅 Событий', c.events], ['🐟 Рыбы поймано', c.fishCaught], ['🏘️ Пассивный доход всего', M(c.passive || 0)], ['⏩ Дней на автопилоте', c.autoDays || 0], ['🎙️ Подписчиков', U.num(s.flags.subs || 0)], ['🚑 Обмороков', c.collapses], ['⭐ Опыт', U.num(s.xp) + ' XP']].map(z => C.kv(z[0], z[1])).join('')}</div>`;
     return o;
   };
 
@@ -390,6 +388,7 @@
     let o = C.head('⚙️ Настройки', 'Доступность и сохранения', true);
     o += tog('motion', 'Анимации', 'Плавные переходы и погодные эффекты (150–250 мс).');
     o += tog('bigText', 'Крупный текст', 'Увеличивает размер шрифта.');
+    o += tog('vibro', 'Вибрация', 'Лёгкий отклик при нажатиях и событиях (на телефоне).');
     o += `<div class="card gold"><div class="title">🔐 Автосохранение включено</div><div class="desc">Прогресс хранится только в этом браузере (localStorage) с контрольной суммой и резервной копией. Ничего не отправляется в интернет. Очистка данных браузера удалит прогресс — делайте экспорт.</div><div class="btns">${C.btn('💾 Экспорт в файл', 'exportSave', null, null, { cls: 'sm' })}${C.btn('📋 Скопировать код', 'copySave', null, null, { cls: 'sm sec' })}</div></div>`;
     o += `<div class="card"><div class="title">Импорт сохранения</div><div class="desc">JSON-файл, экспортированный ранее (поддерживаются и сохранения прототипа).</div><input type="file" accept="application/json,.json" class="field" style="margin-top:8px" data-file="import"></div>`;
     o += `<div class="card"><div class="title">Новая игра</div><div class="desc">Начать заново. Текущий прогресс будет удалён (сделайте экспорт).</div><div class="btns">${C.btn('Начать заново', 'reset', null, null, { cls: 'bad sm' })}</div></div>`;

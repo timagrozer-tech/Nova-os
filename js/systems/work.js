@@ -10,8 +10,11 @@
   W.payEstimate = function (s, j) {
     let p = j.pay;
     if (j.scaleSkill === 'music') p = 120 + s.sk.music * 14;
+    else if (j.scaleSkill === 'blog') p = Math.min(16000, 300 + (s.flags.subs || 0) * 0.06);
     else if (j.scaleSkill) p *= 1 + s.sk[j.scaleSkill] * 0.006;
     if (j.kind === 'job' && s.job && s.job.id === j.id) p *= D.RANK_MULT[s.job.rank];
+    if (j.id === 'photo' && s.items.includes('drone')) p *= 1.25;
+    if (SN.perk(s, 'negotiator')) p *= 1.1;
     return Math.round(p * s.prices / 10) * 10;
   };
 
@@ -43,7 +46,7 @@
     const dest = W.where(s, j);
     if (dest && dest !== s.district) { const r = C().travel(s, dest); if (!r.ok) return r; }
     if (j.fuel && !E().pay(s, j.fuel, 'work', 'Топливо')) return SN.fail('Не хватает на топливо');
-    s.st.energy = U.clamp(s.st.energy - j.energy);
+    s.st.energy = U.clamp(s.st.energy - j.energy * (SN.perk(s, 'workaholic') ? 0.85 : 1));
     s.st.hygiene = U.clamp(s.st.hygiene - j.hyg);
     T.advance(s, j.hours * 60, { indoor: j.indoor });
     if (j.perk) Sys.stats.apply(s, j.perk);
@@ -52,11 +55,15 @@
     if (s.st.stress > 75) perf *= 0.9;
     if (j.id === 'busk' && ['rain', 'snow', 'storm'].includes(s.weather.kind)) perf *= 0.45;
     if (j.id === 'busk' && T.weekend(s)) perf *= 1.3;
+    if (SN.perk(s, 'lucky')) perf += 0.05;
+    if (j.tips) perf *= 0.8 + U.rand(s) * (0.4 + s.sk.social / 100) * (SN.perk(s, 'lucky') ? 1.2 : 1);
+    if (j.commission) perf *= U.chance(s, 0.25 + (SN.perk(s, 'lucky') ? 0.08 : 0) + s.sk.trade / 400) ? 2 + U.rand(s) : 0.4 + U.rand(s) * 0.4;
+    if (j.id === 'stream') s.flags.subs = (s.flags.subs || 0) + Math.round(40 + s.sk.social * 3 + s.sk.marketing * 4 + U.rand(s) * 60);
     const pay = Math.round(W.payEstimate(s, j) * perf / 10) * 10;
     const official = j.kind === 'job';
     E().earn(s, pay, 'work', (official ? W.rankName(j, s.job.rank) : j.name), official);
     Sys.stats.gain(s, j.gain);
-    s.st.stress = U.clamp(s.st.stress + j.hours * 0.8 - (official ? 2 : 0));
+    s.st.stress = U.clamp(s.st.stress + (j.hours * 0.8 - (official ? 2 : 0)) * (SN.perk(s, 'zen') ? 0.6 : 1));
     s.xp += j.hours * 5; s.rep = U.clamp(s.rep + (official ? 0.4 : 0.15));
     let msg = j.icon + ' Смена окончена: +' + U.money(pay) + (official && s.account ? ' на карту' : '') + '.';
     if (j.risk && U.chance(s, j.risk * (s.st.energy < 25 ? 3 : 1))) { Sys.stats.getIll(s, 'injury'); msg += ' Неудачно потянули спину.'; }
@@ -96,7 +103,7 @@
     return '';
   };
   W.interviewChance = function (s, j, score) {
-    let p = 0.42 + score * 0.12 + Sys.stats.look(s) * 0.05 + s.sk.social * 0.004 + s.rep * 0.003 - j.interview;
+    let p = (SN.perk(s, 'charisma') ? 0.47 : 0.42) + score * 0.12 + Sys.stats.look(s) * 0.05 + s.sk.social * 0.004 + s.rep * 0.003 - j.interview;
     if (s.st.hygiene < 35) p -= 0.2;
     if (s.st.stress > 70) p -= 0.08;
     if (s.flags.interviewBonus) p += 0.15;
@@ -155,7 +162,7 @@
   const Ed = Sys.edu = {};
   Ed.done = (s, c) => c.cert ? s.certs.includes(c.cert) : c.doc ? s.docs[c.doc] : false;
   Ed.progress = (s, c) => s.study[c.id] || 0;
-  Ed.sessionCost = (c, s) => c.hours ? Math.round(c.cost * (s && c.id === 'programming' && s.flags.kolyaDiscount ? 0.7 : 1) * c.session / c.hours / 10) * 10 : 0;
+  Ed.sessionCost = (c, s) => c.repeat ? (c.sessionPrice || 0) : c.hours ? Math.round(c.cost * (s && c.id === 'programming' && s.flags.kolyaDiscount ? 0.7 : 1) * c.session / c.hours / 10) * 10 : 0;
   Ed.check = function (s, c, ignoreTime) {
     if (Ed.done(s, c)) return 'Пройдено';
     const rf = E().reqFail(s, c.req); if (rf) return rf;
@@ -175,11 +182,11 @@
     if (cost && !E().pay(s, cost, 'study', c.name)) return SN.fail('Не хватает денег');
     s.st.energy = U.clamp(s.st.energy - c.session * 3.5);
     T.advance(s, c.session * 60, { indoor: true });
-    Sys.stats.gain(s, c.gain, 1, c.cap);
+    Sys.stats.gain(s, c.gain, SN.perk(s, 'fastlearner') ? 1.25 : 1, c.cap);
     s.c.studyH += c.session; s.xp += c.session * 6;
-    s.st.stress = U.clamp(s.st.stress + c.session * 0.6);
+    s.st.stress = U.clamp(s.st.stress + c.session * 0.6 * (SN.perk(s, 'zen') ? 0.6 : 1));
     let msg;
-    if (c.repeat) msg = c.icon + ' Вы позанимались ' + c.session + ' ч. Интеллект ' + Math.floor(s.sk.intellect) + '.';
+    if (c.repeat) { const k = Object.keys(c.gain)[0]; msg = c.icon + ' Вы позанимались ' + c.session + ' ч. ' + D.skillNames[k] + ' ' + Math.floor(s.sk[k]) + '.'; }
     else {
       s.study[id] = (s.study[id] || 0) + c.session;
       if (s.study[id] >= c.hours) {

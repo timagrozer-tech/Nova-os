@@ -2,8 +2,8 @@
 (function (G) {
   'use strict';
   const SN = G.SN = G.SN || {};
-  SN.VERSION = '0.2.0';
-  SN.SAVE_VERSION = 2;
+  SN.VERSION = '0.3.0';
+  SN.SAVE_VERSION = 3;
   SN.D = SN.D || {};      // данные
   SN.Sys = SN.Sys || {};  // игровые системы
 
@@ -39,7 +39,12 @@
   /* Шина событий: системы не знают о DOM, интерфейс подписывается */
   const subs = {};
   SN.on = (ev, fn) => (subs[ev] = subs[ev] || []).push(fn);
-  SN.emit = (ev, data) => (subs[ev] || []).forEach(fn => { try { fn(data); } catch (e) { console.error(e); } });
+  /* mute — автопилот: интерфейсные события копятся и отдаются сводкой */
+  let muted = 0, mutedLog = [];
+  const MUTABLE = { toast: 1, modal: 1, newday: 1, quest: 1, achievement: 1, minigame: 1 };
+  SN.mute = on => { if (on) { muted++; return []; } muted = Math.max(0, muted - 1); const l = mutedLog; if (!muted) mutedLog = []; return l; };
+  SN.emit = (ev, data) => { if (muted && MUTABLE[ev]) { if (ev !== 'toast') mutedLog.push({ ev, data }); return; } (subs[ev] || []).forEach(fn => { try { fn(data); } catch (e) { console.error(e); } }); };
+  SN.perk = (s, id) => !!(s.perks && s.perks.indexOf(id) >= 0);
   SN.say = (msg, kind) => SN.emit('toast', { msg, kind: kind || 'info' });
   SN.fail = msg => { SN.say(msg, 'bad'); return { ok: false, msg }; };
   SN.okr = msg => ({ ok: true, msg });
